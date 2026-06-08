@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>三只青蛙管理 | LifeOS</title>
+  <link rel="stylesheet" href="assets/database-manager.css" />
+</head>
+<body data-manager="frogs">
+  <div class="page">
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" id="managerMark">青</div>
+          <div>
+            <h1 id="managerTitle">三只青蛙管理</h1>
+            <p id="managerSubtitle">按任务管理所有青蛙，未完成优先。</p>
+          </div>
+        </div>
+        <div class="actions">
+          <a class="btn secondary" href="index.html">返回日历</a>
+          <button class="btn" type="button" id="saveNow">立即保存</button>
+        </div>
+      </header>
+
+      <section class="layout">
+        <aside class="sidebar">
+          <div id="summaryGrid"></div>
+          <div>
+            <p class="notice">数据库文件</p>
+            <div class="path" id="databasePath">frogs.csv</div>
+          </div>
+          <div class="notice" id="notice"></div>
+        </aside>
+
+        <section class="workspace">
+          <div class="section-head">
+            <div>
+              <h2 id="workspaceTitle">三只青蛙</h2>
+              <p id="workspaceSubtitle">日期只是关联日记，管理主视角是任务本身。</p>
+            </div>
+            <div class="toolbar" id="toolbar"></div>
+          </div>
+          <div class="record-list" id="recordList"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script src="assets/database-manager.js"></script>
+</body>
+</html>

@@ -1,0 +1,2829 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>晨间日记页面 | LifeOS</title>
+  <style>
+    :root {
+      --bg: oklch(99.6% 0.020 106.8);
+      --surface: oklch(97.9% 0.020 81.8);
+      --fg: oklch(44.3% 0.074 68.1);
+      --muted: oklch(60.4% 0.076 71.8);
+      --border: oklch(86.7% 0.052 74.7);
+      --accent: oklch(75.9% 0.119 74.7);
+
+      --accent-soft: color-mix(in oklch, var(--accent) 17%, transparent);
+      --leaf: color-mix(in oklch, var(--fg) 34%, var(--border));
+      --leaf-soft: color-mix(in oklch, var(--leaf) 16%, var(--surface));
+      --rose-soft: color-mix(in oklch, var(--accent) 9%, var(--surface));
+      --paper-shadow: 0 24px 70px color-mix(in oklch, var(--fg) 12%, transparent);
+      --font-display: "LXGW WenKai", "Kaiti SC", "STKaiti", "Iowan Old Style", Georgia, serif;
+      --font-body: "LXGW WenKai", "Kaiti SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --font-mono: "SFMono-Regular", "Cascadia Mono", ui-monospace, Menlo, monospace;
+      --fs-h1: 52px;
+      --fs-h2: 24px;
+      --fs-h3: 17px;
+      --fs-body: 15px;
+      --fs-meta: 12px;
+      --radius: 18px;
+      --radius-lg: 26px;
+      --container: 100%;
+      --gutter: clamp(16px, 1.6vw, 32px);
+      --nav-h: 64px;
+      --page-pad-y: clamp(18px, 2.4vh, 34px);
+      --shell-pad: clamp(26px, 2vw, 38px);
+      --row-gap: clamp(16px, 1.25vw, 22px);
+      --path-row-min: clamp(250px, 24vh, 320px);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 8%, color-mix(in oklch, var(--accent) 14%, transparent), transparent 28%),
+        radial-gradient(circle at 86% 18%, color-mix(in oklch, var(--leaf) 10%, transparent), transparent 25%),
+        var(--bg);
+      color: var(--fg);
+      font-family: var(--font-body);
+      font-size: var(--fs-body);
+      line-height: 1.55;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    img,
+    svg {
+      display: block;
+      max-width: 100%;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    p {
+      text-wrap: pretty;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: 0;
+      text-wrap: balance;
+    }
+
+    h1 {
+      font-size: var(--fs-h1);
+      line-height: 1;
+    }
+
+    h2 {
+      font-size: var(--fs-h2);
+      line-height: 1.25;
+    }
+
+    h3 {
+      font-size: var(--fs-h3);
+      line-height: 1.35;
+    }
+
+    .container {
+      width: calc(100% - var(--gutter) * 2);
+      max-width: var(--container);
+      margin-inline: auto;
+    }
+
+    .topnav {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: color-mix(in oklch, var(--bg) 82%, transparent);
+      border-bottom: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+      backdrop-filter: blur(16px);
+    }
+
+    .topnav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: var(--nav-h);
+      gap: 20px;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 14px;
+    }
+
+    .nav-back {
+      flex: 0 0 auto;
+      padding-inline: 14px 16px;
+      white-space: nowrap;
+    }
+
+    .nav-back svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .logo-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--accent-soft);
+      border: 1px solid var(--border);
+      color: var(--fg);
+    }
+
+    .topnav nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--surface) 84%, transparent);
+    }
+
+    .topnav nav a {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 14px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .topnav nav a[aria-current="page"] {
+      color: var(--fg);
+      background: var(--surface);
+      box-shadow: 0 3px 12px color-mix(in oklch, var(--fg) 7%, transparent);
+    }
+
+    .btn {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 10px 18px;
+      color: var(--fg);
+      background: transparent;
+      font-size: 14px;
+      transition: transform 120ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      color: var(--surface);
+      background: var(--accent);
+      border-color: color-mix(in oklch, var(--accent) 84%, var(--fg));
+    }
+
+    .btn-primary:hover {
+      background: color-mix(in oklch, var(--accent) 84%, var(--fg));
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: color-mix(in oklch, var(--border) 70%, var(--fg));
+    }
+
+    .btn-icon {
+      width: 42px;
+      padding: 0;
+      border-color: var(--border);
+      background: var(--surface);
+    }
+
+    .page {
+      position: relative;
+      min-height: calc(100vh - var(--nav-h));
+      display: grid;
+      padding: var(--page-pad-y) 0 calc(var(--page-pad-y) + 28px);
+      overflow: visible;
+    }
+
+    .cloud-line {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      width: min(980px, 78vw);
+      height: 44px;
+      transform: translateX(-50%);
+      pointer-events: none;
+      opacity: 0.55;
+      background:
+        radial-gradient(circle at 8% 70%, var(--border) 0 1px, transparent 2px),
+        radial-gradient(circle at 18% 68%, var(--border) 0 1px, transparent 2px),
+        radial-gradient(circle at 31% 72%, var(--border) 0 1px, transparent 2px),
+        radial-gradient(circle at 45% 68%, var(--border) 0 1px, transparent 2px),
+        radial-gradient(circle at 66% 72%, var(--border) 0 1px, transparent 2px),
+        radial-gradient(circle at 78% 67%, var(--border) 0 1px, transparent 2px);
+      border-top: 1px dashed color-mix(in oklch, var(--border) 72%, transparent);
+    }
+
+    .journal-shell {
+      position: relative;
+      min-height: calc(100vh - var(--nav-h) - var(--page-pad-y) * 2);
+      display: flex;
+      flex-direction: column;
+      padding: var(--shell-pad);
+      border: 1px solid color-mix(in oklch, var(--border) 88%, var(--fg));
+      border-radius: 30px;
+      background:
+        linear-gradient(135deg, color-mix(in oklch, var(--surface) 88%, transparent), color-mix(in oklch, var(--bg) 94%, transparent)),
+        var(--surface);
+      box-shadow: var(--paper-shadow);
+      overflow: visible;
+    }
+
+    .journal-shell::before {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border: 1px dashed color-mix(in oklch, var(--border) 72%, transparent);
+      border-radius: 24px;
+      pointer-events: none;
+    }
+
+    .sticker {
+      position: absolute;
+      z-index: 1;
+      pointer-events: none;
+      user-select: none;
+      filter: drop-shadow(0 10px 18px color-mix(in oklch, var(--fg) 8%, transparent));
+    }
+
+    .sticker-hero {
+      top: 18px;
+      right: clamp(26px, 3vw, 56px);
+      width: clamp(360px, 25vw, 460px);
+    }
+
+    .sticker-left {
+      left: -34px;
+      bottom: -30px;
+      width: clamp(190px, 13vw, 245px);
+    }
+
+    .sticker-right {
+      right: -34px;
+      bottom: -32px;
+      width: clamp(210px, 14vw, 270px);
+    }
+
+    .sticker-vine {
+      right: -18px;
+      top: -28px;
+      width: clamp(118px, 8vw, 156px);
+      opacity: 0.82;
+    }
+
+    .sticker-vine-left {
+      left: -18px;
+      top: -26px;
+      width: clamp(112px, 7.5vw, 148px);
+      opacity: 0.78;
+    }
+
+    .journal-content {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: var(--row-gap);
+      padding-top: 10px;
+    }
+
+    .masthead {
+      position: relative;
+      z-index: 2;
+      flex-shrink: 0;
+      min-height: clamp(220px, 18vw, 260px);
+      display: grid;
+      grid-template-columns: minmax(360px, max-content) minmax(420px, 640px);
+      grid-template-rows: auto auto auto;
+      column-gap: 24px;
+      align-items: end;
+      margin-bottom: clamp(18px, 2vw, 30px);
+      padding: 24px clamp(390px, 30vw, 560px) 16px 10px;
+    }
+
+    .masthead .day-row {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .masthead .streak {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .masthead .meta-line {
+      grid-column: 1;
+      grid-row: 3;
+    }
+
+    .day-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .day-title {
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+    }
+
+    .day-title small {
+      font-family: var(--font-display);
+      font-size: 28px;
+      color: var(--muted);
+    }
+
+    .weather-chip,
+    .soft-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--surface) 80%, transparent);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .sun-mark {
+      position: relative;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--accent);
+      border-radius: 50%;
+    }
+
+    .sun-mark::before,
+    .sun-mark::after {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      border-top: 1px solid var(--accent);
+      border-bottom: 1px solid var(--accent);
+      border-radius: 50%;
+      opacity: 0.7;
+    }
+
+    .sun-mark::after {
+      transform: rotate(90deg);
+    }
+
+    .streak {
+      margin: 4px 0 0;
+      color: var(--fg);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .meta-line {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: var(--fs-meta);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-column: 2;
+      grid-row: 1 / span 3;
+      align-self: end;
+      grid-template-columns: repeat(4, minmax(118px, 1fr));
+      gap: 10px;
+      margin-top: 0;
+      max-width: 640px;
+    }
+
+    .metric {
+      min-height: 62px;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      box-shadow: 0 6px 14px color-mix(in oklch, var(--fg) 4%, transparent);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .metric-value {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      margin-top: 4px;
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-size: 23px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-value span {
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .star-meter {
+      display: inline-flex;
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .star-meter button {
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    .star-meter button.is-active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--surface);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .mind-path {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      flex: initial;
+      min-height: auto;
+      gap: var(--row-gap);
+      grid-template-rows: repeat(3, minmax(var(--path-row-min), auto));
+    }
+
+    .path-row {
+      display: grid;
+      grid-template-columns: clamp(116px, 8vw, 150px) minmax(0, 1fr);
+      gap: var(--row-gap);
+      align-items: stretch;
+      min-height: var(--path-row-min);
+    }
+
+    .path-label {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 100%;
+      padding: 18px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: color-mix(in oklch, var(--surface) 72%, transparent);
+      color: var(--fg);
+    }
+
+    .path-label::after {
+      content: "";
+      position: absolute;
+      right: 15px;
+      top: 18px;
+      bottom: 18px;
+      border-right: 1px dashed color-mix(in oklch, var(--border) 76%, transparent);
+    }
+
+    .path-label strong {
+      max-width: 4em;
+      font-family: var(--font-display);
+      font-size: 25px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .path-label span {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      writing-mode: vertical-rl;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .nine-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      min-height: 0;
+      gap: var(--row-gap);
+    }
+
+    .path-card {
+      min-height: 0;
+      height: 100%;
+    }
+
+    .path-card .textarea {
+      min-height: 112px;
+    }
+
+    .path-card.compact .textarea {
+      min-height: 88px;
+    }
+
+    .prompt-note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .intent-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--surface) 78%, transparent);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .small-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .small-field span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .goal-meter {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr) 34px;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .module-sticker {
+      position: absolute;
+      right: 12px;
+      bottom: 8px;
+      width: 62px;
+      opacity: 0.58;
+      pointer-events: none;
+    }
+
+    .journal-panel {
+      position: relative;
+      min-height: 144px;
+      padding: clamp(14px, 1.1vw, 20px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(180deg, color-mix(in oklch, var(--surface) 92%, transparent), color-mix(in oklch, var(--bg) 86%, transparent));
+      box-shadow: 0 8px 18px color-mix(in oklch, var(--fg) 5%, transparent);
+      overflow: auto;
+      scrollbar-width: thin;
+    }
+
+    .journal-panel.tall {
+      min-height: 288px;
+    }
+
+    .journal-panel.soft-green {
+      background:
+        linear-gradient(180deg, color-mix(in oklch, var(--leaf-soft) 82%, var(--surface)), var(--surface));
+    }
+
+    .journal-panel.soft-rose {
+      background:
+        linear-gradient(180deg, color-mix(in oklch, var(--rose-soft) 84%, var(--surface)), var(--surface));
+    }
+
+    .journal-panel.soft-gold {
+      background:
+        linear-gradient(180deg, color-mix(in oklch, var(--accent-soft) 72%, var(--surface)), var(--surface));
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .panel-title h2,
+    .panel-title h3 {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--fg);
+      font-size: 16px;
+    }
+
+    .flower-dot {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      box-shadow:
+        7px 0 0 color-mix(in oklch, var(--accent) 34%, transparent),
+        -7px 0 0 color-mix(in oklch, var(--accent) 34%, transparent),
+        0 7px 0 color-mix(in oklch, var(--accent) 34%, transparent),
+        0 -7px 0 color-mix(in oklch, var(--accent) 34%, transparent);
+      transform: scale(0.55);
+    }
+
+    .panel-action {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .field-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .line-field {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+    }
+
+    .line-number {
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .write-line {
+      width: 100%;
+      min-height: 40px;
+      border: 0;
+      border-bottom: 1px dashed var(--border);
+      background: transparent;
+      color: var(--fg);
+      outline: 0;
+      padding: 7px 4px 4px;
+    }
+
+    .write-line:focus {
+      border-bottom-color: var(--accent);
+    }
+
+    .textarea {
+      width: 100%;
+      min-height: 118px;
+      padding: 13px 14px;
+      border: 1px solid color-mix(in oklch, var(--border) 86%, transparent);
+      border-radius: 13px;
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      color: var(--fg);
+      line-height: 1.7;
+      outline: 0;
+      resize: vertical;
+    }
+
+    .textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .mood-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(58px, 1fr));
+      gap: 6px;
+    }
+
+    .mood-btn {
+      min-height: 52px;
+      display: grid;
+      place-items: center;
+      gap: 7px;
+      border: 1px solid transparent;
+      border-radius: 16px;
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 4px;
+    }
+
+    .mood-btn:hover,
+    .mood-btn.is-active {
+      border-color: var(--border);
+      background: color-mix(in oklch, var(--surface) 72%, transparent);
+      color: var(--fg);
+    }
+
+    .mood-face {
+      position: relative;
+      width: 28px;
+      height: 25px;
+      border-radius: 48% 48% 52% 52%;
+      background: var(--surface);
+      border: 2px solid var(--border);
+    }
+
+    .mood-face::before,
+    .mood-face::after {
+      content: "";
+      position: absolute;
+      top: 9px;
+      width: 4px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--fg);
+    }
+
+    .mood-face::before {
+      left: 11px;
+    }
+
+    .mood-face::after {
+      right: 11px;
+    }
+
+    .mood-face .mouth {
+      position: absolute;
+      left: 50%;
+      bottom: 6px;
+      width: 14px;
+      height: 7px;
+      transform: translateX(-50%);
+      border-bottom: 2px solid var(--fg);
+      border-radius: 0 0 18px 18px;
+    }
+
+    .mood-btn[data-mood="平静"] .mood-face {
+      background: color-mix(in oklch, var(--leaf) 12%, var(--surface));
+    }
+
+    .mood-btn[data-mood="元气"] .mood-face,
+    .mood-btn[data-mood="开心"] .mood-face {
+      background: color-mix(in oklch, var(--accent) 18%, var(--surface));
+    }
+
+    .mood-btn[data-mood="专注"] .mood-face {
+      background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+    }
+
+    .mood-btn[data-mood="超棒"] .mood-face {
+      background: color-mix(in oklch, var(--leaf) 22%, var(--surface));
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 62px minmax(0, 1fr) 38px;
+      align-items: center;
+      gap: 10px;
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .check-list {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .check-item {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      min-height: 30px;
+      color: var(--fg);
+    }
+
+    .check-item input {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--leaf);
+    }
+
+    .check-item span {
+      border-bottom: 1px dashed color-mix(in oklch, var(--border) 78%, transparent);
+      min-height: 25px;
+      padding-top: 2px;
+    }
+
+    .check-item:has(input:checked) span {
+      color: var(--muted);
+      text-decoration: line-through;
+    }
+
+    .todo-database,
+    .debt-block {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 10px;
+      border: 1px solid color-mix(in oklch, var(--border) 78%, transparent);
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, color-mix(in oklch, var(--surface) 94%, var(--leaf) 6%), var(--surface));
+      box-shadow: inset 0 1px 0 color-mix(in oklch, #fff 82%, transparent);
+    }
+
+    .todo-database {
+      margin-top: 0;
+    }
+
+    .debt-heading,
+    .database-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .database-view {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 7px;
+      border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--surface) 88%, var(--leaf) 12%);
+      color: color-mix(in oklch, var(--leaf) 78%, var(--fg));
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      white-space: nowrap;
+    }
+
+    .todo-list,
+    .debt-list {
+      display: grid;
+      gap: 0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+      border-radius: 12px;
+      background: color-mix(in oklch, var(--surface) 96%, var(--paper) 4%);
+      list-style: none;
+    }
+
+    .todo-item,
+    .debt-item {
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      min-height: 36px;
+      padding: 7px 8px;
+      color: var(--fg);
+      border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    }
+
+    .todo-item {
+      grid-template-columns: 20px minmax(0, 1fr) auto 26px;
+    }
+
+    .todo-item:last-child,
+    .debt-item:last-child {
+      border-bottom: 0;
+    }
+
+    .todo-item:hover,
+    .debt-item:hover {
+      background: color-mix(in oklch, var(--leaf) 7%, transparent);
+    }
+
+    .todo-item input,
+    .debt-item input {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--leaf);
+    }
+
+    .todo-item .todo-text,
+    .debt-item .debt-text {
+      min-width: 0;
+      line-height: 1.38;
+      overflow-wrap: anywhere;
+    }
+
+    .todo-item.is-done .todo-text,
+    .debt-item.is-done .debt-text {
+      color: var(--muted);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+
+    .debt-meta {
+      justify-self: end;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-width: max-content;
+    }
+
+    .debt-item time,
+    .debt-slot,
+    .todo-meta {
+      justify-self: end;
+      padding: 2px 7px;
+      border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+      border-radius: 999px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .debt-slot {
+      color: color-mix(in oklch, var(--leaf) 72%, var(--fg));
+      background: color-mix(in oklch, var(--leaf) 10%, var(--surface));
+    }
+
+    .empty-row {
+      min-height: 34px;
+      padding: 8px 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .delete-todo {
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .delete-todo:hover {
+      color: var(--fg);
+      background: var(--accent-soft);
+    }
+
+    .todo-entry {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .mini-input {
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      color: var(--fg);
+      outline: 0;
+      padding: 0 13px;
+    }
+
+    .mini-input:focus {
+      border-color: var(--accent);
+    }
+
+    .note-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .side-stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .plant-sticker {
+      position: absolute;
+      right: 16px;
+      bottom: 8px;
+      width: 70px;
+      opacity: 0.78;
+      pointer-events: none;
+    }
+
+    .book-sticker {
+      position: absolute;
+      right: 18px;
+      bottom: 10px;
+      width: 104px;
+      opacity: 0.52;
+      pointer-events: none;
+    }
+
+    .status-bar {
+      position: relative;
+      z-index: 3;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 18px;
+      padding: 10px 18px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--surface) 76%, transparent);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-bar .soft-chip {
+      min-height: 28px;
+      padding: 4px 10px;
+    }
+
+    .save-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .save-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--leaf);
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--leaf) 12%, transparent);
+    }
+
+    @media (max-width: 1180px) {
+      :root {
+        --fs-h1: 48px;
+      }
+
+      .journal-shell {
+        height: auto;
+        min-height: calc(100vh - var(--nav-h) - var(--page-pad-y) * 2);
+      }
+
+      .masthead {
+        display: block;
+        padding-right: 330px;
+      }
+
+      .sticker-hero {
+        width: 350px;
+      }
+
+      .sticker-vine-left,
+      .sticker-vine {
+        top: -18px;
+        width: 118px;
+      }
+
+      .journal-content,
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .path-row {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .mind-path {
+        grid-template-rows: none;
+      }
+
+      .path-card {
+        height: auto;
+      }
+
+      .path-label {
+        min-height: auto;
+        flex-direction: row;
+        align-items: center;
+      }
+
+      .path-label strong {
+        max-width: none;
+      }
+
+      .path-label span {
+        writing-mode: initial;
+      }
+
+      .side-stack {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      :root {
+        --gutter: 16px;
+        --fs-h1: 42px;
+      }
+
+      .topnav nav {
+        display: none;
+      }
+
+      .journal-shell {
+        padding: 22px;
+      }
+
+      .masthead {
+        min-height: 250px;
+        padding: 8px 6px 160px;
+      }
+
+      .sticker-hero {
+        top: 120px;
+        right: 12px;
+        width: 310px;
+      }
+
+      .sticker-vine-left,
+      .sticker-vine {
+        width: 92px;
+        opacity: 0.58;
+      }
+
+      .metric-grid,
+      .nine-grid,
+      .panel-grid,
+      .side-stack {
+        grid-template-columns: 1fr;
+      }
+
+      .mood-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .debt-item {
+        grid-template-columns: 20px minmax(0, 1fr);
+      }
+
+      .debt-meta {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      .todo-item {
+        grid-template-columns: 20px minmax(0, 1fr) 26px;
+      }
+
+      .todo-item .todo-meta {
+        grid-column: 2;
+        grid-row: 2;
+        justify-self: start;
+      }
+
+      .todo-item .delete-todo {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        justify-self: end;
+        align-self: center;
+      }
+
+      .status-bar {
+        align-items: flex-start;
+        border-radius: 20px;
+        flex-direction: column;
+        padding: 12px 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topnav" data-od-id="topnav">
+    <div class="container topnav-inner">
+      <div class="nav-left">
+        <button class="btn btn-secondary nav-back" id="backToCalendar" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          <span>返回日历</span>
+        </button>
+        <a class="logo" href="#" aria-label="LifeOS 晨间日记">
+          <span class="logo-mark" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M5 4.5h9.5a4.5 4.5 0 0 1 0 9H5z" />
+              <path d="M5 13.5h10a4 4 0 0 1 0 8H5z" />
+            </svg>
+          </span>
+          <span>LifeOS 晨间日记</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="cloud-line" aria-hidden="true"></div>
+    <section class="container journal-shell" data-od-id="morning-journal-workspace" aria-label="晨间日记写作区">
+      <img class="sticker sticker-hero" src="assets/晨间日记/少女读书伙伴.png" alt="" aria-hidden="true" />
+      <img class="sticker sticker-left" src="assets/晨间日记/左下花束.png" alt="" aria-hidden="true" />
+      <img class="sticker sticker-right" src="assets/晨间日记/右下花束.png" alt="" aria-hidden="true" />
+      <img class="sticker sticker-vine" src="assets/晨间日记/右上花藤.png" alt="" aria-hidden="true" />
+      <img class="sticker sticker-vine-left" src="assets/晨间日记/左上花藤.png" alt="" aria-hidden="true" />
+
+      <div class="masthead">
+        <div class="day-row">
+          <div class="day-title">
+            <h1>第 3 天</h1>
+            <small>晨光页</small>
+          </div>
+          <span class="sun-mark" aria-hidden="true"></span>
+          <span class="weather-chip">晴 · 早间记录</span>
+        </div>
+        <p class="streak">连续记录 3 天</p>
+        <p class="meta-line">2026.06.08 · 周一 · LifeOS Daily</p>
+
+        <div class="metric-grid" aria-label="今日指标">
+          <article class="metric">
+            <div class="metric-label">累计日记</div>
+            <div class="metric-value">42 <span>篇</span></div>
+          </article>
+          <article class="metric">
+            <div class="metric-label">三只青蛙</div>
+            <div class="metric-value">18 <span>次</span></div>
+          </article>
+          <article class="metric">
+            <div class="metric-label">成长值</div>
+            <div class="metric-value">76</div>
+          </article>
+          <article class="metric">
+            <div class="metric-label">今日能量</div>
+            <div class="star-meter" role="radiogroup" aria-label="今日能量">
+              <button type="button" aria-label="1 星" data-rating="1"></button>
+              <button type="button" aria-label="2 星" data-rating="2"></button>
+              <button type="button" aria-label="3 星" data-rating="3"></button>
+              <button type="button" aria-label="4 星" data-rating="4"></button>
+              <button type="button" aria-label="5 星" data-rating="5"></button>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div class="mind-path">
+        <div class="path-row" data-od-id="plan-today-row">
+          <div class="path-label">
+            <strong>规划今天</strong>
+            <span>PLAN</span>
+          </div>
+          <div class="nine-grid">
+            <article class="journal-panel path-card soft-gold" data-od-id="today-context">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>今天是什么日子</h2>
+                <span class="panel-action" id="moodLabel">未选择</span>
+              </div>
+              <div class="mood-grid" role="radiogroup" aria-label="选择当前状态">
+                <button class="mood-btn" type="button" data-mood="超棒" aria-pressed="false">
+                  <span class="mood-face"><span class="mouth"></span></span>
+                  <span>超棒</span>
+                </button>
+                <button class="mood-btn" type="button" data-mood="平静" aria-pressed="false">
+                  <span class="mood-face"><span class="mouth"></span></span>
+                  <span>平静</span>
+                </button>
+                <button class="mood-btn" type="button" data-mood="元气" aria-pressed="false">
+                  <span class="mood-face"><span class="mouth"></span></span>
+                  <span>元气</span>
+                </button>
+                <button class="mood-btn" type="button" data-mood="专注" aria-pressed="false">
+                  <span class="mood-face"><span class="mouth"></span></span>
+                  <span>专注</span>
+                </button>
+                <button class="mood-btn" type="button" data-mood="开心" aria-pressed="false">
+                  <span class="mood-face"><span class="mouth"></span></span>
+                  <span>开心</span>
+                </button>
+              </div>
+              <label class="range-row">
+                <span>能量</span>
+                <input id="energyRange" type="range" min="1" max="10" value="6" data-save="energy" />
+                <strong id="energyValue">6</strong>
+              </label>
+              <div class="chip-row" aria-label="今日关键词">
+                <span class="intent-chip">晴 · 早间记录</span>
+                <span class="intent-chip">连续 3 天</span>
+              </div>
+            </article>
+
+            <article class="journal-panel path-card" data-od-id="top-three">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>三只青蛙</h2>
+                <span class="panel-action" id="frogDebtCount">0 项未完成</span>
+              </div>
+              <div class="field-list">
+                <label class="line-field">
+                  <span class="line-number">1</span>
+                  <input class="write-line" data-save="frog-1" autocomplete="off" placeholder="今天最应该推进的一件事" />
+                </label>
+                <label class="line-field">
+                  <span class="line-number">2</span>
+                  <input class="write-line" data-save="frog-2" autocomplete="off" placeholder="第二件必须完成的事" />
+                </label>
+                <label class="line-field">
+                  <span class="line-number">3</span>
+                  <input class="write-line" data-save="frog-3" autocomplete="off" placeholder="第三件让今天更稳的事" />
+                </label>
+              </div>
+              <div class="debt-block">
+                <div class="debt-heading">
+                  <span>未完成青蛙</span>
+                  <span class="database-view">表格 · 负债</span>
+                </div>
+                <ul class="debt-list" id="frogDebtList"></ul>
+              </div>
+              <img class="module-sticker" src="assets/晨间日记/手帐本.png" alt="" aria-hidden="true" />
+            </article>
+
+            <article class="journal-panel path-card soft-rose" data-od-id="becoming-self">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>我想成为怎样的人</h2>
+                <span class="panel-action">IDENTITY</span>
+              </div>
+              <textarea class="textarea" data-save="self-message" placeholder="用一句话写下今天想靠近的自己。"></textarea>
+              <div class="note-footer">
+                <span>先写方向，再写任务。</span>
+                <span><span id="messageCount">0</span> 字</span>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="path-row" data-od-id="understand-yesterday-row">
+          <div class="path-label">
+            <strong>理解昨天</strong>
+            <span>REVIEW</span>
+          </div>
+          <div class="nine-grid">
+            <article class="journal-panel path-card soft-green" data-od-id="habit-review">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>习惯坚持了吗</h2>
+                <span class="panel-action">CHECK</span>
+              </div>
+              <ul class="check-list" id="habitCheckList">
+                <li class="check-item">
+                  <input type="checkbox" data-save="habit-journal" />
+                  <span>写了晨间日记</span>
+                </li>
+                <li class="check-item">
+                  <input type="checkbox" data-save="habit-focus" />
+                  <span>推进了核心任务</span>
+                </li>
+                <li class="check-item">
+                  <input type="checkbox" data-save="habit-review" />
+                  <span>晚上做了简短回看</span>
+                </li>
+              </ul>
+              <img class="module-sticker" src="assets/晨间日记/盆栽嫩芽.png" alt="" aria-hidden="true" />
+            </article>
+
+            <article class="journal-panel path-card compact" data-od-id="daily-progress">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>昨日有没有日拱一卒</h2>
+                <span class="panel-action">1 STEP</span>
+              </div>
+              <div class="field-list">
+                <label class="line-field">
+                  <span class="line-number">进</span>
+                  <input class="write-line" data-save="yesterday-progress" autocomplete="off" placeholder="昨天向前推进了什么" />
+                </label>
+                <label class="line-field">
+                  <span class="line-number">卡</span>
+                  <input class="write-line" data-save="yesterday-stuck" autocomplete="off" placeholder="哪里卡住了" />
+                </label>
+                <label class="line-field">
+                  <span class="line-number">学</span>
+                  <input class="write-line" data-save="yesterday-learn" autocomplete="off" placeholder="今天要带走的一点经验" />
+                </label>
+              </div>
+            </article>
+
+            <article class="journal-panel path-card soft-rose" data-od-id="body-health">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>身体健康注意了吗</h2>
+                <span class="panel-action">BODY</span>
+              </div>
+              <div class="mini-grid">
+                <label class="small-field">
+                  <span>睡眠</span>
+                  <input class="mini-input" data-save="health-sleep" autocomplete="off" placeholder="例如 7.5h" />
+                </label>
+                <label class="small-field">
+                  <span>身体信号</span>
+                  <input class="mini-input" data-save="health-signal" autocomplete="off" placeholder="肩颈 / 胃口 / 眼睛" />
+                </label>
+              </div>
+              <ul class="check-list" style="margin-top: 12px;">
+                <li class="check-item">
+                  <input type="checkbox" data-save="health-water" />
+                  <span>补水与简单拉伸</span>
+                </li>
+                <li class="check-item">
+                  <input type="checkbox" data-save="health-walk" />
+                  <span>给身体留 20 分钟活动</span>
+                </li>
+              </ul>
+            </article>
+          </div>
+        </div>
+
+        <div class="path-row" data-od-id="see-future-row">
+          <div class="path-label">
+            <strong>看见未来</strong>
+            <span>FUTURE</span>
+          </div>
+          <div class="nine-grid">
+            <article class="journal-panel path-card soft-green" data-od-id="month-important">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>本月重要几件事</h2>
+                <span class="panel-action" id="todoCount">0/0</span>
+              </div>
+              <div class="todo-database">
+                <div class="database-heading">
+                  <span>未完成事项</span>
+                  <span class="database-view">表格 · 月度</span>
+                </div>
+                <ul class="todo-list" id="todoList"></ul>
+                <div class="todo-entry">
+                  <input class="mini-input" id="todoInput" autocomplete="off" placeholder="添加本月重要事项" />
+                  <button class="btn btn-icon" id="addTodo" type="button" aria-label="添加本月重要事项">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <img class="module-sticker" src="assets/晨间日记/浇水壶嫩芽.png" alt="" aria-hidden="true" />
+            </article>
+
+            <article class="journal-panel path-card soft-gold" data-od-id="half-year-goal">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>半年目标</h2>
+                <span class="panel-action">6 MONTHS</span>
+              </div>
+              <div class="field-list">
+                <label class="line-field">
+                  <span class="line-number">1</span>
+                  <input class="write-line" data-save="half-year-identity" autocomplete="off" placeholder="半年后希望自己更像谁" />
+                </label>
+                <label class="line-field">
+                  <span class="line-number">2</span>
+                  <input class="write-line" data-save="half-year-proof" autocomplete="off" placeholder="最想拿到的一个证据" />
+                </label>
+              </div>
+              <label class="goal-meter">
+                <span>把握</span>
+                <input type="range" min="1" max="10" value="5" data-save="half-year-confidence" />
+                <strong id="goalConfidenceValue">5</strong>
+              </label>
+            </article>
+
+            <article class="journal-panel path-card compact" data-od-id="brain-dump">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>其他想记录的</h2>
+                <span class="panel-action">FREE</span>
+              </div>
+              <textarea class="textarea" data-save="brain-dump" placeholder="今天忽然冒出来的念头、担心、灵感，都先放在这里。"></textarea>
+              <p class="prompt-note">不需要整理，先让它从脑子里出来。</p>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-bar" aria-live="polite">
+        <span class="save-state"><span class="save-dot" aria-hidden="true"></span><span id="saveStatus">正在连接当天 Markdown…</span></span>
+        <span class="soft-chip">路径：规划今天 → 理解昨天 → 看见未来</span>
+      </div>
+    </section>
+  </main>
+
+  <script type="application/x-legacy-local-draft">
+    (() => {
+      const STORE_KEY = "lifeos-morning-journal-2026-06-08";
+      const fields = Array.from(document.querySelectorAll("[data-save]"));
+      const moodButtons = Array.from(document.querySelectorAll(".mood-btn"));
+      const ratingButtons = Array.from(document.querySelectorAll("[data-rating]"));
+      const saveButton = document.getElementById("saveDraft");
+      const clearButton = document.getElementById("clearDraft");
+      const status = document.getElementById("saveStatus");
+      const moodLabel = document.getElementById("moodLabel");
+      const energyRange = document.getElementById("energyRange");
+      const energyValue = document.getElementById("energyValue");
+      const goalConfidence = document.querySelector('[data-save="half-year-confidence"]');
+      const goalConfidenceValue = document.getElementById("goalConfidenceValue");
+      const message = document.querySelector('[data-save="self-message"]');
+      const messageCount = document.getElementById("messageCount");
+      const todoList = document.getElementById("todoList");
+      const todoInput = document.getElementById("todoInput");
+      const addTodo = document.getElementById("addTodo");
+      const todoCount = document.getElementById("todoCount");
+
+      const defaultState = {
+        mood: "元气",
+        rating: 4,
+        "half-year-confidence": "5",
+        todos: [
+          { text: "完成晨间日记九宫格原型", done: false },
+          { text: "整理本月最重要的项目", done: false },
+          { text: "预留一次月度复盘", done: false }
+        ]
+      };
+
+      let state = loadState();
+      let saveTimer = null;
+
+      function loadState() {
+        try {
+          return { ...defaultState, ...JSON.parse(localStorage.getItem(STORE_KEY) || "{}") };
+        } catch {
+          return { ...defaultState };
+        }
+      }
+
+      function collectState() {
+        const next = { ...state };
+        fields.forEach((field) => {
+          if (field.type === "checkbox") {
+            next[field.dataset.save] = field.checked;
+          } else {
+            next[field.dataset.save] = field.value;
+          }
+        });
+        next.todos = Array.from(todoList.querySelectorAll(".todo-item")).map((item) => ({
+          text: item.querySelector("span").textContent,
+          done: item.querySelector("input").checked
+        }));
+        return next;
+      }
+
+      function persist(label = "已保存到本地草稿") {
+        state = collectState();
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        status.textContent = label;
+      }
+
+      function scheduleSave() {
+        status.textContent = "正在记录草稿…";
+        window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(() => persist(), 450);
+      }
+
+      function restoreFields() {
+        fields.forEach((field) => {
+          const value = state[field.dataset.save];
+          if (field.type === "checkbox") {
+            field.checked = Boolean(value);
+          } else if (value !== undefined) {
+            field.value = value;
+          }
+        });
+        updateMood(state.mood || defaultState.mood, false);
+        updateRating(Number(state.rating || defaultState.rating), false);
+        updateEnergy();
+        updateGoalConfidence();
+        updateMessageCount();
+        renderTodos(state.todos || defaultState.todos);
+      }
+
+      function updateMood(mood, shouldSave = true) {
+        state.mood = mood;
+        moodButtons.forEach((button) => {
+          const active = button.dataset.mood === mood;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
+        moodLabel.textContent = mood;
+        if (shouldSave) persist("状态已更新");
+      }
+
+      function updateRating(value, shouldSave = true) {
+        state.rating = value;
+        ratingButtons.forEach((button) => {
+          button.classList.toggle("is-active", Number(button.dataset.rating) <= value);
+        });
+        if (shouldSave) persist("能量星级已更新");
+      }
+
+      function updateEnergy() {
+        energyValue.textContent = energyRange.value;
+      }
+
+      function updateGoalConfidence() {
+        goalConfidenceValue.textContent = goalConfidence.value;
+      }
+
+      function updateMessageCount() {
+        messageCount.textContent = String(message.value.trim().length);
+      }
+
+      function renderTodos(todos) {
+        todoList.innerHTML = "";
+        todos.forEach((todo) => addTodoItem(todo.text, todo.done, false));
+        updateTodoCount();
+      }
+
+      function addTodoItem(text, done = false, shouldSave = true) {
+        const cleanText = text.trim();
+        if (!cleanText) return;
+        const item = document.createElement("li");
+        item.className = "todo-item";
+        item.innerHTML = `
+          <input type="checkbox" ${done ? "checked" : ""} aria-label="完成本月事项" />
+          <span></span>
+          <button class="delete-todo" type="button" aria-label="删除本月事项">×</button>
+        `;
+        item.querySelector("span").textContent = cleanText;
+        item.classList.toggle("is-done", done);
+        item.querySelector("input").addEventListener("change", () => {
+          item.classList.toggle("is-done", item.querySelector("input").checked);
+          updateTodoCount();
+          persist("本月事项已更新");
+        });
+        item.querySelector(".delete-todo").addEventListener("click", () => {
+          item.remove();
+          updateTodoCount();
+          persist("本月事项已删除");
+        });
+        todoList.append(item);
+        updateTodoCount();
+        if (shouldSave) persist("本月事项已添加");
+      }
+
+      function updateTodoCount() {
+        const items = Array.from(todoList.querySelectorAll(".todo-item"));
+        const done = items.filter((item) => item.querySelector("input").checked).length;
+        todoCount.textContent = `${done}/${items.length}`;
+      }
+
+      fields.forEach((field) => {
+        field.addEventListener("input", () => {
+          if (field === energyRange) updateEnergy();
+          if (field === goalConfidence) updateGoalConfidence();
+          if (field === message) updateMessageCount();
+          scheduleSave();
+        });
+        field.addEventListener("change", scheduleSave);
+      });
+
+      moodButtons.forEach((button) => {
+        button.addEventListener("click", () => updateMood(button.dataset.mood));
+      });
+
+      ratingButtons.forEach((button) => {
+        button.addEventListener("click", () => updateRating(Number(button.dataset.rating)));
+      });
+
+      addTodo.addEventListener("click", () => {
+        addTodoItem(todoInput.value);
+        todoInput.value = "";
+        todoInput.focus();
+      });
+
+      todoInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addTodo.click();
+        }
+      });
+
+      saveButton.addEventListener("click", () => persist("今日草稿已保存"));
+
+      clearButton.addEventListener("click", () => {
+        localStorage.removeItem(STORE_KEY);
+        state = { ...defaultState };
+        fields.forEach((field) => {
+          if (field.type === "checkbox") field.checked = false;
+          else if (field.type !== "range") field.value = "";
+        });
+        energyRange.value = "6";
+        restoreFields();
+        status.textContent = "草稿已清空，已恢复默认样例";
+      });
+
+      restoreFields();
+    })();
+  </script>
+  <script>
+    (() => {
+      const tauriInvoke = window.__TAURI__?.core?.invoke;
+      const query = new URLSearchParams(window.location.search);
+      const date = normaliseDate(query.get("date")) || formatDate(new Date());
+      const dataSaveFields = () => Array.from(document.querySelectorAll("[data-save]"));
+      const fields = dataSaveFields();
+      const moodButtons = Array.from(document.querySelectorAll(".mood-btn"));
+      const ratingButtons = Array.from(document.querySelectorAll("[data-rating]"));
+      const todoList = document.getElementById("todoList");
+      const todoInput = document.getElementById("todoInput");
+      const addTodo = document.getElementById("addTodo");
+      const frogDebtList = document.getElementById("frogDebtList");
+      const habitCheckList = document.getElementById("habitCheckList");
+      const status = document.getElementById("saveStatus");
+      const backButton = document.getElementById("backToCalendar");
+      const energyValue = document.getElementById("energyValue");
+      const goalConfidenceValue = document.getElementById("goalConfidenceValue");
+      const messageCount = document.getElementById("messageCount");
+      const todoCount = document.getElementById("todoCount");
+      const frogDebtCount = document.getElementById("frogDebtCount");
+
+      const state = {
+        file: null,
+        databases: null,
+        form: defaultForm(date),
+        timer: null,
+        saveToken: 0,
+        lastSavedContent: ""
+      };
+
+      backButton?.addEventListener("click", async () => {
+        window.clearTimeout(state.timer);
+        setStatus("正在返回日历…");
+        await saveNow(true);
+        window.location.replace(new URL("index.html", window.location.href).href);
+      });
+
+      fields.forEach((field) => {
+        field.addEventListener("input", () => {
+          updateDerivedLabels();
+          scheduleSave();
+        });
+        field.addEventListener("change", scheduleSave);
+      });
+
+      moodButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setMood(button.dataset.mood);
+          scheduleSave("状态已更新，正在保存…");
+        });
+      });
+
+      ratingButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setRating(Number(button.dataset.rating));
+          scheduleSave("能量星级已更新，正在保存…");
+        });
+      });
+
+      addTodo?.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (!addMonthlyItem(todoInput?.value || "")) return;
+        todoInput.value = "";
+        todoInput.focus();
+        scheduleSave("本月事项已更新，正在保存…");
+      });
+
+      todoInput?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addTodo?.click();
+        }
+      });
+
+      todoList?.addEventListener("change", () => {
+        updateTodoCount();
+        scheduleSave("本月事项已更新，正在保存…");
+      });
+
+      frogDebtList?.addEventListener("change", () => {
+        updateFrogDebtCount();
+        scheduleSave("未完成青蛙已更新，正在保存…");
+      });
+
+      habitCheckList?.addEventListener("change", () => {
+        scheduleSave("习惯勾选已更新，正在保存…");
+      });
+
+      todoList?.addEventListener("click", (event) => {
+        if (event.target.closest(".delete-todo")) {
+          window.setTimeout(() => {
+            updateTodoCount();
+            scheduleSave("本月事项已删除，正在保存…");
+          }, 0);
+        }
+      });
+
+      boot();
+
+      async function boot() {
+        try {
+          setStatus("正在打开当天 Markdown…");
+          const file = await invoke("open_or_create_journal", { date });
+          state.file = file;
+          state.form = parseMarkdown(file.content, file.date);
+          state.form.date = file.date;
+          state.form.dayIndex = String(file.day_index || state.form.dayIndex || 1);
+          state.databases = await invoke("get_journal_databases", { date: file.date });
+          mergeDatabasesToForm(state.databases);
+          applyFormToPage();
+          state.lastSavedContent = buildMarkdown(state.form);
+          updateMasthead();
+          setStatus(file.path ? `已连接：${file.path}` : "已连接当天 Markdown");
+          if (file.created) await saveNow(true);
+        } catch (error) {
+          setStatus(toErrorMessage(error));
+        }
+      }
+
+      async function invoke(command, args) {
+        if (tauriInvoke) return tauriInvoke(command, args);
+        return fallbackInvoke(command, args);
+      }
+
+      async function fallbackInvoke(command, args) {
+        const prefix = "lifeos-journal:";
+        const key = prefix + args.date;
+        const path = fallbackPath(args.date);
+        if (command === "open_or_create_journal") {
+          const created = localStorage.getItem(key) === null;
+          if (created) localStorage.setItem(key, buildMarkdown(defaultForm(args.date, "1")));
+          return {
+            date: args.date,
+            path,
+            content: localStorage.getItem(key) || "",
+            day_index: Number(extractFrontmatter(localStorage.getItem(key) || "").day_index || 1),
+            created
+          };
+        }
+        if (command === "save_journal") {
+          localStorage.setItem(key, args.content);
+          return {
+            date: args.date,
+            path,
+            content: args.content,
+            day_index: Number(extractFrontmatter(args.content).day_index || 1),
+            created: false
+          };
+        }
+        if (command === "get_journal_databases") {
+          return getFallbackDatabases(args.date);
+        }
+        if (command === "save_journal_databases") {
+          return saveFallbackDatabases(
+            args.date,
+            args.frogs || [],
+            args.habits || {},
+            args.monthly || [],
+            args.frog_backlog || [],
+            args.monthly_backlog || []
+          );
+        }
+        throw new Error(`未知命令：${command}`);
+      }
+
+      function getFallbackDatabases(valueDate) {
+        const frogsDb = readFallbackDatabase("lifeos-db:frogs", { schema_version: 1, days: [] });
+        const habitsDb = readFallbackDatabase("lifeos-db:habits", {
+          schema_version: 1,
+          definitions: habitDefinitions(),
+          days: []
+        });
+        habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
+        const monthlyDb = readFallbackDatabase("lifeos-db:monthly-important", { schema_version: 1, months: [] });
+        const month = valueDate.slice(0, 7);
+        return {
+          frogs: frogsDb.days.find((day) => day.date === valueDate) || { date: valueDate, items: [], updated_at: null },
+          frog_backlog: collectFrogBacklog(frogsDb.days),
+          habits: habitsDb.days.find((day) => day.date === valueDate) || { date: valueDate, checks: {}, updated_at: null },
+          habit_definitions: habitsDb.definitions,
+          monthly: monthlyDb.months.find((record) => record.month === month) || { month, items: [], updated_at: null },
+          monthly_backlog: collectMonthlyBacklog(monthlyDb.months),
+          paths: {
+            frogs: "本机预览 / LifeOS-Vault / 00-Databases / frogs.csv",
+            habits: "本机预览 / LifeOS-Vault / 00-Databases / habits.csv",
+            monthly: "本机预览 / LifeOS-Vault / 00-Databases / monthly-important.csv"
+          }
+        };
+      }
+
+      function saveFallbackDatabases(valueDate, frogs, habits, monthly, frogBacklog, monthlyBacklog) {
+        const now = Math.floor(Date.now() / 1000);
+        const month = valueDate.slice(0, 7);
+        const frogsDb = readFallbackDatabase("lifeos-db:frogs", { schema_version: 1, days: [] });
+        const habitsDb = readFallbackDatabase("lifeos-db:habits", {
+          schema_version: 1,
+          definitions: habitDefinitions(),
+          days: []
+        });
+        habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
+        const monthlyDb = readFallbackDatabase("lifeos-db:monthly-important", { schema_version: 1, months: [] });
+
+        const frogDay = {
+          date: valueDate,
+          items: normaliseFrogsForDatabase(frogs),
+          updated_at: now
+        };
+        frogsDb.days = [...frogsDb.days.filter((day) => day.date !== valueDate), frogDay].sort((a, b) => a.date.localeCompare(b.date));
+        applyFrogBacklog(frogsDb, frogBacklog, now);
+        localStorage.setItem("lifeos-db:frogs", JSON.stringify(frogsDb));
+
+        const habitDay = {
+          date: valueDate,
+          checks: habits,
+          updated_at: now
+        };
+        habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
+        habitsDb.days = [...habitsDb.days.filter((day) => day.date !== valueDate), habitDay].sort((a, b) => a.date.localeCompare(b.date));
+        localStorage.setItem("lifeos-db:habits", JSON.stringify(habitsDb));
+
+        const monthlyRecord = {
+          month,
+          items: normaliseMonthlyForDatabase(monthly, month, now),
+          updated_at: now
+        };
+        monthlyDb.months = [...monthlyDb.months.filter((record) => record.month !== month), monthlyRecord].sort((a, b) => a.month.localeCompare(b.month));
+        applyMonthlyBacklog(monthlyDb, monthlyBacklog, now);
+        localStorage.setItem("lifeos-db:monthly-important", JSON.stringify(monthlyDb));
+
+        return getFallbackDatabases(valueDate);
+      }
+
+      function collectFrogBacklog(days) {
+        return (days || []).flatMap((day) => (day.items || []).map((item) => ({
+          date: day.date,
+          slot: Number(item.slot),
+          text: String(item.text || "").trim(),
+          done: Boolean(item.done),
+          updated_at: day.updated_at || null
+        }))).filter((item) => item.date && item.text && !item.done)
+          .sort((left, right) => left.date.localeCompare(right.date) || left.slot - right.slot);
+      }
+
+      function applyFrogBacklog(database, backlog, now) {
+        (backlog || []).forEach((item) => {
+          const dateKey = normaliseDate(item.date);
+          const slot = Number(item.slot);
+          const text = String(item.text || "").trim();
+          if (!dateKey || slot < 1 || slot > 3 || !text) return;
+          let day = database.days.find((record) => record.date === dateKey);
+          if (!day) {
+            day = { date: dateKey, items: normaliseFrogsForDatabase([]), updated_at: now };
+            database.days.push(day);
+          }
+          const frog = day.items.find((record) => Number(record.slot) === slot);
+          if (frog) {
+            frog.text = text;
+            frog.done = Boolean(item.done);
+          }
+          day.updated_at = now;
+        });
+        database.days.sort((left, right) => left.date.localeCompare(right.date));
+      }
+
+      function collectMonthlyBacklog(months) {
+        return (months || []).flatMap((record) => (record.items || []).map((item) => ({
+          month: record.month,
+          id: item.id || createClientId("month"),
+          text: String(item.text || "").trim(),
+          done: Boolean(item.done),
+          created_at: item.created_at || null,
+          updated_at: item.updated_at || record.updated_at || null
+        }))).filter((item) => item.month && item.text && !item.done)
+          .sort((left, right) => left.month.localeCompare(right.month) || left.text.localeCompare(right.text));
+      }
+
+      function applyMonthlyBacklog(database, backlog, now) {
+        (backlog || []).forEach((item) => {
+          const month = /^\d{4}-\d{2}$/.test(String(item.month || "")) ? item.month : "";
+          const text = String(item.text || "").trim();
+          if (!month || !text) return;
+          let record = database.months.find((entry) => entry.month === month);
+          if (!record) {
+            record = { month, items: [], updated_at: now };
+            database.months.push(record);
+          }
+          const id = item.id || createClientId("month");
+          let existing = record.items.find((entry) => entry.id === id);
+          if (!existing) {
+            existing = { id, text, done: false, created_at: item.created_at || now, updated_at: now };
+            record.items.push(existing);
+          }
+          existing.text = text;
+          existing.done = Boolean(item.done);
+          existing.updated_at = now;
+          record.updated_at = now;
+        });
+        database.months.sort((left, right) => left.month.localeCompare(right.month));
+      }
+
+      function readFallbackDatabase(key, fallback) {
+        try {
+          return JSON.parse(localStorage.getItem(key) || "") || fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function fallbackPath(value) {
+        const [year, month] = value.split("-");
+        return `本机预览 / LifeOS-Vault / 01-Daily / ${year} / ${month} / ${value}.md`;
+      }
+
+      function scheduleSave(label = "正在保存到当天 Markdown…") {
+        if (!state.file) return;
+        setStatus(label);
+        window.clearTimeout(state.timer);
+        state.timer = window.setTimeout(() => saveNow(false), 700);
+      }
+
+      async function saveNow(force) {
+        if (!state.file) return;
+        readPageToForm();
+        const content = buildMarkdown(state.form);
+        if (!force && content === state.lastSavedContent) {
+          const databases = await invoke("save_journal_databases", {
+            date: state.form.date,
+            ...databasePayloadFromForm(state.form)
+          });
+          state.databases = databases;
+          setStatus("已同步三类数据库");
+          return;
+        }
+
+        const token = state.saveToken + 1;
+        state.saveToken = token;
+        window.clearTimeout(state.timer);
+        setStatus("保存中…");
+
+        try {
+          const file = await invoke("save_journal", { date: state.form.date, content });
+          const databases = await invoke("save_journal_databases", {
+            date: state.form.date,
+            ...databasePayloadFromForm(state.form)
+          });
+          if (token !== state.saveToken) return;
+          state.file = file;
+          state.databases = databases;
+          state.form.dayIndex = String(file.day_index || state.form.dayIndex || 1);
+          state.lastSavedContent = buildMarkdown(state.form);
+          updateMasthead();
+          setStatus(file.path ? `已保存 Markdown，并同步三类数据库：${file.path}` : "已保存 Markdown，并同步三类数据库");
+        } catch (error) {
+          if (token !== state.saveToken) return;
+          setStatus(`保存失败：${toErrorMessage(error)}`);
+        }
+      }
+
+      function mergeDatabasesToForm(databases) {
+        state.form.habitDefinitions = normaliseHabitDefinitions(databases?.habit_definitions);
+        applyHabitMarkdownFallback(state.form, state.form.habitDefinitions);
+
+        const frogs = databases?.frogs;
+        if (frogs && (frogs.updated_at || frogs.items?.length)) {
+          (frogs.items || []).forEach((item) => {
+            if (item.slot >= 1 && item.slot <= 3) {
+              state.form[`frog-${item.slot}`] = item.text || "";
+            }
+          });
+        }
+
+        const habits = databases?.habits;
+        if (habits && (habits.updated_at || Object.keys(habits.checks || {}).length)) {
+          activeHabitDefinitions().forEach((definition) => {
+            state.form[definition.id] = Boolean((habits.checks || {})[definition.id]);
+          });
+        }
+
+        const monthly = databases?.monthly;
+        state.form.frogDebt = (databases?.frog_backlog || []).map((item) => ({
+          date: item.date || "",
+          slot: Number(item.slot || 0),
+          text: item.text || "",
+          done: Boolean(item.done),
+          updated_at: item.updated_at || null
+        })).filter((item) => item.date && item.slot && item.text);
+
+        if (Array.isArray(databases?.monthly_backlog)) {
+          state.form.todos = databases.monthly_backlog.map((item) => ({
+            month: item.month || state.form.date.slice(0, 7),
+            id: item.id || createClientId("month"),
+            text: item.text || "",
+            done: Boolean(item.done),
+            created_at: item.created_at || null,
+            updated_at: item.updated_at || null
+          })).filter((item) => item.text);
+        } else if (monthly && (monthly.updated_at || monthly.items?.length)) {
+          state.form.todos = (monthly.items || []).filter((item) => !item.done).map((item) => ({
+            month: monthly.month || state.form.date.slice(0, 7),
+            id: item.id || createClientId("month"),
+            text: item.text || "",
+            done: Boolean(item.done),
+            created_at: item.created_at || null,
+            updated_at: item.updated_at || null
+          })).filter((item) => item.text);
+        }
+      }
+
+      function databasePayloadFromForm(form) {
+        return {
+          frogs: collectFrogsForDatabase(form),
+          habits: collectHabitsForDatabase(form),
+          monthly: collectCurrentMonthlyForDatabase(form),
+          frog_backlog: collectFrogBacklogForDatabase(form),
+          monthly_backlog: collectMonthlyBacklogForDatabase(form)
+        };
+      }
+
+      function collectFrogsForDatabase(form) {
+        return [1, 2, 3].map((slot) => {
+          const text = String(form[`frog-${slot}`] || "");
+          const previous = (state.databases?.frogs?.items || []).find((item) => Number(item.slot) === slot);
+          const previousText = String(previous?.text || "");
+          return {
+            slot,
+            text,
+            done: previousText.trim() === text.trim() ? Boolean(previous?.done) : false
+          };
+        });
+      }
+
+      function collectHabitsForDatabase(form) {
+        return Object.fromEntries(
+          activeHabitDefinitions(form).map((definition) => [definition.id, Boolean(form[definition.id])])
+        );
+      }
+
+      function collectFrogBacklogForDatabase(form) {
+        return (form.frogDebt || []).map((item) => ({
+          date: item.date || "",
+          slot: Number(item.slot || 0),
+          text: String(item.text || "").trim(),
+          done: Boolean(item.done),
+          updated_at: item.updated_at || null
+        })).filter((item) => item.date && item.slot >= 1 && item.slot <= 3 && item.text);
+      }
+
+      function collectCurrentMonthlyForDatabase(form) {
+        const month = form.date.slice(0, 7);
+        const byId = new Map();
+        (state.databases?.monthly?.items || []).filter((item) => item.done && item.text).forEach((item) => {
+          const id = item.id || createClientId("month");
+          byId.set(id, {
+            id,
+            text: item.text || "",
+            done: Boolean(item.done),
+            created_at: item.created_at || null,
+            updated_at: item.updated_at || null
+          });
+        });
+        (form.todos || []).filter((item) => (item.month || month) === month).forEach((item) => {
+          const id = item.id || createClientId("month");
+          byId.set(id, {
+            id,
+            text: String(item.text || "").trim(),
+            done: Boolean(item.done),
+            created_at: item.created_at || null,
+            updated_at: item.updated_at || null
+          });
+        });
+        return Array.from(byId.values()).filter((item) => item.text);
+      }
+
+      function collectMonthlyBacklogForDatabase(form) {
+        const month = form.date.slice(0, 7);
+        return (form.todos || []).map((item) => ({
+          month: item.month || month,
+          id: item.id || createClientId("month"),
+          text: String(item.text || "").trim(),
+          done: Boolean(item.done),
+          created_at: item.created_at || null,
+          updated_at: item.updated_at || null
+        })).filter((item) => item.month && item.text);
+      }
+
+      function applyFormToPage() {
+        renderHabitChecks(activeHabitDefinitions());
+        dataSaveFields().forEach((field) => {
+          const value = state.form[field.dataset.save];
+          if (field.type === "checkbox") {
+            field.checked = Boolean(value);
+          } else if (value !== undefined) {
+            field.value = value;
+          }
+        });
+        setMood(state.form.mood || "元气", false);
+        setRating(Number(state.form.rating || 4), false);
+        renderFrogDebt(state.form.frogDebt || []);
+        renderTodos(state.form.todos || []);
+        updateDerivedLabels();
+      }
+
+      function readPageToForm() {
+        dataSaveFields().forEach((field) => {
+          state.form[field.dataset.save] = field.type === "checkbox" ? field.checked : field.value;
+        });
+        state.form.habitDefinitions = activeHabitDefinitions();
+        state.form.mood = document.querySelector(".mood-btn.is-active")?.dataset.mood || state.form.mood || "元气";
+        state.form.rating = String(activeRating() || state.form.rating || 4);
+        state.form.todos = Array.from(todoList.querySelectorAll(".todo-item")).map((item) => ({
+          id: item.dataset.id || createClientId("month"),
+          month: item.dataset.month || state.form.date.slice(0, 7),
+          text: item.querySelector(".todo-text")?.textContent.trim() || "",
+          done: Boolean(item.querySelector("input")?.checked),
+          created_at: item.dataset.createdAt ? Number(item.dataset.createdAt) : null,
+          updated_at: item.dataset.updatedAt ? Number(item.dataset.updatedAt) : null
+        })).filter((todo) => todo.text);
+        state.form.frogDebt = Array.from(frogDebtList.querySelectorAll(".debt-item")).map((item) => ({
+          date: item.dataset.date || "",
+          slot: Number(item.dataset.slot || 0),
+          text: item.querySelector(".debt-text")?.textContent.trim() || "",
+          done: Boolean(item.querySelector("input")?.checked),
+          updated_at: item.dataset.updatedAt ? Number(item.dataset.updatedAt) : null
+        })).filter((frog) => frog.date && frog.slot && frog.text);
+      }
+
+      function setMood(mood, updateForm = true) {
+        moodButtons.forEach((button) => {
+          const active = button.dataset.mood === mood;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
+        document.getElementById("moodLabel").textContent = mood;
+        if (updateForm) state.form.mood = mood;
+      }
+
+      function setRating(value, updateForm = true) {
+        ratingButtons.forEach((button) => {
+          button.classList.toggle("is-active", Number(button.dataset.rating) <= value);
+        });
+        if (updateForm) state.form.rating = String(value);
+      }
+
+      function activeRating() {
+        return ratingButtons.filter((button) => button.classList.contains("is-active")).length;
+      }
+
+      function renderHabitChecks(definitions) {
+        if (!habitCheckList) return;
+        habitCheckList.innerHTML = "";
+        normaliseHabitDefinitions(definitions).forEach((definition) => {
+          const item = document.createElement("li");
+          item.className = "check-item";
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.dataset.save = definition.id;
+          input.checked = Boolean(state.form[definition.id]);
+          input.setAttribute("aria-label", definition.label);
+          const label = document.createElement("span");
+          label.textContent = definition.label;
+          item.append(input, label);
+          habitCheckList.append(item);
+        });
+      }
+
+      function renderFrogDebt(items) {
+        frogDebtList.innerHTML = "";
+        const visibleItems = (items || []).filter((item) => item.text);
+        if (!visibleItems.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty-row";
+          empty.textContent = "没有未完成青蛙";
+          frogDebtList.append(empty);
+          updateFrogDebtCount();
+          return;
+        }
+
+        visibleItems.forEach((frog) => {
+          const item = document.createElement("li");
+          item.className = `debt-item${frog.done ? " is-done" : ""}`;
+          item.dataset.date = frog.date || "";
+          item.dataset.slot = String(frog.slot || "");
+          if (frog.updated_at) item.dataset.updatedAt = String(frog.updated_at);
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = Boolean(frog.done);
+          checkbox.setAttribute("aria-label", "完成这只青蛙");
+          const text = document.createElement("span");
+          text.className = "debt-text";
+          text.textContent = frog.text;
+          const meta = document.createElement("span");
+          meta.className = "debt-meta";
+          const date = document.createElement("time");
+          date.dateTime = frog.date || "";
+          date.textContent = frog.date || "未记录";
+          const slot = document.createElement("span");
+          slot.className = "debt-slot";
+          slot.textContent = `#${frog.slot || "-"}`;
+          meta.append(date, slot);
+          checkbox.addEventListener("change", () => item.classList.toggle("is-done", checkbox.checked));
+          item.append(checkbox, text, meta);
+          frogDebtList.append(item);
+        });
+        updateFrogDebtCount();
+      }
+
+      function renderTodos(todos) {
+        todoList.innerHTML = "";
+        const month = state.form.date.slice(0, 7);
+        const visibleTodos = (todos || []).filter((todo) => todo.text);
+        if (!visibleTodos.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty-row";
+          empty.textContent = "没有未完成事项";
+          todoList.append(empty);
+          updateTodoCount();
+          return;
+        }
+        visibleTodos.forEach((todo) => {
+          const item = document.createElement("li");
+          item.className = `todo-item${todo.done ? " is-done" : ""}`;
+          item.dataset.id = todo.id || createClientId("month");
+          item.dataset.month = todo.month || month;
+          if (todo.created_at) item.dataset.createdAt = String(todo.created_at);
+          if (todo.updated_at) item.dataset.updatedAt = String(todo.updated_at);
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = Boolean(todo.done);
+          checkbox.setAttribute("aria-label", "完成本月事项");
+          const text = document.createElement("span");
+          text.className = "todo-text";
+          text.textContent = todo.text;
+          const meta = document.createElement("time");
+          meta.className = "todo-meta";
+          meta.dateTime = item.dataset.month;
+          meta.textContent = item.dataset.month === month ? "本月" : item.dataset.month;
+          const button = document.createElement("button");
+          button.className = "delete-todo";
+          button.type = "button";
+          button.setAttribute("aria-label", "删除本月事项");
+          button.textContent = "×";
+          button.addEventListener("click", () => item.remove());
+          checkbox.addEventListener("change", () => item.classList.toggle("is-done", checkbox.checked));
+          item.append(checkbox, text, meta);
+          if (item.dataset.month === month) item.append(button);
+          todoList.append(item);
+        });
+        updateTodoCount();
+      }
+
+      function addMonthlyItem(text) {
+        const cleanText = String(text || "").trim();
+        if (!cleanText) return false;
+        const now = Math.floor(Date.now() / 1000);
+        readPageToForm();
+        const item = {
+          id: createClientId("month"),
+          month: state.form.date.slice(0, 7),
+          text: cleanText,
+          done: false,
+          created_at: now,
+          updated_at: now
+        };
+        renderTodos([...(state.form.todos || []), item]);
+        readPageToForm();
+        return true;
+      }
+
+      function updateDerivedLabels() {
+        const energy = document.querySelector('[data-save="energy"]');
+        const confidence = document.querySelector('[data-save="half-year-confidence"]');
+        const message = document.querySelector('[data-save="self-message"]');
+        if (energyValue && energy) energyValue.textContent = energy.value;
+        if (goalConfidenceValue && confidence) goalConfidenceValue.textContent = confidence.value;
+        if (messageCount && message) messageCount.textContent = String(message.value.trim().length);
+        updateFrogDebtCount();
+        updateTodoCount();
+      }
+
+      function updateFrogDebtCount() {
+        const items = Array.from(frogDebtList.querySelectorAll(".debt-item"));
+        const open = items.filter((item) => !item.querySelector("input")?.checked).length;
+        if (frogDebtCount) frogDebtCount.textContent = `${open} 项未完成`;
+      }
+
+      function updateTodoCount() {
+        const items = Array.from(todoList.querySelectorAll(".todo-item"));
+        const done = items.filter((item) => item.querySelector("input")?.checked).length;
+        if (todoCount) todoCount.textContent = `${Math.max(0, items.length - done)} 项未完成`;
+      }
+
+      function updateMasthead() {
+        const currentDate = parseDateKey(state.form.date);
+        const dayTitle = `第 ${Number(state.form.dayIndex) || 1} 天`;
+        document.querySelector(".day-title h1").textContent = dayTitle;
+        document.querySelector(".streak").textContent = `连续记录 ${Number(state.form.dayIndex) || 1} 天`;
+        document.querySelector(".meta-line").textContent = `${state.form.date.replaceAll("-", ".")} · ${weekdayLabel(currentDate)} · LifeOS Daily`;
+        document.querySelector(".weather-chip").textContent = `${weekdayLabel(currentDate)} · 早间记录`;
+      }
+
+      function buildMarkdown(form) {
+        const frogs = [form["frog-1"], form["frog-2"], form["frog-3"]].map((value) => String(value || "").trim());
+        const habits = activeHabitDefinitions(form).map((definition) => [definition.label, form[definition.id]]);
+        const bodyChecks = [
+          ["喝够水", form["health-water"]],
+          ["散步或运动", form["health-walk"]]
+        ];
+        const todos = form.todos || [];
+        return [
+          "---",
+          "type: daily",
+          `date: ${form.date}`,
+          `day_index: ${form.dayIndex || ""}`,
+          `mood: ${form.mood || ""}`,
+          `energy: ${form.energy || ""}`,
+          `rating: ${form.rating || ""}`,
+          `half_year_confidence: ${form["half-year-confidence"] || ""}`,
+          "tags:",
+          "  - daily",
+          "  - morning",
+          "---",
+          "",
+          `# 第 ${Number(form.dayIndex) || 1} 天`,
+          "",
+          "## 规划今天",
+          `- 心情：${form.mood || ""}`,
+          `- 能量：${form.energy || ""}`,
+          `- 星级：${form.rating || ""}`,
+          "",
+          "## 三只青蛙",
+          `1. ${frogs[0] || ""}`,
+          `2. ${frogs[1] || ""}`,
+          `3. ${frogs[2] || ""}`,
+          "",
+          "## 我想成为怎样的人",
+          textOrBlank(form["self-message"]),
+          "",
+          "## 理解昨天",
+          habits.map(([label, checked]) => `- [${checked ? "x" : " "}] ${label}`).join("\n"),
+          "",
+          "## 昨日有没有日拱一卒",
+          `- 进：${form["yesterday-progress"] || ""}`,
+          `- 卡：${form["yesterday-stuck"] || ""}`,
+          `- 学：${form["yesterday-learn"] || ""}`,
+          "",
+          "## 身体健康注意了吗",
+          `- 睡眠：${form["health-sleep"] || ""}`,
+          `- 身体信号：${form["health-signal"] || ""}`,
+          bodyChecks.map(([label, checked]) => `- [${checked ? "x" : " "}] ${label}`).join("\n"),
+          "",
+          "## 看见未来",
+          todos.length ? todos.map((todo) => {
+            const prefix = todo.month && todo.month !== form.date.slice(0, 7) ? `${todo.month} · ` : "";
+            return `- [${todo.done ? "x" : " "}] ${prefix}${todo.text}`;
+          }).join("\n") : "- [ ] ",
+          "",
+          "## 半年目标",
+          `1. ${form["half-year-identity"] || ""}`,
+          `2. ${form["half-year-proof"] || ""}`,
+          `- 把握：${form["half-year-confidence"] || ""}`,
+          "",
+          "## 其他想记录的",
+          textOrBlank(form["brain-dump"]),
+          ""
+        ].join("\n");
+      }
+
+      function parseMarkdown(markdown, valueDate) {
+        const form = defaultForm(valueDate);
+        const frontmatter = extractFrontmatter(markdown);
+        form.dayIndex = frontmatter.day_index || frontmatter.day || form.dayIndex;
+        form.mood = frontmatter.mood || form.mood;
+        form.energy = frontmatter.energy || form.energy;
+        form.rating = frontmatter.rating || form.rating;
+        form["half-year-confidence"] = frontmatter.half_year_confidence || form["half-year-confidence"];
+
+        const sections = splitSections(stripFrontmatter(markdown));
+        parseStatusLines(findSection(sections, ["规划今天", "今日状态"])).forEach(([key, value]) => {
+          if (key === "心情") form.mood = value || form.mood;
+          if (key === "能量") form.energy = value || form.energy;
+          if (key === "星级") form.rating = value || form.rating;
+        });
+
+        const frogs = parseNumberedList(findSection(sections, ["三只青蛙", "今天最重要的三件事", "今天要吃掉哪三只青蛙"]));
+        form["frog-1"] = frogs[0] || "";
+        form["frog-2"] = frogs[1] || "";
+        form["frog-3"] = frogs[2] || "";
+        form["self-message"] = findSection(sections, ["我想成为怎样的人", "今天想成为怎样的人", "今天我想成为怎样的人"]);
+        const habitChecklist = parseChecklistLines(findSection(sections, ["理解昨天", "习惯坚持了吗"]));
+        form.habitChecklistByLabel = Object.fromEntries(habitChecklist.map((item) => [item.label, item.checked]));
+        applyChecklistEntries(form, habitChecklist, {
+          "写了晨间日记": "habit-journal",
+          "推进了核心任务": "habit-focus",
+          "晚上做了简短回看": "habit-review"
+        });
+        parseStatusLines(findSection(sections, ["昨日有没有日拱一卒"])).forEach(([key, value]) => {
+          if (key === "进") form["yesterday-progress"] = value;
+          if (key === "卡") form["yesterday-stuck"] = value;
+          if (key === "学") form["yesterday-learn"] = value;
+        });
+        parseStatusLines(findSection(sections, ["身体健康注意了吗"])).forEach(([key, value]) => {
+          if (key === "睡眠") form["health-sleep"] = value;
+          if (key === "身体信号") form["health-signal"] = value;
+        });
+        applyChecklist(form, findSection(sections, ["身体健康注意了吗"]), {
+          "喝够水": "health-water",
+          "散步或运动": "health-walk"
+        });
+        form.todos = parseTodoLines(findSection(sections, ["看见未来", "本月重要几件事", "今日待办"]));
+        const halfYear = parseNumberedList(findSection(sections, ["半年目标"]));
+        form["half-year-identity"] = halfYear[0] || "";
+        form["half-year-proof"] = halfYear[1] || "";
+        parseStatusLines(findSection(sections, ["半年目标"])).forEach(([key, value]) => {
+          if (key === "把握") form["half-year-confidence"] = value;
+        });
+        form["brain-dump"] = findSection(sections, ["其他想记录的", "自由记录", "其他我想记录的"]);
+        if (!form["brain-dump"]) {
+          form["brain-dump"] = findSection(sections, ["我现在的状态", "现在的我"]);
+        }
+        return form;
+      }
+
+      function defaultForm(valueDate, dayIndex = "") {
+        return {
+          date: valueDate,
+          dayIndex: String(dayIndex || ""),
+          mood: "元气",
+          rating: "4",
+          energy: "6",
+          "half-year-confidence": "5",
+          habitDefinitions: habitDefinitions(),
+          habitChecklistByLabel: {},
+          frogDebt: [],
+          todos: []
+        };
+      }
+
+      function habitDefinitions() {
+        return [
+          { id: "habit-journal", label: "写了晨间日记" },
+          { id: "habit-focus", label: "推进了核心任务" },
+          { id: "habit-review", label: "晚上做了简短回看" }
+        ];
+      }
+
+      function normaliseHabitDefinitions(definitions) {
+        const seen = new Set();
+        const result = (definitions || []).map((definition) => ({
+          id: String(definition.id || "").trim(),
+          label: String(definition.label || "").trim()
+        })).filter((definition) => {
+          if (!definition.id || !definition.label || seen.has(definition.id)) return false;
+          seen.add(definition.id);
+          return true;
+        });
+        return result.length ? result : habitDefinitions();
+      }
+
+      function activeHabitDefinitions(form = state.form) {
+        return normaliseHabitDefinitions(form?.habitDefinitions || state.databases?.habit_definitions);
+      }
+
+      function applyHabitMarkdownFallback(form, definitions) {
+        const byLabel = form.habitChecklistByLabel || {};
+        normaliseHabitDefinitions(definitions).forEach((definition) => {
+          if (form[definition.id] === undefined && Object.prototype.hasOwnProperty.call(byLabel, definition.label)) {
+            form[definition.id] = Boolean(byLabel[definition.label]);
+          }
+        });
+      }
+
+      function normaliseFrogsForDatabase(frogs) {
+        const bySlot = new Map((frogs || []).map((item) => [Number(item.slot), item]));
+        return [1, 2, 3].map((slot) => {
+          const item = bySlot.get(slot) || {};
+          return {
+            slot,
+            text: String(item.text || "").trim(),
+            done: Boolean(item.done)
+          };
+        });
+      }
+
+      function normaliseMonthlyForDatabase(items, month, now) {
+        return (items || []).map((item, index) => ({
+          id: item.id || `${month}-${index + 1}-${now}`,
+          text: String(item.text || "").trim(),
+          done: Boolean(item.done),
+          created_at: item.created_at || now,
+          updated_at: now
+        })).filter((item) => item.text);
+      }
+
+      function createClientId(prefix) {
+        if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
+        return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      function extractFrontmatter(markdown) {
+        const frontmatter = {};
+        if (!markdown || !markdown.startsWith("---")) return frontmatter;
+        const end = markdown.indexOf("\n---", 3);
+        if (end === -1) return frontmatter;
+        markdown.slice(3, end).split(/\r?\n/).forEach((line) => {
+          const index = line.indexOf(":");
+          if (index === -1) return;
+          frontmatter[line.slice(0, index).trim()] = line.slice(index + 1).trim();
+        });
+        return frontmatter;
+      }
+
+      function stripFrontmatter(markdown) {
+        if (!markdown || !markdown.startsWith("---")) return markdown || "";
+        const end = markdown.indexOf("\n---", 3);
+        return end === -1 ? markdown : markdown.slice(end + 4).trimStart();
+      }
+
+      function splitSections(markdown) {
+        const sections = [];
+        let current = null;
+        markdown.split(/\r?\n/).forEach((line) => {
+          if (line.startsWith("## ")) {
+            if (current) sections.push(current);
+            current = { title: line.slice(3).trim(), body: "" };
+            return;
+          }
+          if (current) current.body += `${line}\n`;
+        });
+        if (current) sections.push(current);
+        return sections.map((section) => ({ title: section.title, body: section.body.trim() }));
+      }
+
+      function findSection(sections, names) {
+        const section = sections.find((item) => names.includes(item.title));
+        return section ? section.body.trim() : "";
+      }
+
+      function parseNumberedList(text) {
+        return splitLines(text).map((line) => line.replace(/^\d+[.、]\s*/, "").trim()).filter(Boolean);
+      }
+
+      function parseTodoLines(text) {
+        return splitLines(text).map((line) => {
+          const done = /^-\s+\[[xX]\]\s*/.test(line);
+          const clean = line.replace(/^-\s+\[[ xX]\]\s*/, "").trim();
+          return clean ? { text: clean, done } : null;
+        }).filter(Boolean);
+      }
+
+      function parseStatusLines(text) {
+        return splitLines(text).map((line) => {
+          const clean = line.replace(/^-\s*/, "");
+          const index = clean.indexOf("：");
+          if (index === -1) return null;
+          return [clean.slice(0, index).trim(), clean.slice(index + 1).trim()];
+        }).filter(Boolean);
+      }
+
+      function parseChecklistLines(text) {
+        return splitLines(text).map((line) => {
+          const checked = /^-\s+\[[xX]\]\s*/.test(line);
+          const label = line.replace(/^-\s+\[[ xX]\]\s*/, "").trim();
+          return label ? { label, checked } : null;
+        }).filter(Boolean);
+      }
+
+      function applyChecklistEntries(form, entries, map) {
+        entries.forEach((entry) => {
+          if (map[entry.label]) form[map[entry.label]] = entry.checked;
+        });
+      }
+
+      function applyChecklist(form, text, map) {
+        applyChecklistEntries(form, parseChecklistLines(text), map);
+      }
+
+      function splitLines(text) {
+        return String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      }
+
+      function textOrBlank(value) {
+        return String(value || "").trim();
+      }
+
+      function formatDate(dateObject) {
+        const year = dateObject.getFullYear();
+        const month = String(dateObject.getMonth() + 1).padStart(2, "0");
+        const day = String(dateObject.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      function normaliseDate(value) {
+        return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : "";
+      }
+
+      function parseDateKey(value) {
+        const [year, month, day] = value.split("-").map(Number);
+        return new Date(year, month - 1, day);
+      }
+
+      function weekdayLabel(dateObject) {
+        return `周${"日一二三四五六"[dateObject.getDay()]}`;
+      }
+
+      function setStatus(text) {
+        if (status) status.textContent = text;
+      }
+
+      function toErrorMessage(error) {
+        if (typeof error === "string") return error;
+        if (error?.message) return error.message;
+        return "操作失败";
+      }
+    })();
+  </script>
+</body>
+</html>
