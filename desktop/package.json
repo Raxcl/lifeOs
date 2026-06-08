@@ -1,0 +1,16 @@
+{
+  "name": "lifeos-morning-journal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tauri desktop app for the LifeOS morning journal.",
+  "scripts": {
+    "pretauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\scripts\\apply-app-icon.ps1 -SkipWhenUnconfigured",
+    "tauri:dev": "tauri dev --no-dev-server",
+    "pretauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\scripts\\apply-app-icon.ps1 -SkipWhenUnconfigured",
+    "tauri:build": "tauri build",
+    "tauri:icon": "tauri icon"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2"
+  }
+}

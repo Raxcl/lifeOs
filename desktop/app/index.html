@@ -1,0 +1,5071 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LifeOS 晨间日记</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f5f6f3;
+      --surface: #fffdf8;
+      --surface-soft: #f8f9f5;
+      --ink: #242821;
+      --muted: #667064;
+      --line: #d9ded5;
+      --line-strong: #bfc8bc;
+      --green: #2f735d;
+      --green-soft: #e5f0ea;
+      --blue: #426f8f;
+      --blue-soft: #e6eef4;
+      --coral: #b96657;
+      --coral-soft: #f7e5df;
+      --gold: #a67a2c;
+      --gold-soft: #f6eedb;
+      --shadow: 0 18px 52px rgba(44, 50, 42, 0.12);
+      --radius: 8px;
+      --journal-bg: var(--page);
+      --card-bg: var(--surface);
+      --card-border: rgba(36, 40, 33, 0.12);
+      --card-shadow: none;
+      --card-no-bg: var(--surface-soft);
+      --card-no-color: var(--green);
+      --input-bg: #fffefa;
+      --theme-line: rgba(36, 40, 33, 0.08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    html[data-ui-theme="notion"] {
+      --page: #f6f6f4;
+      --surface: #fffefb;
+      --surface-soft: #f3f3f0;
+      --ink: #252525;
+      --muted: #6e6e68;
+      --line: #deded8;
+      --green: #3f7057;
+      --green-soft: #e8eee9;
+      --blue: #4f6f87;
+      --blue-soft: #e9eef2;
+      --coral: #a86a5f;
+      --coral-soft: #f2e5e1;
+      --journal-bg: #f6f6f4;
+      --card-bg: #fffefb;
+      --card-border: rgba(37, 37, 37, 0.12);
+      --card-shadow: none;
+      --card-no-bg: #f4f4f1;
+      --card-no-color: #555a52;
+      --input-bg: #fffefb;
+    }
+
+    html[data-ui-theme="sunrise"] {
+      --page: #f6f3ec;
+      --surface: #fffdf6;
+      --surface-soft: #f8f2e6;
+      --ink: #2d2b24;
+      --muted: #706958;
+      --line: #dfd4c3;
+      --green: #39745e;
+      --green-soft: #e5efe6;
+      --blue: #4f7488;
+      --blue-soft: #e4eef2;
+      --coral: #c26c5d;
+      --coral-soft: #f7e1d8;
+      --gold: #b18334;
+      --gold-soft: #f5ecd3;
+      --journal-bg: #f6f1e7;
+      --card-bg: #fffdf6;
+      --card-border: rgba(116, 86, 45, 0.18);
+      --card-shadow: 0 10px 24px rgba(115, 83, 45, 0.08);
+      --card-no-bg: #f8ead6;
+      --card-no-color: #a7633b;
+      --input-bg: #fffdfa;
+    }
+
+    html[data-ui-theme="desk"] {
+      --page: #eef3f2;
+      --surface: #fbfdfc;
+      --surface-soft: #edf4f3;
+      --ink: #1f2a2a;
+      --muted: #5d6968;
+      --line: #cbd8d6;
+      --green: #246e62;
+      --green-soft: #dfecea;
+      --blue: #275f83;
+      --blue-soft: #ddeaf1;
+      --coral: #9b655d;
+      --coral-soft: #f0e2de;
+      --journal-bg: #edf3f2;
+      --card-bg: #fbfdfc;
+      --card-border: rgba(31, 42, 42, 0.16);
+      --card-shadow: none;
+      --card-no-bg: #e1ecea;
+      --card-no-color: #246e62;
+      --input-bg: #ffffff;
+      --theme-line: rgba(39, 95, 131, 0.10);
+    }
+
+    html[data-ui-theme="anime"] {
+      --page: #f7f3fb;
+      --surface: #fffaff;
+      --surface-soft: #f8eff8;
+      --ink: #2c2933;
+      --muted: #71687a;
+      --line: #e2d4e6;
+      --green: #3b7a73;
+      --green-soft: #e3f1ee;
+      --blue: #547aa7;
+      --blue-soft: #e4eef9;
+      --coral: #cf6d8a;
+      --coral-soft: #f9e1ec;
+      --gold: #b28a38;
+      --gold-soft: #f6efd8;
+      --journal-bg: #f8f2fa;
+      --card-bg: #fffaff;
+      --card-border: rgba(132, 94, 145, 0.20);
+      --card-shadow: 0 12px 28px rgba(102, 79, 125, 0.11);
+      --card-no-bg: #f7e2ef;
+      --card-no-color: #c05d87;
+      --input-bg: #fffefe;
+      --theme-line: rgba(84, 122, 167, 0.10);
+    }
+
+    html[data-ui-theme="whimsy"] {
+      --page: #e9f2dc;
+      --surface: #fff8e6;
+      --surface-soft: #f6edcf;
+      --ink: #4f3d19;
+      --muted: #80663b;
+      --line: #dec891;
+      --line-strong: #b99350;
+      --green: #78a34d;
+      --green-soft: #dceeb8;
+      --blue: #6c9da8;
+      --blue-soft: #dcefed;
+      --coral: #d3777b;
+      --coral-soft: #f7d8cf;
+      --gold: #dda239;
+      --gold-soft: #f7e6a0;
+      --journal-bg: #fff7e6;
+      --card-bg: #fff9ec;
+      --card-border: rgba(150, 116, 57, 0.24);
+      --card-shadow: 0 18px 32px rgba(84, 63, 27, 0.12);
+      --card-no-bg: #e7ae42;
+      --card-no-color: #fffdf4;
+      --input-bg: rgba(255, 253, 244, 0.78);
+      --theme-line: rgba(174, 139, 78, 0.13);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+    }
+
+    @keyframes cardIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px) rotate(calc(var(--tilt, 0deg) + 0.35deg));
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) rotate(var(--tilt, 0deg));
+      }
+    }
+
+    @keyframes dotBreath {
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 0.78;
+      }
+
+      50% {
+        transform: scale(1.45);
+        opacity: 1;
+      }
+    }
+
+    @keyframes statusPulse {
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(66, 111, 143, 0);
+      }
+
+      50% {
+        box-shadow: 0 0 0 4px rgba(66, 111, 143, 0.12);
+      }
+    }
+
+    @keyframes bookmarkSway {
+      0%,
+      100% {
+        transform: rotate(1.6deg) translateY(0);
+      }
+
+      50% {
+        transform: rotate(-1deg) translateY(5px);
+      }
+    }
+
+    @keyframes storyLine {
+      from {
+        transform: scaleX(0);
+        opacity: 0;
+      }
+
+      to {
+        transform: scaleX(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes pageTurn {
+      0% {
+        opacity: 0;
+        transform: rotateY(-34deg) translateX(-10px);
+      }
+
+      24% {
+        opacity: 0.84;
+      }
+
+      100% {
+        opacity: 0;
+        transform: rotateY(14deg) translateX(72px);
+      }
+    }
+
+    @keyframes pageFloat {
+      0%,
+      100% {
+        transform: translateY(0) rotate(0.8deg);
+      }
+
+      50% {
+        transform: translateY(-8px) rotate(-0.45deg);
+      }
+    }
+
+    @keyframes spineGlow {
+      0%,
+      100% {
+        opacity: 0.34;
+      }
+
+      50% {
+        opacity: 0.74;
+      }
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      outline: none;
+      background: var(--input-bg);
+      color: var(--ink);
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(47, 115, 93, 0.12);
+    }
+
+    input[type="text"],
+    input[type="time"],
+    input[type="number"] {
+      min-height: 38px;
+      padding: 8px 10px;
+    }
+
+    textarea {
+      min-height: 118px;
+      padding: 11px 12px;
+      line-height: 1.62;
+      resize: vertical;
+    }
+
+    input[type="range"] {
+      accent-color: var(--green);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    .page {
+      width: calc(100% - 16px);
+      margin: 0 auto;
+      padding: 8px 0 16px;
+    }
+
+    .app {
+      min-height: calc(100vh - 24px);
+      overflow: hidden;
+      border: 1px solid rgba(36, 40, 33, 0.13);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(36, 40, 33, 0.12);
+      background: var(--surface);
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(36, 40, 33, 0.18);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--green);
+      font-weight: 900;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .brand p,
+    .meta,
+    .path,
+    .journal-meta,
+    .day-panel p,
+    .card p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+    }
+
+    .topbar-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid rgba(36, 40, 33, 0.18);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, 0.78);
+      color: var(--ink);
+      font-weight: 850;
+      line-height: 1;
+      transition: transform 120ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .icon-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(36, 40, 33, 0.28);
+      background: rgba(255, 248, 228, 0.92);
+    }
+
+    .icon-btn:focus-visible {
+      outline: 2px solid rgba(47, 115, 93, 0.42);
+      outline-offset: 3px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 13px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: #fffdf8;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .btn.secondary {
+      border-color: rgba(36, 40, 33, 0.24);
+      background: rgba(255, 253, 248, 0.76);
+      color: var(--ink);
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .calendar-layout {
+      display: grid;
+      grid-template-columns: minmax(248px, 292px) minmax(0, 1fr) 320px;
+      gap: 14px;
+      padding: 16px;
+      background: var(--journal-bg);
+    }
+
+    .calendar-anchor {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(188px, 280px);
+      gap: 12px;
+      align-items: center;
+      overflow: hidden;
+      padding: 18px 20px;
+      border: 1px solid var(--card-border);
+      border-radius: calc(var(--radius) + 10px);
+      background:
+        linear-gradient(135deg, rgba(237, 244, 236, 0.86), rgba(255, 253, 248, 0.78)),
+        var(--surface);
+      box-shadow: 0 14px 34px rgba(44, 50, 42, 0.06);
+    }
+
+    .anchor-copy {
+      min-width: 0;
+    }
+
+    .anchor-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--green);
+      font-size: 0.88rem;
+      font-weight: 900;
+    }
+
+    .anchor-title::before {
+      content: "✣";
+      color: var(--green);
+      font-size: 0.95rem;
+    }
+
+    .anchor-lines {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      padding: 0 0 0 28px;
+      color: var(--green);
+      font-size: 0.9rem;
+      line-height: 1.55;
+      font-weight: 800;
+    }
+
+    .anchor-art {
+      position: relative;
+      display: grid;
+      min-height: 112px;
+      place-items: end center;
+      margin: -10px -10px -16px 0;
+      align-self: stretch;
+    }
+
+    .anchor-art::before {
+      content: "";
+      position: absolute;
+      right: 4px;
+      bottom: 8px;
+      width: min(92%, 240px);
+      height: 58%;
+      border-radius: 999px;
+      background: rgba(246, 214, 132, 0.20);
+      filter: blur(16px);
+    }
+
+    .anchor-art img {
+      position: relative;
+      z-index: 1;
+      display: block;
+      max-width: min(100%, 268px);
+      max-height: 150px;
+      object-fit: contain;
+      filter: drop-shadow(0 16px 18px rgba(44, 50, 42, 0.10));
+    }
+
+    .anchor-art.is-missing {
+      display: none;
+    }
+
+    .database-preview-panel {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      min-height: calc(100vh - 226px);
+    }
+
+    .calendar-main,
+    .day-panel,
+    .database-preview-card {
+      min-width: 0;
+      border: 1px solid var(--card-border);
+      border-radius: calc(var(--radius) + 10px);
+      background: rgba(255, 253, 248, 0.80);
+      box-shadow: 0 18px 42px rgba(44, 50, 42, 0.08);
+    }
+
+    .calendar-main,
+    .day-panel {
+      min-height: calc(100vh - 226px);
+    }
+
+    .calendar-main {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+      overflow: visible;
+      padding: 18px;
+    }
+
+    .database-preview-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      box-shadow: 0 12px 28px rgba(44, 50, 42, 0.055);
+    }
+
+    .preview-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .preview-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .preview-title h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 0.94rem;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .preview-title span {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 850;
+    }
+
+    .preview-manage {
+      color: var(--green);
+      font-size: 0.74rem;
+      font-weight: 900;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .preview-manage:hover,
+    .preview-manage:focus-visible {
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .preview-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .preview-row {
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      min-height: 34px;
+      padding: 7px 8px;
+      border: 1px solid rgba(36, 40, 33, 0.08);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, 0.70);
+    }
+
+    .preview-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin: 2px 0 0;
+      accent-color: var(--green);
+    }
+
+    .preview-row span {
+      min-width: 0;
+    }
+
+    .preview-text {
+      display: block;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 0.82rem;
+      line-height: 1.38;
+      font-weight: 820;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .preview-meta {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      line-height: 1.2;
+      font-weight: 850;
+    }
+
+    .preview-row.is-done .preview-text {
+      color: var(--muted);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+
+    .preview-empty {
+      min-height: 40px;
+      display: grid;
+      place-items: center start;
+      padding: 8px 10px;
+      border: 1px dashed rgba(36, 40, 33, 0.12);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 850;
+      text-decoration: none;
+    }
+
+    .preview-status {
+      min-height: 16px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 850;
+    }
+
+    .preview-status.error {
+      color: var(--coral);
+    }
+
+    .month-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 0;
+    }
+
+    .month-title {
+      min-width: 0;
+    }
+
+    .month-title h2 {
+      margin: 0;
+      font-size: 1.45rem;
+      letter-spacing: 0;
+    }
+
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+      min-height: 0;
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      scrollbar-width: thin;
+    }
+
+    .weekday {
+      min-height: 34px;
+      padding: 8px;
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      background: rgba(237, 244, 236, 0.82);
+      color: var(--green);
+      font-size: 0.82rem;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .day {
+      display: grid;
+      grid-template-rows: auto auto minmax(24px, 1fr) auto;
+      gap: 7px;
+      min-height: clamp(84px, 9.1vh, 118px);
+      padding: 10px;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      background: rgba(255, 253, 248, 0.76);
+      color: var(--ink);
+      text-align: left;
+      transition: transform 120ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .day:hover {
+      background: rgba(255, 248, 228, 0.92);
+      transform: translateY(-1px);
+    }
+
+    .day.outside {
+      min-height: clamp(84px, 9.1vh, 118px);
+      border-style: dashed;
+      background: rgba(244, 239, 226, 0.44);
+      color: rgba(102, 112, 100, 0.56);
+      transform: none;
+    }
+
+    .day.today {
+      box-shadow: inset 0 0 0 2px var(--green);
+    }
+
+    .day.selected {
+      background: var(--blue-soft);
+      box-shadow: inset 0 0 0 2px var(--blue);
+    }
+
+    .day.has-entry {
+      background: rgba(255, 246, 220, 0.88);
+    }
+
+    .day.weekend {
+      background: rgba(243, 249, 236, 0.84);
+    }
+
+    .day.holiday {
+      background:
+        linear-gradient(180deg, rgba(247, 229, 223, 0.70), rgba(255, 253, 248, 0.82)),
+        var(--surface);
+    }
+
+    .day.workday {
+      background:
+        linear-gradient(180deg, rgba(230, 238, 244, 0.62), rgba(255, 253, 248, 0.82)),
+        var(--surface);
+    }
+
+    .calendar-cell-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .day-number {
+      font-size: 1.08rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .day-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 26px;
+      height: 24px;
+      padding: 0 7px;
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      background: rgba(255, 253, 248, 0.72);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 950;
+    }
+
+    .day.holiday .day-mark {
+      color: var(--coral);
+      background: var(--coral-soft);
+    }
+
+    .day.workday .day-mark {
+      color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .day-title {
+      min-height: 36px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .day.has-entry .day-title {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .day-meta-line {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .dot-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 18px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--green);
+      transform-origin: center;
+    }
+
+    .day.has-entry .dot {
+      animation: dotBreath 3.8s ease-in-out infinite;
+    }
+
+    .tiny {
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .day-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+      padding: 20px;
+    }
+
+    .day-panel::before {
+      content: none;
+      position: absolute;
+      right: -42px;
+      top: -38px;
+      width: 190px;
+      height: 190px;
+      pointer-events: none;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(226, 169, 64, 0.18), transparent 62%);
+    }
+
+    .panel-block {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 10px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(36, 40, 33, 0.10);
+    }
+
+    .panel-block:last-child {
+      margin-top: auto;
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    .database-links {
+      display: grid;
+      gap: 6px;
+    }
+
+    .database-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 38px;
+      padding: 7px 10px;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, 0.54);
+      color: var(--ink);
+      text-decoration: none;
+      transition: transform 120ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .database-link:hover {
+      transform: translateY(-1px);
+      border-color: rgba(36, 40, 33, 0.24);
+      background: rgba(255, 248, 228, 0.88);
+    }
+
+    .database-link:focus-visible {
+      outline: 2px solid rgba(47, 115, 93, 0.42);
+      outline-offset: 3px;
+    }
+
+    .database-link strong {
+      font-size: 0.96rem;
+      line-height: 1.25;
+    }
+
+    .database-link::after {
+      content: "›";
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .selected-day {
+      display: grid;
+      gap: 8px;
+    }
+
+    .selected-day strong {
+      color: var(--coral);
+      font-size: 2.3rem;
+      line-height: 1;
+    }
+
+    .selected-day h2 {
+      margin: 0;
+      font-size: 1.12rem;
+      letter-spacing: 0;
+    }
+
+    .selected-day-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      min-height: 28px;
+      padding: 5px 9px;
+      border: 1px solid rgba(36, 40, 33, 0.13);
+      border-radius: var(--radius);
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 0.78rem;
+      font-weight: 900;
+    }
+
+    .status-chip.empty {
+      background: var(--coral-soft);
+      color: var(--coral);
+    }
+
+    .holiday-chip {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      min-height: 28px;
+      padding: 5px 9px;
+      border: 1px solid rgba(36, 40, 33, 0.13);
+      border-radius: 999px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 900;
+    }
+
+    .holiday-chip.holiday {
+      background: var(--coral-soft);
+      color: var(--coral);
+    }
+
+    .holiday-chip.weekend {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .holiday-chip.workday {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .path {
+      overflow-wrap: anywhere;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.78rem;
+    }
+
+    .notice {
+      min-height: 36px;
+      color: var(--coral);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .settings-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(34, 38, 32, 0.24);
+      backdrop-filter: blur(8px);
+    }
+
+    .settings-overlay[hidden] {
+      display: none !important;
+    }
+
+    .settings-dialog {
+      width: min(640px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      border: 1px solid rgba(36, 40, 33, 0.16);
+      border-radius: calc(var(--radius) + 8px);
+      background: rgba(255, 253, 248, 0.96);
+      box-shadow: 0 28px 70px rgba(44, 50, 42, 0.20);
+    }
+
+    .settings-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 18px 18px 12px;
+      border-bottom: 1px solid rgba(36, 40, 33, 0.10);
+    }
+
+    .settings-head h2 {
+      margin: 0;
+      font-size: 1.08rem;
+      letter-spacing: 0;
+    }
+
+    .settings-head p,
+    .settings-help,
+    .settings-status {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.5;
+    }
+
+    .settings-body {
+      display: grid;
+      gap: 14px;
+      padding: 16px 18px 18px;
+    }
+
+    .settings-field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .settings-field label {
+      color: var(--ink);
+      font-size: 0.88rem;
+      font-weight: 900;
+    }
+
+    .settings-field input,
+    .settings-field select {
+      min-height: 42px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.84rem;
+    }
+
+    .settings-field select {
+      font-family: inherit;
+      font-weight: 850;
+    }
+
+    .settings-field input[readonly] {
+      background: rgba(255, 255, 255, 0.62);
+      color: var(--muted);
+      cursor: default;
+    }
+
+    .settings-path-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .template-fields {
+      display: grid;
+      grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: end;
+    }
+
+    .template-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .settings-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .settings-status {
+      min-height: 22px;
+      margin-right: auto;
+      color: var(--green);
+      font-weight: 850;
+    }
+
+    .settings-status.error {
+      color: var(--coral);
+    }
+
+    .journal-shell {
+      position: relative;
+      overflow: hidden;
+      min-height: calc(100vh - 104px);
+      background:
+        linear-gradient(90deg, var(--theme-line) 0 1px, transparent 1px 100%),
+        linear-gradient(180deg, var(--theme-line) 0 1px, transparent 1px 100%),
+        var(--journal-bg);
+      background-size: 38px 38px, 38px 38px, auto;
+    }
+
+    .journal-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 14% 9%, rgba(166, 122, 44, 0.08), transparent 26%),
+        radial-gradient(circle at 88% 18%, rgba(66, 111, 143, 0.07), transparent 24%);
+      opacity: 0;
+      transition: opacity 220ms ease;
+    }
+
+    .journal-head {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(36, 40, 33, 0.10);
+      background:
+        linear-gradient(90deg, rgba(47, 115, 93, 0.08), transparent 54%),
+        var(--surface);
+    }
+
+    .journal-head::after {
+      content: "";
+      position: absolute;
+      left: 24px;
+      bottom: -1px;
+      width: min(240px, 36vw);
+      height: 2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--green), transparent);
+      transform-origin: left center;
+      animation: storyLine 520ms ease both;
+    }
+
+    .journal-title {
+      min-width: 0;
+    }
+
+    .journal-title h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 1.56rem;
+      font-weight: 950;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .journal-title .journal-meta {
+      display: inline-flex;
+      width: fit-content;
+      margin-top: 8px;
+      padding: 4px 8px;
+      border: 1px solid rgba(36, 40, 33, 0.10);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, 0.68);
+      font-size: 0.82rem;
+    }
+
+    .autosave-dot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 12px;
+      height: 12px;
+      flex: 0 0 12px;
+      border: 2px solid rgba(255, 253, 248, 0.96);
+      border-radius: 999px;
+      background: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 0 1px rgba(36, 40, 33, 0.12);
+      font-size: 0;
+    }
+
+    .autosave-dot.dirty {
+      background: var(--gold);
+    }
+
+    .autosave-dot.saving {
+      background: var(--blue);
+      animation: statusPulse 1.2s ease-in-out infinite;
+    }
+
+    .autosave-dot.error {
+      background: var(--coral);
+    }
+
+    .journal-summary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      padding: 5px 10px;
+      border: 1px solid rgba(36, 40, 33, 0.12);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .journal-layout {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+      min-height: calc(100vh - 182px);
+      padding: 18px;
+    }
+
+    .journal-illustration {
+      display: none;
+    }
+
+    .card-stack {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-auto-rows: minmax(0, 1fr);
+      gap: 12px;
+      min-width: 0;
+      min-height: calc(100vh - 218px);
+    }
+
+    .card {
+      animation: cardIn 420ms ease both;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      min-width: 0;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      background: var(--card-bg);
+      box-shadow: var(--card-shadow);
+      padding: 14px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .card:nth-child(2) { animation-delay: 35ms; }
+    .card:nth-child(3) { animation-delay: 70ms; }
+    .card:nth-child(4) { animation-delay: 105ms; }
+    .card:nth-child(5) { animation-delay: 140ms; }
+    .card:nth-child(6) { animation-delay: 175ms; }
+    .card:nth-child(7) { animation-delay: 210ms; }
+    .card:nth-child(8) { animation-delay: 245ms; }
+    .card:nth-child(9) { animation-delay: 280ms; }
+
+    .card-head {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+
+    .card-no {
+      display: grid;
+      place-items: center;
+      flex: 0 0 32px;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      background: var(--card-no-bg);
+      color: var(--card-no-color);
+      font-size: 0.78rem;
+      font-weight: 900;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 0.96rem;
+      line-height: 1.28;
+      letter-spacing: 0;
+    }
+
+    .card p {
+      margin: 4px 0 0;
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+
+    .card textarea {
+      min-height: 120px;
+      height: 100%;
+      resize: none;
+    }
+
+    .card[data-card="frogs"],
+    .card[data-card="todo"] {
+      background:
+        linear-gradient(180deg, rgba(47, 115, 93, 0.07), transparent 58%),
+        var(--card-bg);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field label,
+    .field-label {
+      display: block;
+      color: var(--ink);
+      font-size: 0.82rem;
+      font-weight: 850;
+      line-height: 1.35;
+    }
+
+    .mood-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .mood-option {
+      position: relative;
+      min-width: 0;
+    }
+
+    .mood-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .mood-option span {
+      display: grid;
+      min-height: 36px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffefa;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 850;
+    }
+
+    .mood-option input:checked + span {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fffdf8;
+    }
+
+    .energy-line {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 34px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .energy-line strong {
+      text-align: right;
+      color: var(--green);
+    }
+
+    .frog-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .frog-row {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .frog-row span {
+      display: grid;
+      place-items: center;
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--blue);
+      font-size: 0.78rem;
+      font-weight: 900;
+    }
+
+    @media (min-width: 1680px) {
+      .page {
+        width: calc(100% - 18px);
+        padding-top: 9px;
+      }
+
+      .journal-layout {
+        gap: 18px;
+        padding: 20px;
+      }
+
+      .card-stack {
+        gap: 14px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+    }
+
+    .style-switcher {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+
+    .style-switcher label {
+      position: relative;
+    }
+
+    .style-switcher input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .style-switcher span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .style-switcher input:checked + span {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fffdf8;
+    }
+
+    html[data-ui-theme="anime"] .journal-head {
+      background:
+        linear-gradient(90deg, rgba(207, 109, 138, 0.18), rgba(84, 122, 167, 0.13), rgba(59, 122, 115, 0.10)),
+        var(--surface);
+    }
+
+    html[data-ui-theme="anime"] .card-no {
+      border-radius: 999px;
+    }
+
+    html[data-ui-theme="anime"] .card:nth-child(3n + 1) {
+      background:
+        linear-gradient(180deg, rgba(207, 109, 138, 0.10), transparent 48%),
+        var(--card-bg);
+    }
+
+    html[data-ui-theme="anime"] .card:nth-child(3n + 2) {
+      background:
+        linear-gradient(180deg, rgba(84, 122, 167, 0.10), transparent 48%),
+        var(--card-bg);
+    }
+
+    html[data-ui-theme="anime"] .card:nth-child(3n) {
+      background:
+        linear-gradient(180deg, rgba(59, 122, 115, 0.10), transparent 48%),
+        var(--card-bg);
+    }
+
+    html[data-ui-theme="whimsy"] body {
+      background: #e9f2dc;
+    }
+
+    html[data-ui-theme="whimsy"] .page {
+      padding: 10px 0 18px;
+    }
+
+    html[data-ui-theme="whimsy"] .app {
+      position: relative;
+      border-color: rgba(95, 111, 72, 0.55);
+      background: #fff4df;
+      box-shadow:
+        0 24px 60px rgba(20, 30, 24, 0.34),
+        0 0 0 8px rgba(197, 215, 163, 0.28);
+    }
+
+    html[data-ui-theme="whimsy"] .app::before,
+    html[data-ui-theme="whimsy"] .app::after {
+      content: none;
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .app::before {
+      top: 0;
+      left: 42px;
+      right: 42px;
+      height: 32px;
+      border-radius: 0 0 7px 7px;
+      background:
+        linear-gradient(90deg, #f0afa9 0 33%, #b9cf92 33% 62%, #f4e594 62% 100%);
+      opacity: 0.74;
+      box-shadow: 0 7px 16px rgba(82, 70, 38, 0.10);
+    }
+
+    html[data-ui-theme="whimsy"] .app::after {
+      top: 118px;
+      right: 0;
+      width: 38px;
+      height: 132px;
+      border: 1px solid rgba(155, 125, 47, 0.30);
+      border-right: 0;
+      border-radius: 7px 0 0 7px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.35), transparent 58%),
+        #f6df78;
+      box-shadow: -7px 8px 18px rgba(83, 67, 30, 0.12);
+    }
+
+    html[data-ui-theme="whimsy"] .topbar {
+      position: relative;
+      z-index: 2;
+      border-bottom-color: rgba(151, 124, 76, 0.22);
+      background: rgba(255, 249, 236, 0.94);
+    }
+
+    html[data-ui-theme="whimsy"] .brand-mark {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255, 252, 238, 0.88);
+      border-radius: 999px;
+      background: #e5b246;
+      color: #fffdf5;
+      box-shadow:
+        0 3px 0 rgba(127, 94, 33, 0.18),
+        0 0 0 1px rgba(145, 102, 38, 0.18);
+      font-size: 0;
+    }
+
+    html[data-ui-theme="whimsy"] .brand-mark::before {
+      content: "✎";
+      font-size: 1.55rem;
+      line-height: 1;
+      transform: rotate(-14deg);
+    }
+
+    html[data-ui-theme="whimsy"] .brand h1 {
+      color: #5b471b;
+      font-size: 1.44rem;
+      font-weight: 950;
+    }
+
+    html[data-ui-theme="whimsy"] .btn {
+      border-color: rgba(138, 100, 28, 0.20);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent),
+        #e2a940;
+      color: #fffdf5;
+      box-shadow: inset 0 -3px 0 rgba(117, 78, 18, 0.15);
+    }
+
+    html[data-ui-theme="whimsy"] .btn.secondary {
+      border-color: rgba(120, 89, 38, 0.20);
+      background: rgba(255, 253, 244, 0.72);
+      color: #5c4924;
+      box-shadow: none;
+    }
+
+    html[data-ui-theme="whimsy"] .calendar-layout {
+      gap: 0;
+      background: #fff7e8;
+    }
+
+    html[data-ui-theme="whimsy"] .calendar-main,
+    html[data-ui-theme="whimsy"] .day-panel {
+      background: #fff8ea;
+    }
+
+    html[data-ui-theme="whimsy"] .calendar {
+      gap: 6px;
+      padding: 6px;
+      border: 2px solid rgba(174, 143, 82, 0.26);
+      background: rgba(255, 252, 239, 0.72);
+      box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.48);
+    }
+
+    html[data-ui-theme="whimsy"] .weekday,
+    html[data-ui-theme="whimsy"] .day {
+      border-radius: 7px;
+    }
+
+    html[data-ui-theme="whimsy"] .weekday {
+      background: rgba(206, 228, 169, 0.78);
+      color: #69823d;
+    }
+
+    html[data-ui-theme="whimsy"] .day {
+      border: 1px solid rgba(167, 135, 79, 0.15);
+      background: rgba(255, 253, 244, 0.72);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+    }
+
+    html[data-ui-theme="whimsy"] .day:hover {
+      background: #fff2c8;
+    }
+
+    html[data-ui-theme="whimsy"] .day.outside {
+      background: rgba(244, 231, 203, 0.56);
+    }
+
+    html[data-ui-theme="whimsy"] .day.today {
+      box-shadow:
+        inset 0 0 0 2px #e4aa3c,
+        inset 0 0 0 5px rgba(255, 250, 231, 0.76);
+    }
+
+    html[data-ui-theme="whimsy"] .day.selected {
+      background: #e4f0bf;
+      box-shadow:
+        inset 0 0 0 2px #7ca84f,
+        0 7px 16px rgba(95, 117, 54, 0.13);
+    }
+
+    html[data-ui-theme="whimsy"] .day.has-entry {
+      background: #fff0b9;
+    }
+
+    html[data-ui-theme="whimsy"] .day-panel {
+      border-left: 1px dashed rgba(171, 139, 78, 0.38);
+    }
+
+    html[data-ui-theme="whimsy"] .panel-block {
+      border-bottom: 1px dashed rgba(171, 139, 78, 0.34);
+    }
+
+    html[data-ui-theme="whimsy"] .selected-day strong {
+      color: #c96f76;
+      text-shadow: 0 2px 0 rgba(255, 250, 237, 0.88);
+    }
+
+    html[data-ui-theme="whimsy"] .status-chip {
+      border-color: rgba(105, 142, 63, 0.24);
+      border-radius: 999px;
+      background: #ddedb7;
+      color: #6d913f;
+    }
+
+    html[data-ui-theme="whimsy"] .status-chip.empty {
+      border-color: rgba(194, 107, 103, 0.23);
+      background: #f7dcd4;
+      color: #b96662;
+    }
+
+    html[data-ui-theme="whimsy"] .calendar-layout {
+      gap: 14px;
+      padding: 16px;
+      background: #fff7e8;
+    }
+
+    html[data-ui-theme="whimsy"] .calendar-main,
+    html[data-ui-theme="whimsy"] .day-panel {
+      border-color: rgba(174, 139, 78, 0.28);
+      border-radius: 24px;
+      background: rgba(255, 250, 237, 0.92);
+      box-shadow: 0 18px 38px rgba(84, 63, 27, 0.10);
+    }
+
+    html[data-ui-theme="whimsy"] .calendar {
+      gap: 8px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    html[data-ui-theme="whimsy"] .weekday {
+      border: 1px solid rgba(105, 142, 63, 0.20);
+      border-radius: 999px;
+    }
+
+    html[data-ui-theme="whimsy"] .day {
+      border: 1px solid rgba(167, 135, 79, 0.17);
+      border-radius: 16px;
+      background: rgba(255, 253, 244, 0.76);
+    }
+
+    html[data-ui-theme="whimsy"] .day.weekend {
+      background: rgba(237, 247, 218, 0.82);
+    }
+
+    html[data-ui-theme="whimsy"] .day.holiday {
+      background:
+        linear-gradient(180deg, rgba(247, 220, 212, 0.78), rgba(255, 253, 244, 0.84)),
+        #fffdf4;
+    }
+
+    html[data-ui-theme="whimsy"] .day.workday {
+      background:
+        linear-gradient(180deg, rgba(230, 238, 244, 0.72), rgba(255, 253, 244, 0.84)),
+        #fffdf4;
+    }
+
+    html[data-ui-theme="whimsy"] .day.selected {
+      background: rgba(228, 240, 191, 0.96);
+      box-shadow:
+        inset 0 0 0 2px #7ca84f,
+        0 7px 16px rgba(95, 117, 54, 0.13);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-shell {
+      min-height: calc(100vh - 104px);
+      background:
+        linear-gradient(90deg, rgba(247, 184, 181, 0.34) 0 76px, transparent 76px calc(100% - 58px), rgba(216, 236, 177, 0.44) calc(100% - 58px)),
+        repeating-linear-gradient(90deg, rgba(174, 139, 78, 0.115) 0 1px, transparent 1px 34px),
+        repeating-linear-gradient(180deg, rgba(174, 139, 78, 0.09) 0 1px, transparent 1px 34px),
+        linear-gradient(135deg, #fff9e8 0%, #fff4dd 52%, #edf2cf 100%);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-shell::before {
+      opacity: 1;
+      background:
+        linear-gradient(90deg, rgba(145, 178, 87, 0.38) 0 46px, transparent 46px calc(100% - 38px), rgba(239, 201, 79, 0.42) calc(100% - 38px)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.56), transparent 34%, rgba(244, 221, 156, 0.38));
+    }
+
+    html[data-ui-theme="whimsy"] .journal-shell::after {
+      content: "";
+      position: absolute;
+      right: 34px;
+      bottom: 34px;
+      width: 150px;
+      height: 112px;
+      pointer-events: none;
+      border: 2px solid rgba(116, 159, 77, 0.25);
+      border-radius: 40% 60% 46% 54%;
+      background:
+        repeating-linear-gradient(135deg, transparent 0 14px, rgba(116, 159, 77, 0.08) 14px 16px),
+        rgba(255, 253, 242, 0.26);
+      transform: rotate(-7deg);
+      opacity: 0.78;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-head {
+      border-bottom: 1px dashed rgba(151, 124, 76, 0.30);
+      background:
+        linear-gradient(90deg, rgba(245, 180, 176, 0.42), rgba(255, 249, 236, 0.96) 30%, rgba(218, 235, 181, 0.54)),
+        var(--surface);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-head::before {
+      content: "";
+      position: absolute;
+      top: -5px;
+      right: clamp(112px, 18vw, 260px);
+      width: 118px;
+      height: 34px;
+      border-radius: 5px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.42), transparent 30% 70%, rgba(255, 255, 255, 0.30)),
+        repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.28) 0 6px, transparent 6px 12px),
+        rgba(239, 171, 169, 0.74);
+      box-shadow: 0 8px 18px rgba(98, 72, 38, 0.12);
+      transform-origin: center;
+      animation: bookmarkSway 6.2s ease-in-out infinite;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-head::after {
+      height: 3px;
+      background: linear-gradient(90deg, #b7d787, #efc15a, transparent);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-title h2 {
+      color: #5d4717;
+      font-size: 1.82rem;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-title h2::after {
+      content: "今日手帐";
+      display: inline-flex;
+      margin-left: 10px;
+      transform: translateY(-3px) rotate(-4deg);
+      padding: 3px 9px;
+      border: 1px solid rgba(194, 111, 113, 0.22);
+      border-radius: 999px;
+      background: #f9ded7;
+      color: #b96866;
+      font-size: 0.68rem;
+      font-weight: 950;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-title .journal-meta,
+    html[data-ui-theme="whimsy"] .journal-summary,
+    html[data-ui-theme="whimsy"] .style-switcher span {
+      border-color: rgba(156, 125, 73, 0.20);
+      background: rgba(255, 253, 244, 0.78);
+      color: #7a6334;
+    }
+
+    html[data-ui-theme="whimsy"] .style-switcher input:checked + span {
+      border-color: rgba(111, 151, 69, 0.38);
+      background: #83ad55;
+      color: #fffdf5;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-layout {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+      gap: 0;
+      min-height: 720px;
+      padding: 34px 42px 42px;
+      overflow: hidden;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-layout::before {
+      content: "";
+      position: absolute;
+      inset: 18px 20px;
+      pointer-events: none;
+      border: 2px solid rgba(177, 149, 94, 0.24);
+      border-radius: 14px;
+      background:
+        linear-gradient(90deg, rgba(205, 169, 96, 0.13) 0 2px, transparent 2px calc(50% - 1px), rgba(201, 169, 108, 0.16) 50%, transparent calc(50% + 1px)),
+        repeating-linear-gradient(90deg, rgba(190, 160, 108, 0.09) 0 1px, transparent 1px 34px),
+        repeating-linear-gradient(180deg, rgba(190, 160, 108, 0.074) 0 1px, transparent 1px 34px),
+        linear-gradient(135deg, #fff9ea 0%, #fff6e1 42%, #f0e9cf 50%, #fff8e8 58%, #f8f6dc 100%);
+      box-shadow:
+        0 24px 58px rgba(72, 58, 31, 0.19),
+        inset 18px 0 26px rgba(255, 255, 255, 0.58),
+        inset -20px 0 26px rgba(140, 116, 65, 0.07);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-layout::after {
+      content: "";
+      position: absolute;
+      top: 52px;
+      right: 94px;
+      width: 210px;
+      height: 116px;
+      pointer-events: none;
+      border: 2px solid rgba(199, 121, 123, 0.24);
+      border-radius: 52% 48% 47% 53%;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 18px, rgba(199, 121, 123, 0.06) 18px 20px),
+        rgba(255, 250, 240, 0.16);
+      transform: rotate(4deg);
+      opacity: 0.76;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-illustration {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      width: auto;
+      height: auto;
+      min-height: 0;
+      pointer-events: none;
+      opacity: 1;
+      transform: none;
+      overflow: hidden;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-illustration::before {
+      display: block;
+      content: "";
+      position: absolute;
+      left: 44px;
+      top: 46px;
+      width: 430px;
+      height: 430px;
+      border: 2px solid rgba(171, 137, 80, 0.14);
+      border-radius: 34% 66% 42% 58%;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 42%),
+        repeating-linear-gradient(90deg, transparent 0 22px, rgba(171, 137, 80, 0.044) 22px 24px),
+        rgba(255, 253, 244, 0.18);
+      transform: rotate(-6deg);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-illustration::after {
+      display: block;
+      content: "";
+      position: absolute;
+      right: 80px;
+      bottom: 76px;
+      width: 260px;
+      height: 2px;
+      border-radius: 999px;
+      background: rgba(119, 151, 84, 0.20);
+      box-shadow:
+        38px 12px 0 rgba(219, 165, 66, 0.12),
+        138px -9px 0 rgba(196, 112, 117, 0.12);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-art {
+      display: block;
+      position: absolute;
+      max-width: none;
+      pointer-events: none;
+      user-select: none;
+      object-fit: contain;
+      filter: drop-shadow(0 14px 16px rgba(93, 68, 26, 0.12));
+    }
+
+    html[data-ui-theme="whimsy"] .art-main {
+      left: 32px;
+      top: 30px;
+      width: 430px;
+      height: 572px;
+      object-fit: cover;
+      object-position: left top;
+      border: 2px solid rgba(184, 145, 76, 0.16);
+      border-radius: 28px;
+      opacity: 0.92;
+      transform: rotate(-2deg);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-illustration > span {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .illust-sun {
+      position: absolute;
+      top: 74px;
+      left: 78px;
+      width: 58px;
+      height: 58px;
+      border: 4px solid rgba(223, 164, 52, 0.62);
+      border-radius: 999px;
+      background: rgba(255, 237, 156, 0.62);
+      box-shadow:
+        0 -22px 0 -17px rgba(223, 164, 52, 0.56),
+        0 22px 0 -17px rgba(223, 164, 52, 0.56),
+        22px 0 0 -17px rgba(223, 164, 52, 0.56),
+        -22px 0 0 -17px rgba(223, 164, 52, 0.56),
+        16px 16px 0 -18px rgba(223, 164, 52, 0.56),
+        -16px 16px 0 -18px rgba(223, 164, 52, 0.56),
+        16px -16px 0 -18px rgba(223, 164, 52, 0.56),
+        -16px -16px 0 -18px rgba(223, 164, 52, 0.56);
+    }
+
+    html[data-ui-theme="whimsy"] .illust-sun::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border: 3px solid rgba(223, 164, 52, 0.40);
+      border-left-color: transparent;
+      border-radius: 999px;
+      transform: rotate(-28deg);
+    }
+
+    html[data-ui-theme="whimsy"] .illust-flower {
+      position: absolute;
+      width: 82px;
+      height: 88px;
+    }
+
+    html[data-ui-theme="whimsy"] .illust-flower::before {
+      content: "";
+      position: absolute;
+      left: 34px;
+      top: 20px;
+      width: 2px;
+      height: 54px;
+      border-radius: 999px;
+      background: rgba(112, 151, 74, 0.46);
+      transform: rotate(9deg);
+    }
+
+    html[data-ui-theme="whimsy"] .illust-flower::after {
+      content: "";
+      position: absolute;
+      left: 21px;
+      top: 13px;
+      width: 18px;
+      height: 20px;
+      border: 2px solid rgba(198, 111, 121, 0.42);
+      border-radius: 70% 30% 68% 32%;
+      background: rgba(248, 211, 209, 0.52);
+      box-shadow:
+        14px -8px 0 -1px rgba(248, 211, 209, 0.52),
+        24px 5px 0 -2px rgba(248, 211, 209, 0.52),
+        6px 18px 0 -2px rgba(248, 211, 209, 0.50);
+      transform: rotate(-18deg);
+    }
+
+    html[data-ui-theme="whimsy"] .flower-a {
+      left: 34px;
+      bottom: 154px;
+      transform: rotate(-7deg);
+    }
+
+    html[data-ui-theme="whimsy"] .flower-b {
+      right: 26px;
+      top: 166px;
+      transform: scale(0.92) rotate(18deg);
+    }
+
+    html[data-ui-theme="whimsy"] .illust-friend {
+      position: absolute;
+      left: 98px;
+      bottom: 210px;
+      width: 104px;
+      height: 136px;
+      transform: rotate(2deg) scale(1.08);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-head {
+      position: absolute;
+      left: 27px;
+      top: 20px;
+      width: 46px;
+      height: 44px;
+      border: 2px solid rgba(125, 95, 55, 0.42);
+      border-radius: 45% 55% 50% 50%;
+      background: #fff3df;
+      box-shadow: inset 8px -4px 0 rgba(244, 188, 178, 0.28);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-head::before,
+    html[data-ui-theme="whimsy"] .friend-head::after {
+      content: "";
+      position: absolute;
+      top: 20px;
+      width: 4px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(87, 69, 31, 0.70);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-head::before {
+      left: 14px;
+    }
+
+    html[data-ui-theme="whimsy"] .friend-head::after {
+      right: 14px;
+      box-shadow: -8px 10px 0 -3px rgba(198, 111, 121, 0.42);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-hair {
+      position: absolute;
+      left: 23px;
+      top: 12px;
+      width: 52px;
+      height: 28px;
+      border: 2px solid rgba(125, 95, 55, 0.34);
+      border-bottom: 0;
+      border-radius: 50% 50% 32% 32%;
+      background: #f3bfbd;
+      transform: rotate(-4deg);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-hair::before {
+      content: "";
+      position: absolute;
+      left: -9px;
+      top: 11px;
+      width: 24px;
+      height: 34px;
+      border-radius: 999px;
+      background: rgba(243, 191, 189, 0.86);
+      transform: rotate(22deg);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-body {
+      position: absolute;
+      left: 30px;
+      top: 62px;
+      width: 44px;
+      height: 48px;
+      border: 2px solid rgba(98, 135, 73, 0.36);
+      border-radius: 20px 20px 14px 14px;
+      background: #cfe7a8;
+      box-shadow: inset 0 -8px 0 rgba(118, 160, 82, 0.12);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-body::before,
+    html[data-ui-theme="whimsy"] .friend-body::after {
+      content: "";
+      position: absolute;
+      top: 8px;
+      width: 24px;
+      height: 8px;
+      border-radius: 999px;
+      background: #f0c4bc;
+    }
+
+    html[data-ui-theme="whimsy"] .friend-body::before {
+      left: -17px;
+      transform: rotate(24deg);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-body::after {
+      right: -17px;
+      transform: rotate(-24deg);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-book {
+      position: absolute;
+      right: 0;
+      bottom: 22px;
+      width: 36px;
+      height: 27px;
+      border: 2px solid rgba(126, 97, 54, 0.34);
+      border-radius: 5px;
+      background: #fff0b4;
+      transform: rotate(-9deg);
+    }
+
+    html[data-ui-theme="whimsy"] .friend-book::before {
+      content: "";
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 50%;
+      width: 1px;
+      background: rgba(126, 97, 54, 0.20);
+    }
+
+    html[data-ui-theme="whimsy"] .card-stack {
+      position: relative;
+      z-index: 4;
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-auto-rows: minmax(112px, auto);
+      gap: 16px;
+      min-height: 720px;
+      padding: 38px 34px 34px 46px;
+      align-content: start;
+    }
+
+    html[data-ui-theme="whimsy"] .card-stack::before {
+      content: "";
+      position: absolute;
+      right: 34px;
+      top: 24px;
+      width: 70px;
+      height: 70px;
+      pointer-events: none;
+      border-top: 1px solid rgba(151, 124, 76, 0.23);
+      border-right: 1px solid rgba(151, 124, 76, 0.23);
+      border-radius: 0 8px 0 0;
+      background: linear-gradient(45deg, transparent 48%, rgba(177, 149, 94, 0.10) 49%, rgba(255, 255, 255, 0.70) 50%);
+    }
+
+    html[data-ui-theme="whimsy"] .card {
+      position: relative;
+      --tilt: 0deg;
+      min-height: 132px;
+      border: 2px solid var(--card-border);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.50), transparent 44%),
+        var(--card-bg);
+      box-shadow:
+        var(--card-shadow),
+        inset 0 0 0 3px rgba(255, 255, 255, 0.38);
+      overflow: visible;
+      transform: rotate(var(--tilt));
+      transform-origin: center top;
+    }
+
+    html[data-ui-theme="whimsy"] .card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    html[data-ui-theme="whimsy"] .card:nth-child(3n + 2) {
+      --tilt: 0.08deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card:nth-child(3n) {
+      --tilt: -0.08deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card:hover {
+      transform: translateY(-2px) rotate(var(--tilt));
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="today"] {
+      grid-column: 5 / span 4;
+      grid-row: 1 / span 2;
+      --tilt: -0.18deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="frogs"] {
+      grid-column: 9 / span 4;
+      grid-row: 1 / span 2;
+      --tilt: 0.12deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="state"] {
+      grid-column: 1 / span 4;
+      grid-row: 3 / span 2;
+      --tilt: 0.10deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="identity"] {
+      grid-column: 5 / span 4;
+      grid-row: 3 / span 2;
+      --tilt: -0.10deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="avoid"] {
+      grid-column: 9 / span 4;
+      grid-row: 3 / span 2;
+      --tilt: 0.08deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="todo"] {
+      grid-column: 1 / span 5;
+      grid-row: 5 / span 2;
+      --tilt: -0.10deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="review"] {
+      grid-column: 6 / span 3;
+      grid-row: 5 / span 2;
+      --tilt: 0.08deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="free"] {
+      grid-column: 9 / span 4;
+      grid-row: 5 / span 2;
+      --tilt: -0.08deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="vision"] {
+      grid-column: 3 / span 8;
+      grid-row: 7 / span 1;
+      --tilt: 0.06deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card::before {
+      content: "";
+      position: absolute;
+      top: -10px;
+      left: 18px;
+      width: 62px;
+      height: 22px;
+      pointer-events: none;
+      border-radius: 4px;
+      background:
+        repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.34) 0 5px, transparent 5px 10px),
+        rgba(239, 189, 94, 0.54);
+      box-shadow: 0 4px 10px rgba(95, 74, 44, 0.10);
+      transform: rotate(-3deg);
+      z-index: 2;
+    }
+
+    html[data-ui-theme="whimsy"] .card:nth-child(3n + 2)::before {
+      left: auto;
+      right: 18px;
+      background:
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.34) 0 5px, transparent 5px 10px),
+        rgba(239, 171, 169, 0.56);
+      transform: rotate(4deg);
+    }
+
+    html[data-ui-theme="whimsy"] .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background:
+        linear-gradient(90deg, rgba(169, 136, 78, 0.055), transparent 20%),
+        linear-gradient(180deg, transparent, rgba(169, 136, 78, 0.050));
+      opacity: 0.9;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="today"] {
+      --card-bg: rgba(255, 248, 215, 0.66);
+      --card-border: rgba(218, 174, 70, 0.34);
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="vision"] {
+      --card-bg: rgba(255, 249, 220, 0.58);
+      --card-border: rgba(218, 174, 70, 0.28);
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="frogs"],
+    html[data-ui-theme="whimsy"] .card[data-card="free"] {
+      --card-bg: rgba(255, 241, 238, 0.62);
+      --card-border: rgba(215, 132, 132, 0.25);
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="state"],
+    html[data-ui-theme="whimsy"] .card[data-card="todo"] {
+      --card-bg: rgba(244, 251, 232, 0.62);
+      --card-border: rgba(126, 170, 84, 0.25);
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="identity"] {
+      --card-bg: rgba(255, 250, 238, 0.64);
+      --card-border: rgba(184, 147, 78, 0.22);
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="avoid"],
+    html[data-ui-theme="whimsy"] .card[data-card="review"] {
+      --card-bg: rgba(245, 251, 247, 0.58);
+      --card-border: rgba(104, 151, 141, 0.22);
+    }
+
+    html[data-ui-theme="whimsy"] .card-no {
+      border: 3px solid rgba(255, 253, 244, 0.84);
+      border-radius: 999px;
+      background: #e0aa3c;
+      color: #fffdf5;
+      box-shadow:
+        inset 0 -2px 0 rgba(122, 82, 21, 0.15),
+        0 2px 0 rgba(104, 77, 30, 0.10);
+    }
+
+    html[data-ui-theme="whimsy"] .card h3 {
+      color: #5b471c;
+      font-size: 1.05rem;
+    }
+
+    html[data-ui-theme="whimsy"] .card p {
+      color: #7c6639;
+    }
+
+    html[data-ui-theme="whimsy"] .card textarea {
+      min-height: 78px;
+    }
+
+    html[data-ui-theme="whimsy"] input,
+    html[data-ui-theme="whimsy"] textarea,
+    html[data-ui-theme="whimsy"] .mood-option span {
+      border-color: rgba(153, 124, 75, 0.21);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 251, 239, 0.66));
+      color: #5e4a22;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
+    }
+
+    html[data-ui-theme="whimsy"] input:focus,
+    html[data-ui-theme="whimsy"] textarea:focus {
+      border-color: #83ad55;
+      box-shadow: 0 0 0 3px rgba(131, 173, 85, 0.16);
+    }
+
+    html[data-ui-theme="whimsy"] .mood-option input:checked + span {
+      border-color: rgba(112, 148, 72, 0.38);
+      background: #83ad55;
+      color: #fffdf5;
+    }
+
+    html[data-ui-theme="whimsy"] .frog-row span {
+      border-color: rgba(153, 124, 75, 0.20);
+      border-radius: 999px;
+      background: #fff6dc;
+      color: #d19a34;
+    }
+
+    html[data-ui-theme="whimsy"] .autosave-dot {
+      border-color: #fff9ea;
+      box-shadow: 0 0 0 2px rgba(112, 142, 71, 0.12);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-shell {
+      --journal-sheet-width: min(calc(100vw - 18px), calc(150vh - 27px));
+    }
+
+    html[data-ui-theme="whimsy"] body.is-editor-mode {
+      overflow: hidden;
+    }
+
+    html[data-ui-theme="whimsy"] body.is-editor-mode .page {
+      width: 100%;
+      padding: 0;
+    }
+
+    html[data-ui-theme="whimsy"] body.is-editor-mode .app {
+      min-height: 100vh;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    html[data-ui-theme="whimsy"] body.is-editor-mode .topbar {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] body.is-editor-mode #editorView {
+      min-height: 100vh;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-head {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 8;
+      width: var(--journal-sheet-width);
+      aspect-ratio: 3 / 2;
+      display: block;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-head::before,
+    html[data-ui-theme="whimsy"] .journal-head::after {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-head .actions {
+      position: fixed;
+      top: 12px;
+      right: 14px;
+      z-index: 18;
+      justify-content: end;
+      transform: none;
+      pointer-events: auto;
+      opacity: 0.9;
+    }
+
+    html[data-ui-theme="whimsy"] body.is-editor-mode .journal-summary,
+    html[data-ui-theme="whimsy"] body.is-editor-mode .style-switcher {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-title {
+      position: absolute;
+      left: 5.8%;
+      top: 5.2%;
+      width: 24%;
+      min-width: 0;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-title::after {
+      content: "晴";
+      position: absolute;
+      left: clamp(176px, 14.4vw, 226px);
+      top: 4px;
+      display: grid;
+      place-items: center;
+      min-width: 42px;
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(219, 165, 66, 0.30);
+      border-radius: 999px;
+      background: rgba(255, 252, 237, 0.62);
+      color: #8b6428;
+      font-size: 0.9rem;
+      font-weight: 900;
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.24);
+    }
+
+    html[data-ui-theme="whimsy"] .journal-title h2 {
+      margin: 0;
+      font-size: clamp(1.9rem, 3.15vw, 2.85rem);
+      line-height: 0.96;
+      white-space: nowrap;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-title h2::after {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-title .journal-meta {
+      margin-top: 10px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #7a5a21;
+      font-size: clamp(0.8rem, 1vw, 0.98rem);
+      font-weight: 900;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-layout {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      padding: 9px;
+      overflow: hidden;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-layout::before,
+    html[data-ui-theme="whimsy"] .journal-layout::after,
+    html[data-ui-theme="whimsy"] .journal-illustration::before,
+    html[data-ui-theme="whimsy"] .journal-illustration::after {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-illustration {
+      left: 50%;
+      top: 50%;
+      right: auto;
+      bottom: auto;
+      width: var(--journal-sheet-width);
+      height: auto;
+      aspect-ratio: 3 / 2;
+      z-index: 7;
+      overflow: visible;
+      transform: translate(-50%, -50%);
+    }
+
+    html[data-ui-theme="whimsy"] .card-stack {
+      width: var(--journal-sheet-width);
+      min-height: 0;
+      aspect-ratio: 3 / 2;
+      grid-template-columns: repeat(24, minmax(0, 1fr));
+      grid-template-rows: repeat(14, minmax(0, 1fr));
+      grid-auto-rows: minmax(0, 1fr);
+      gap: 10px;
+      padding: 104px 56px 50px;
+      border: 2px solid rgba(177, 149, 94, 0.36);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 251, 239, 0.18)),
+        #fffaf0;
+      box-shadow:
+        0 24px 58px rgba(78, 60, 28, 0.16),
+        inset 0 0 0 5px rgba(255, 255, 255, 0.42);
+      overflow: visible;
+    }
+
+    html[data-ui-theme="whimsy"] .card-stack::before {
+      inset: 10px;
+      width: auto;
+      height: auto;
+      border: 1px solid rgba(177, 149, 94, 0.18);
+      border-radius: 13px;
+      background:
+        linear-gradient(90deg, transparent 0 calc(50% - 1px), rgba(184, 150, 92, 0.16) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+        linear-gradient(90deg, rgba(177, 149, 94, 0.16), transparent 13%, transparent 87%, rgba(177, 149, 94, 0.13)),
+        linear-gradient(180deg, rgba(177, 149, 94, 0.13), transparent 16%, transparent 84%, rgba(177, 149, 94, 0.13));
+      z-index: 0;
+    }
+
+    html[data-ui-theme="whimsy"] .card-stack > .card {
+      z-index: 8;
+    }
+
+    html[data-ui-theme="whimsy"] .card {
+      min-height: 0;
+      padding: 12px 13px;
+      gap: 7px;
+      border-width: 1px;
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 250, 236, 0.18)),
+        var(--card-bg);
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, 0.28),
+        0 5px 13px rgba(95, 76, 38, 0.055);
+      overflow: hidden;
+      opacity: 0.92;
+      backdrop-filter: blur(0.4px);
+    }
+
+    html[data-ui-theme="whimsy"] .card::before {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .card::after {
+      opacity: 0.36;
+    }
+
+    html[data-ui-theme="whimsy"] .card-head {
+      gap: 8px;
+    }
+
+    html[data-ui-theme="whimsy"] .card-no {
+      flex-basis: 24px;
+      width: 24px;
+      height: 24px;
+      border-width: 2px;
+      font-size: 0.68rem;
+    }
+
+    html[data-ui-theme="whimsy"] .card h3 {
+      font-size: 0.9rem;
+    }
+
+    html[data-ui-theme="whimsy"] .card p {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .card textarea {
+      min-height: 40px;
+    }
+
+    html[data-ui-theme="whimsy"] .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    html[data-ui-theme="whimsy"] .summary-tile {
+      min-height: 52px;
+      padding: 7px 8px;
+      border: 1px solid rgba(181, 137, 70, 0.24);
+      border-radius: 8px;
+      background: rgba(255, 253, 244, 0.52);
+      color: #6c5220;
+      text-align: center;
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.20);
+    }
+
+    html[data-ui-theme="whimsy"] .summary-tile span {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    html[data-ui-theme="whimsy"] .summary-tile strong {
+      display: block;
+      margin-top: 5px;
+      color: #7a5420;
+      font-size: 1.22rem;
+      line-height: 1;
+    }
+
+    html[data-ui-theme="whimsy"] .summary-tile small {
+      margin-left: 2px;
+      color: #9c7a42;
+      font-size: 0.7rem;
+      font-weight: 900;
+    }
+
+    html[data-ui-theme="whimsy"] .summary-stars {
+      margin-top: 7px;
+      color: #e3aa35;
+      font-size: 1rem;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="today"] .form-grid,
+    html[data-ui-theme="whimsy"] .card[data-card="today"] .field {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="today"] {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      opacity: 1;
+      backdrop-filter: none;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="today"] .card-head,
+    html[data-ui-theme="whimsy"] .card[data-card="today"]::after {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .form-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    html[data-ui-theme="whimsy"] .field label,
+    html[data-ui-theme="whimsy"] .field-label {
+      font-size: 0.72rem;
+    }
+
+    html[data-ui-theme="whimsy"] input,
+    html[data-ui-theme="whimsy"] textarea,
+    html[data-ui-theme="whimsy"] .mood-option span {
+      min-height: 30px;
+      padding: 6px 8px;
+      border-color: rgba(158, 127, 75, 0.16);
+      border-radius: 7px;
+      background: rgba(255, 253, 243, 0.50);
+      font-size: 0.78rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40);
+    }
+
+    html[data-ui-theme="whimsy"] textarea {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 253, 244, 0.42)),
+        repeating-linear-gradient(180deg, transparent 0 31px, rgba(171, 137, 80, 0.10) 31px 32px);
+    }
+
+    html[data-ui-theme="whimsy"] .mood-grid {
+      gap: 6px;
+    }
+
+    html[data-ui-theme="whimsy"] .frog-grid {
+      gap: 10px;
+    }
+
+    html[data-ui-theme="whimsy"] .frog-row span {
+      height: 26px;
+    }
+
+    html[data-ui-theme="whimsy"] .art-main {
+      display: none;
+    }
+
+    html[data-ui-theme="whimsy"] .journal-art {
+      z-index: 1;
+      pointer-events: none;
+      filter: drop-shadow(0 10px 10px rgba(93, 68, 26, 0.10));
+    }
+
+    html[data-ui-theme="whimsy"] .art-hero-group {
+      top: 6.3%;
+      right: 8.4%;
+      width: 32.6%;
+      opacity: 0.93;
+      transform: rotate(0.8deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-corner-tr {
+      right: -1.5%;
+      top: -1.8%;
+      width: 10.6%;
+      opacity: 0.86;
+      transform: rotate(4deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-corner-bl {
+      left: -2%;
+      bottom: -2.6%;
+      width: 19.2%;
+      opacity: 0.88;
+      transform: rotate(-1deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-small-can {
+      right: 9.4%;
+      bottom: 7.8%;
+      width: 6.3%;
+      opacity: 0.88;
+      transform: rotate(-4deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-corner-tl {
+      left: -2.1%;
+      top: -2.4%;
+      width: 14.4%;
+      opacity: 0.9;
+      transform: rotate(-2deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-corner-br {
+      right: -2.1%;
+      bottom: -2.8%;
+      width: 20.6%;
+      opacity: 0.9;
+      transform: rotate(-3deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-small-plant {
+      right: 27.6%;
+      bottom: 9.6%;
+      width: 5.6%;
+      opacity: 0.84;
+      transform: rotate(2deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-small-flower {
+      left: 41.4%;
+      bottom: 8.2%;
+      width: 6%;
+      opacity: 0.82;
+      transform: rotate(-6deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-small-border {
+      left: 36.5%;
+      bottom: -2%;
+      width: 38.5%;
+      opacity: 0.52;
+    }
+
+    html[data-ui-theme="whimsy"] .art-top-border {
+      left: 24.5%;
+      top: -1.15%;
+      width: 43%;
+      opacity: 0.34;
+      transform: scaleY(0.48) rotate(0.2deg);
+      transform-origin: top center;
+    }
+
+    html[data-ui-theme="whimsy"] .art-book {
+      left: 4.3%;
+      bottom: 8.2%;
+      width: 10.8%;
+      opacity: 0.22;
+      transform: rotate(-6deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-sun {
+      left: 16.8%;
+      top: 5.6%;
+      width: 4.2%;
+      opacity: 0.9;
+      transform: rotate(8deg);
+    }
+
+    html[data-ui-theme="whimsy"] .art-mood {
+      right: 14.5%;
+      top: 34.3%;
+      width: 21.8%;
+      opacity: 0.48;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="today"] {
+      --journal-grid-column: 1 / span 7;
+      --journal-grid-row: 2 / span 2;
+      grid-column: 1 / span 7;
+      grid-row: 2 / span 2;
+      --tilt: -0.08deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="frogs"] {
+      --journal-grid-column: 1 / span 10;
+      --journal-grid-row: 4 / span 5;
+      grid-column: 1 / span 10;
+      grid-row: 4 / span 5;
+      --tilt: 0.06deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="state"] {
+      --journal-grid-column: 11 / span 13;
+      --journal-grid-row: 5 / span 3;
+      grid-column: 11 / span 13;
+      grid-row: 5 / span 3;
+      --tilt: 0.04deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="identity"] {
+      --journal-grid-column: 11 / span 13;
+      --journal-grid-row: 8 / span 2;
+      grid-column: 11 / span 13;
+      grid-row: 8 / span 2;
+      --tilt: -0.05deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="review"] {
+      --journal-grid-column: 1 / span 5;
+      --journal-grid-row: 11 / span 3;
+      grid-column: 1 / span 5;
+      grid-row: 11 / span 3;
+      --tilt: -0.06deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="todo"] {
+      --journal-grid-column: 6 / span 5;
+      --journal-grid-row: 11 / span 3;
+      grid-column: 6 / span 5;
+      grid-row: 11 / span 3;
+      --tilt: 0.05deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="vision"] {
+      --journal-grid-column: 11 / span 4;
+      --journal-grid-row: 11 / span 3;
+      grid-column: 11 / span 4;
+      grid-row: 11 / span 3;
+      --tilt: 0.03deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="avoid"] {
+      --journal-grid-column: 15 / span 5;
+      --journal-grid-row: 11 / span 3;
+      grid-column: 15 / span 5;
+      grid-row: 11 / span 3;
+      --tilt: -0.04deg;
+    }
+
+    html[data-ui-theme="whimsy"] .card[data-card="free"] {
+      --journal-grid-column: 20 / span 5;
+      --journal-grid-row: 11 / span 3;
+      grid-column: 20 / span 5;
+      grid-row: 11 / span 3;
+      --tilt: 0.05deg;
+    }
+
+    html[data-ui-theme="desk"] .card {
+      border-top-width: 3px;
+    }
+
+    html[data-ui-theme="desk"] .card:nth-child(3n + 1) {
+      border-top-color: var(--green);
+    }
+
+    html[data-ui-theme="desk"] .card:nth-child(3n + 2) {
+      border-top-color: var(--blue);
+    }
+
+    html[data-ui-theme="desk"] .card:nth-child(3n) {
+      border-top-color: var(--coral);
+    }
+
+    @media (max-width: 1120px) {
+      .calendar-layout,
+      .journal-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      html[data-ui-theme="whimsy"] .journal-illustration {
+        display: block;
+        opacity: 1;
+      }
+
+      html[data-ui-theme="whimsy"] .journal-layout {
+        grid-template-columns: minmax(0, 1fr);
+        min-height: max(720px, calc(100vh - 182px));
+      }
+
+      html[data-ui-theme="whimsy"] .card-stack {
+        grid-template-columns: repeat(24, minmax(0, 1fr));
+        grid-template-rows: repeat(14, minmax(0, 1fr));
+        grid-auto-rows: minmax(0, 1fr);
+        min-height: 0;
+      }
+
+      html[data-ui-theme="whimsy"] .card {
+        grid-column: var(--journal-grid-column) !important;
+        grid-row: var(--journal-grid-row) !important;
+      }
+
+      html[data-ui-theme="whimsy"] .journal-layout::before {
+        background:
+          repeating-linear-gradient(90deg, rgba(190, 160, 108, 0.095) 0 1px, transparent 1px 34px),
+          repeating-linear-gradient(180deg, rgba(190, 160, 108, 0.078) 0 1px, transparent 1px 34px),
+          linear-gradient(90deg, #fff9ea, #fff6e2 49%, #f1e8cf 50%, #fff8e8 51%, #fffaf0);
+      }
+
+      .card-stack {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: minmax(230px, auto);
+        min-height: 0;
+      }
+
+      .calendar-main,
+      .day-panel,
+      .database-preview-panel {
+        min-height: auto;
+      }
+
+      .calendar-anchor {
+        grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+      }
+
+    }
+
+    @media (max-width: 780px) {
+      .page {
+        width: calc(100% - 10px);
+        padding: 8px 0 22px;
+      }
+
+      .topbar,
+      .journal-head {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+
+      .calendar-main,
+      .day-panel,
+      .database-preview-card,
+      .calendar-anchor,
+      .journal-layout {
+        padding: 14px;
+      }
+
+      .calendar-anchor {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .anchor-art {
+        min-height: 92px;
+        margin: -8px 0 -12px;
+        place-items: center;
+      }
+
+      .anchor-art img {
+        max-height: 118px;
+      }
+
+      .template-fields {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .settings-path-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .calendar {
+        gap: 0;
+      }
+
+      .weekday {
+        min-height: 34px;
+        padding: 8px 3px;
+        font-size: 0.72rem;
+      }
+
+      .day {
+        min-height: 86px;
+        padding: 7px;
+      }
+
+      .day-title {
+        min-height: 24px;
+        font-size: 0.72rem;
+      }
+
+      .form-grid,
+      .mood-grid,
+      .card-stack {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      html[data-ui-theme="whimsy"] .journal-illustration {
+        display: block;
+      }
+
+      .card-stack {
+        grid-auto-rows: minmax(220px, auto);
+      }
+
+      html[data-ui-theme="whimsy"] .card[data-card="today"] {
+        grid-column: var(--journal-grid-column) !important;
+      }
+
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">L</div>
+          <div>
+            <h1>LifeOS 晨间日记</h1>
+            <p id="vaultLabel">本地日记本</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" type="button" id="settingsButton" aria-haspopup="dialog">设置</button>
+        </div>
+      </header>
+
+      <section class="view active" id="calendarView">
+        <div class="calendar-layout">
+          <section class="calendar-anchor" aria-label="今日心锚">
+            <div class="anchor-copy">
+              <div class="anchor-title">一天之际在于晨</div>
+              <ul class="anchor-lines">
+                <li>“重塑”</li>
+                <li>“勇气就是亲手打碎自己一次，再重塑自己一千零一次”</li>
+                <li>《庄子·齐物论》：方生方死，方死方生</li>
+              </ul>
+            </div>
+            <figure class="anchor-art" id="anchorArt" aria-hidden="true">
+              <img id="anchorIllustration" src="assets/晨间日记/少女读书伙伴.png" alt="">
+            </figure>
+          </section>
+
+          <aside class="database-preview-panel" id="databasePreviewPanel" aria-label="数据库快速勾选">
+            <article class="database-preview-card" data-preview-card="frogs">
+              <div class="preview-head">
+                <div class="preview-title">
+                  <h3>三只青蛙</h3>
+                  <span id="frogPreviewMeta">未完成优先</span>
+                </div>
+                <a class="preview-manage" href="三只青蛙管理.html">管理</a>
+              </div>
+              <div class="preview-list" id="frogPreviewList"></div>
+            </article>
+
+            <article class="database-preview-card" data-preview-card="habits">
+              <div class="preview-head">
+                <div class="preview-title">
+                  <h3>习惯坚持</h3>
+                  <span id="habitPreviewMeta">今日打卡</span>
+                </div>
+                <a class="preview-manage" href="习惯坚持管理.html">管理</a>
+              </div>
+              <div class="preview-list" id="habitPreviewList"></div>
+            </article>
+
+            <article class="database-preview-card" data-preview-card="monthly">
+              <div class="preview-head">
+                <div class="preview-title">
+                  <h3>本月重要几件事</h3>
+                  <span id="monthlyPreviewMeta">未完成优先</span>
+                </div>
+                <a class="preview-manage" href="本月重要几件事管理.html">管理</a>
+              </div>
+              <div class="preview-list" id="monthlyPreviewList"></div>
+              <p class="preview-status" id="databasePreviewStatus"></p>
+            </article>
+          </aside>
+
+          <section class="calendar-main">
+            <div class="month-toolbar">
+              <div class="month-title">
+                <h2 id="monthTitle">2026 年 06 月</h2>
+                <p id="monthMeta">已记录 0 天</p>
+              </div>
+              <div class="actions">
+                <button class="btn secondary" type="button" id="prevMonth">上个月</button>
+                <button class="btn secondary" type="button" id="goToday">今天</button>
+                <button class="btn secondary" type="button" id="nextMonth">下个月</button>
+              </div>
+            </div>
+            <div class="calendar" id="calendar"></div>
+          </section>
+
+          <aside class="day-panel">
+            <section class="panel-block selected-day">
+              <strong id="selectedDayNumber">06</strong>
+              <h2 id="selectedDayTitle">2026-06-06</h2>
+              <div class="selected-day-tags">
+                <span class="status-chip empty" id="selectedStatus">未创建</span>
+                <span class="holiday-chip" id="selectedHoliday">工作日</span>
+              </div>
+            </section>
+
+            <section class="panel-block">
+              <h3 id="selectedEntryTitle">新的一天</h3>
+              <p id="selectedEntryMeta">准备写下这一天的开场。</p>
+              <button class="btn" type="button" id="openSelected">新的一天</button>
+            </section>
+
+            <section class="panel-block">
+              <div class="notice" id="calendarNotice"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+
+    </main>
+  </div>
+
+  <div class="settings-overlay" id="settingsOverlay" hidden>
+    <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="settings-head">
+        <div>
+          <h2 id="settingsTitle">设置</h2>
+          <p>配置本地日记本根目录，日记和三个数据库都会从这里读取。</p>
+        </div>
+        <button class="icon-btn" type="button" id="settingsClose" aria-label="关闭设置">关闭</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-field">
+          <label for="vaultDirInput">日记本位置</label>
+          <div class="settings-path-row">
+            <input id="vaultDirInput" type="text" spellcheck="false" readonly placeholder="尚未选择日记本位置">
+            <button class="btn secondary" type="button" id="chooseVaultDir">选择文件夹</button>
+          </div>
+          <p class="settings-help" id="settingsSource">当前使用默认位置。</p>
+          <div class="template-actions">
+            <button class="btn secondary" type="button" id="resetVaultDir">恢复默认位置</button>
+          </div>
+        </div>
+        <div class="settings-field">
+          <label for="appIconSourceInput">应用图标源图</label>
+          <div class="settings-path-row">
+            <input id="appIconSourceInput" type="text" spellcheck="false" readonly placeholder="尚未选择应用图标源图">
+            <button class="btn secondary" type="button" id="chooseAppIconSource">选择图片</button>
+          </div>
+          <p class="settings-help" id="appIconSourceHelp">支持 PNG、JPG、JPEG、ICO。保存后需生成 Tauri 图标资源并重新打包才会生效。</p>
+          <div class="template-actions">
+            <button class="btn secondary" type="button" id="resetAppIconSource">清空源图</button>
+          </div>
+        </div>
+        <div class="settings-field">
+          <label for="visualTemplateSelect">视觉模板</label>
+          <select id="visualTemplateSelect"></select>
+          <p class="settings-help" id="templateSource">当前使用：模板 1：晨间花园。</p>
+          <div class="template-actions">
+            <button class="btn secondary" type="button" id="saveVisualTemplate">应用模板</button>
+          </div>
+        </div>
+        <div class="settings-field">
+          <label>新增模板</label>
+          <div class="template-fields">
+            <input id="templateNameInput" type="text" placeholder="例如：模板 2：极简绿">
+            <input id="templateIllustrationInput" type="text" spellcheck="false" placeholder="例如：assets/晨间日记/少女读书伙伴.png">
+          </div>
+          <p class="settings-help">新增后会保存为可选模板，并立即应用到首页心锚插画。</p>
+          <div class="template-actions">
+            <button class="btn secondary" type="button" id="addVisualTemplate">新增并使用</button>
+          </div>
+        </div>
+        <div class="settings-actions">
+          <p class="settings-status" id="settingsStatus"></p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const tauriInvoke = window.__TAURI__?.core?.invoke;
+    const today = new Date();
+    const themeVersion = localStorage.getItem("lifeos-ui-theme-version");
+    let rawSavedTheme = localStorage.getItem("lifeos-ui-theme") || "whimsy";
+    if (!themeVersion && ["storybook", "notion"].includes(rawSavedTheme)) {
+      rawSavedTheme = "whimsy";
+      localStorage.setItem("lifeos-ui-theme", rawSavedTheme);
+      localStorage.setItem("lifeos-ui-theme-version", "eden-handbook-v1");
+    }
+    const savedTheme = rawSavedTheme === "storybook" ? "whimsy" : rawSavedTheme;
+    if (!localStorage.getItem("lifeos-ui-theme-version")) {
+      localStorage.setItem("lifeos-ui-theme-version", "eden-handbook-v1");
+    }
+    if (!localStorage.getItem("lifeos-ui-theme")) {
+      localStorage.setItem("lifeos-ui-theme", savedTheme);
+    }
+    if (rawSavedTheme !== savedTheme) localStorage.setItem("lifeos-ui-theme", savedTheme);
+    document.documentElement.dataset.uiTheme = savedTheme;
+    const DEFAULT_VISUAL_TEMPLATE_ID = "template-1";
+    const DEFAULT_VISUAL_TEMPLATES = [
+      {
+        id: DEFAULT_VISUAL_TEMPLATE_ID,
+        name: "模板 1：晨间花园",
+        illustration: "assets/晨间日记/少女读书伙伴.png"
+      }
+    ];
+    const state = {
+      monthDate: new Date(today.getFullYear(), today.getMonth(), 1),
+      selectedDate: formatDate(today),
+      entries: new Map(),
+      totalEntries: 0,
+      nextDayIndex: 1,
+      currentFile: null,
+      form: defaultForm(formatDate(today)),
+      saveTimer: null,
+      saveToken: 0,
+      lastSavedContent: "",
+      vaultDir: "LifeOS-Vault",
+      vaultSource: "",
+      envOverride: false,
+      appIconSource: "",
+      visualTemplateId: DEFAULT_VISUAL_TEMPLATE_ID,
+      visualTemplates: DEFAULT_VISUAL_TEMPLATES,
+      databases: emptyDatabaseSnapshot()
+    };
+
+    const el = {
+      vaultLabel: document.getElementById("vaultLabel"),
+      anchorArt: document.getElementById("anchorArt"),
+      anchorIllustration: document.getElementById("anchorIllustration"),
+      settingsButton: document.getElementById("settingsButton"),
+      settingsOverlay: document.getElementById("settingsOverlay"),
+      settingsClose: document.getElementById("settingsClose"),
+      vaultDirInput: document.getElementById("vaultDirInput"),
+      chooseVaultDir: document.getElementById("chooseVaultDir"),
+      appIconSourceInput: document.getElementById("appIconSourceInput"),
+      chooseAppIconSource: document.getElementById("chooseAppIconSource"),
+      resetAppIconSource: document.getElementById("resetAppIconSource"),
+      appIconSourceHelp: document.getElementById("appIconSourceHelp"),
+      visualTemplateSelect: document.getElementById("visualTemplateSelect"),
+      templateSource: document.getElementById("templateSource"),
+      templateNameInput: document.getElementById("templateNameInput"),
+      templateIllustrationInput: document.getElementById("templateIllustrationInput"),
+      saveVisualTemplate: document.getElementById("saveVisualTemplate"),
+      addVisualTemplate: document.getElementById("addVisualTemplate"),
+      settingsSource: document.getElementById("settingsSource"),
+      settingsStatus: document.getElementById("settingsStatus"),
+      resetVaultDir: document.getElementById("resetVaultDir"),
+      calendarView: document.getElementById("calendarView"),
+      editorView: document.getElementById("editorView"),
+      calendar: document.getElementById("calendar"),
+      monthTitle: document.getElementById("monthTitle"),
+      monthMeta: document.getElementById("monthMeta"),
+      selectedDayNumber: document.getElementById("selectedDayNumber"),
+      selectedDayTitle: document.getElementById("selectedDayTitle"),
+      selectedStatus: document.getElementById("selectedStatus"),
+      selectedHoliday: document.getElementById("selectedHoliday"),
+      selectedEntryTitle: document.getElementById("selectedEntryTitle"),
+      selectedEntryMeta: document.getElementById("selectedEntryMeta"),
+      openSelected: document.getElementById("openSelected"),
+      databasePreviewPanel: document.getElementById("databasePreviewPanel"),
+      frogPreviewList: document.getElementById("frogPreviewList"),
+      frogPreviewMeta: document.getElementById("frogPreviewMeta"),
+      habitPreviewList: document.getElementById("habitPreviewList"),
+      habitPreviewMeta: document.getElementById("habitPreviewMeta"),
+      monthlyPreviewList: document.getElementById("monthlyPreviewList"),
+      monthlyPreviewMeta: document.getElementById("monthlyPreviewMeta"),
+      databasePreviewStatus: document.getElementById("databasePreviewStatus"),
+      calendarNotice: document.getElementById("calendarNotice"),
+      editorDate: document.getElementById("editorDate"),
+      editorPath: document.getElementById("editorPath"),
+      saveStatus: document.getElementById("saveStatus"),
+      journalSummary: document.getElementById("journalSummary"),
+      summaryTotalDays: document.getElementById("summaryTotalDays"),
+      summaryFrogs: document.getElementById("summaryFrogs"),
+      summaryGrowth: document.getElementById("summaryGrowth"),
+      summaryEnergyStars: document.getElementById("summaryEnergyStars")
+    };
+
+    const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
+    const weekdayNames = ["日", "一", "二", "三", "四", "五", "六"];
+    const databaseFallbackKeys = {
+      frogs: "lifeos-db:frogs",
+      habits: "lifeos-db:habits",
+      monthly: "lifeos-db:monthly-important"
+    };
+    const holiday2026 = new Map();
+    [
+      ["2026-01-01", "元旦", "holiday"],
+      ["2026-01-02", "元旦假期", "holiday"],
+      ["2026-01-03", "元旦假期", "holiday"],
+      ["2026-01-04", "调休上班", "workday"],
+      ["2026-02-14", "调休上班", "workday"],
+      ["2026-02-15", "春节假期", "holiday"],
+      ["2026-02-16", "春节假期", "holiday"],
+      ["2026-02-17", "春节", "holiday"],
+      ["2026-02-18", "春节假期", "holiday"],
+      ["2026-02-19", "春节假期", "holiday"],
+      ["2026-02-20", "春节假期", "holiday"],
+      ["2026-02-21", "春节假期", "holiday"],
+      ["2026-02-22", "春节假期", "holiday"],
+      ["2026-02-23", "春节假期", "holiday"],
+      ["2026-02-28", "调休上班", "workday"],
+      ["2026-04-04", "清明节", "holiday"],
+      ["2026-04-05", "清明假期", "holiday"],
+      ["2026-04-06", "清明假期", "holiday"],
+      ["2026-05-01", "劳动节", "holiday"],
+      ["2026-05-02", "劳动节假期", "holiday"],
+      ["2026-05-03", "劳动节假期", "holiday"],
+      ["2026-05-04", "劳动节假期", "holiday"],
+      ["2026-05-05", "劳动节假期", "holiday"],
+      ["2026-05-09", "调休上班", "workday"],
+      ["2026-06-19", "端午节", "holiday"],
+      ["2026-06-20", "端午假期", "holiday"],
+      ["2026-06-21", "端午假期", "holiday"],
+      ["2026-09-20", "调休上班", "workday"],
+      ["2026-09-25", "中秋节", "holiday"],
+      ["2026-09-26", "中秋假期", "holiday"],
+      ["2026-09-27", "中秋假期", "holiday"],
+      ["2026-10-01", "国庆节", "holiday"],
+      ["2026-10-02", "国庆假期", "holiday"],
+      ["2026-10-03", "国庆假期", "holiday"],
+      ["2026-10-04", "国庆假期", "holiday"],
+      ["2026-10-05", "国庆假期", "holiday"],
+      ["2026-10-06", "国庆假期", "holiday"],
+      ["2026-10-07", "国庆假期", "holiday"],
+      ["2026-10-10", "调休上班", "workday"]
+    ].forEach(([date, label, type]) => {
+      holiday2026.set(date, { label, type });
+    });
+
+    document.getElementById("prevMonth").addEventListener("click", () => shiftMonth(-1));
+    document.getElementById("nextMonth").addEventListener("click", () => shiftMonth(1));
+    document.getElementById("goToday").addEventListener("click", goToToday);
+    document.getElementById("backToCalendar")?.addEventListener("click", showCalendar);
+    document.getElementById("openSelected").addEventListener("click", () => openSelectedDate());
+    el.databasePreviewPanel?.addEventListener("change", handleDatabasePreviewChange);
+    el.settingsButton?.addEventListener("click", openSettings);
+    el.settingsClose?.addEventListener("click", closeSettings);
+    el.settingsOverlay?.addEventListener("click", (event) => {
+      if (event.target === el.settingsOverlay) closeSettings();
+    });
+    el.chooseVaultDir?.addEventListener("click", chooseVaultDir);
+    el.resetVaultDir?.addEventListener("click", resetVaultSettings);
+    el.chooseAppIconSource?.addEventListener("click", chooseAppIconSource);
+    el.resetAppIconSource?.addEventListener("click", resetAppIconSource);
+    el.saveVisualTemplate?.addEventListener("click", saveVisualTemplate);
+    el.addVisualTemplate?.addEventListener("click", addVisualTemplate);
+    el.anchorIllustration?.addEventListener("error", () => {
+      el.anchorArt?.classList.add("is-missing");
+    });
+    el.anchorIllustration?.addEventListener("load", () => {
+      el.anchorArt?.classList.remove("is-missing");
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !el.settingsOverlay?.hidden) closeSettings();
+    });
+    document.querySelectorAll("[data-field]").forEach((field) => {
+      field.addEventListener("input", handleFormInput);
+      field.addEventListener("change", handleFormInput);
+    });
+    document.querySelectorAll("input[name='mood']").forEach((field) => {
+      field.addEventListener("change", handleFormInput);
+    });
+    document.querySelectorAll("input[name='uiTheme']").forEach((field) => {
+      field.addEventListener("change", () => {
+        document.documentElement.dataset.uiTheme = field.value;
+        localStorage.setItem("lifeos-ui-theme", field.value);
+      });
+    });
+    const activeTheme = document.querySelector(`input[name="uiTheme"][value="${cssEscape(savedTheme)}"]`);
+    if (activeTheme) activeTheme.checked = true;
+
+    window.addEventListener("pageshow", (event) => {
+      document.body.classList.remove("is-editor-mode");
+      el.calendarView?.classList.add("active");
+      el.editorView?.classList.remove("active");
+      if (event.persisted) {
+        loadMonth();
+        loadDatabasePreview();
+      }
+    });
+
+    boot();
+
+    async function boot() {
+      if (!tauriInvoke) {
+        updateVaultLabel();
+        el.calendarNotice.textContent = "当前不是桌面环境，内容会临时保存在浏览器本地。";
+      }
+
+      await refreshVaultSettings(false);
+      await loadMonth();
+      await loadDatabasePreview();
+      selectDate(state.selectedDate);
+    }
+
+    async function invoke(command, args) {
+      if (tauriInvoke) {
+        return tauriInvoke(command, args);
+      }
+      return fallbackInvoke(command, args);
+    }
+
+    async function fallbackInvoke(command, args) {
+      const prefix = "lifeos-journal:";
+      const settingsKey = "lifeos-settings:vault-dir";
+      const appIconSourceKey = "lifeos-settings:app-icon-source";
+      const templateIdKey = "lifeos-settings:visual-template-id";
+      const customTemplatesKey = "lifeos-settings:visual-templates";
+      const vaultDir = localStorage.getItem(settingsKey) || "本机预览 / LifeOS-Vault";
+      const visualTemplates = normalizeVisualTemplates(readFallbackVisualTemplates(customTemplatesKey));
+      const visualTemplateId = normalizeVisualTemplateId(localStorage.getItem(templateIdKey), visualTemplates);
+
+      if (command === "get_vault_settings") {
+        return {
+          vault_dir: vaultDir,
+          configured_vault_dir: localStorage.getItem(settingsKey),
+          source: "本机预览",
+          env_override: false,
+          app_icon_source: localStorage.getItem(appIconSourceKey),
+          visual_template_id: visualTemplateId,
+          visual_templates: visualTemplates
+        };
+      }
+
+      if (command === "pick_vault_dir") {
+        const selected = window.prompt("请输入日记本文件夹完整路径：", localStorage.getItem(settingsKey) || "");
+        return selected ? selected.trim() : null;
+      }
+
+      if (command === "pick_app_icon_source") {
+        const selected = window.prompt("请输入应用图标源图完整路径（PNG/JPG/JPEG/ICO）：", localStorage.getItem(appIconSourceKey) || "");
+        return selected ? selected.trim() : null;
+      }
+
+      if (command === "set_vault_dir") {
+        localStorage.setItem(settingsKey, args.path);
+        return {
+          vault_dir: args.path,
+          configured_vault_dir: args.path,
+          source: "本机预览",
+          env_override: false,
+          app_icon_source: localStorage.getItem(appIconSourceKey),
+          visual_template_id: visualTemplateId,
+          visual_templates: visualTemplates
+        };
+      }
+
+      if (command === "set_app_icon_source") {
+        localStorage.setItem(appIconSourceKey, args.path);
+        return {
+          vault_dir: vaultDir,
+          configured_vault_dir: localStorage.getItem(settingsKey),
+          source: "本机预览",
+          env_override: false,
+          app_icon_source: args.path,
+          visual_template_id: visualTemplateId,
+          visual_templates: visualTemplates
+        };
+      }
+
+      if (command === "reset_vault_dir") {
+        localStorage.removeItem(settingsKey);
+        return {
+          vault_dir: "本机预览 / LifeOS-Vault",
+          configured_vault_dir: null,
+          source: "本机预览",
+          env_override: false,
+          app_icon_source: localStorage.getItem(appIconSourceKey),
+          visual_template_id: visualTemplateId,
+          visual_templates: visualTemplates
+        };
+      }
+
+      if (command === "reset_app_icon_source") {
+        localStorage.removeItem(appIconSourceKey);
+        return {
+          vault_dir: vaultDir,
+          configured_vault_dir: localStorage.getItem(settingsKey),
+          source: "本机预览",
+          env_override: false,
+          app_icon_source: null,
+          visual_template_id: visualTemplateId,
+          visual_templates: visualTemplates
+        };
+      }
+
+      if (command === "set_visual_template") {
+        const nextId = normalizeVisualTemplateId(args.templateId || args.template_id, visualTemplates);
+        localStorage.setItem(templateIdKey, nextId);
+        return {
+          vault_dir: vaultDir,
+          configured_vault_dir: localStorage.getItem(settingsKey),
+          source: "本机预览",
+          env_override: false,
+          app_icon_source: localStorage.getItem(appIconSourceKey),
+          visual_template_id: nextId,
+          visual_templates: visualTemplates
+        };
+      }
+
+      if (command === "add_visual_template") {
+        const customTemplates = readFallbackVisualTemplates(customTemplatesKey);
+        const name = String(args.name || "").trim();
+        const illustration = String(args.illustration || "").trim();
+        if (!name) throw new Error("请填写模板名称。");
+        if (!illustration) throw new Error("请填写插画图片路径。");
+        const template = {
+          id: `custom-${Date.now()}-${customTemplates.length + 1}`,
+          name,
+          illustration
+        };
+        customTemplates.push(template);
+        localStorage.setItem(customTemplatesKey, JSON.stringify(customTemplates));
+        localStorage.setItem(templateIdKey, template.id);
+        return {
+          vault_dir: vaultDir,
+          configured_vault_dir: localStorage.getItem(settingsKey),
+          source: "本机预览",
+          env_override: false,
+          app_icon_source: localStorage.getItem(appIconSourceKey),
+          visual_template_id: template.id,
+          visual_templates: normalizeVisualTemplates(customTemplates)
+        };
+      }
+
+      if (command === "get_journal_month") {
+        const year = String(args.year).padStart(4, "0");
+        const month = String(args.month).padStart(2, "0");
+        const allEntries = fallbackEntries(prefix, vaultDir);
+        const entries = allEntries.filter((entry) => entry.date.startsWith(`${year}-${month}`));
+        return {
+          vault_dir: vaultDir,
+          entries,
+          total_entries: allEntries.length,
+          next_day_index: nextDayIndexFromEntries(allEntries)
+        };
+      }
+
+      if (command === "get_database_manager") {
+        return {
+          ...readFallbackDatabases(),
+          paths: {
+            frogs: `${vaultDir}/00-Databases/frogs.csv`,
+            habits: `${vaultDir}/00-Databases/habits.csv`,
+            monthly: `${vaultDir}/00-Databases/monthly-important.csv`
+          }
+        };
+      }
+
+      if (command === "save_frog_database") {
+        const database = { schema_version: 1, days: normalizeFrogDays(args.days || []) };
+        localStorage.setItem(databaseFallbackKeys.frogs, JSON.stringify(database));
+        return database;
+      }
+
+      if (command === "save_habit_database") {
+        const database = {
+          schema_version: 1,
+          definitions: normalizeHabitDefinitions(args.definitions || defaultHabitDefinitions()),
+          days: normalizeHabitDays(args.days || [], args.definitions || defaultHabitDefinitions())
+        };
+        localStorage.setItem(databaseFallbackKeys.habits, JSON.stringify(database));
+        return database;
+      }
+
+      if (command === "save_monthly_database") {
+        const database = { schema_version: 1, months: normalizeMonthlyRecords(args.months || []) };
+        localStorage.setItem(databaseFallbackKeys.monthly, JSON.stringify(database));
+        return database;
+      }
+
+      if (command === "read_journal") {
+        const content = localStorage.getItem(prefix + args.date);
+        if (content === null) return null;
+        const dayIndex = dayIndexForDate(fallbackEntries(prefix, vaultDir), args.date);
+        return {
+          date: args.date,
+          path: fallbackPath(args.date, vaultDir),
+          content,
+          day_index: dayIndex,
+          created: false
+        };
+      }
+
+      if (command === "open_or_create_journal") {
+        const key = prefix + args.date;
+        const created = localStorage.getItem(key) === null;
+        const entries = fallbackEntries(prefix, vaultDir);
+        const dayIndex = created ? nextDayIndexFromEntries(entries) : dayIndexForDate(entries, args.date);
+        if (created) localStorage.setItem(key, buildMarkdown(defaultForm(args.date, dayIndex)));
+        return {
+          date: args.date,
+          path: fallbackPath(args.date, vaultDir),
+          content: localStorage.getItem(key),
+          day_index: dayIndex,
+          created
+        };
+      }
+
+      if (command === "save_journal") {
+        localStorage.setItem(prefix + args.date, args.content);
+        const dayIndex = dayIndexForDate(fallbackEntries(prefix, vaultDir), args.date);
+        return {
+          date: args.date,
+          path: fallbackPath(args.date, vaultDir),
+          content: args.content,
+          day_index: dayIndex,
+          created: false
+        };
+      }
+
+      throw new Error(`未知命令：${command}`);
+    }
+
+    function emptyDatabaseSnapshot() {
+      return {
+        frogs: defaultFrogDatabase(),
+        habits: defaultHabitDatabase(),
+        monthly: defaultMonthlyDatabase(),
+        paths: {}
+      };
+    }
+
+    function defaultFrogDatabase() {
+      return { schema_version: 1, days: [] };
+    }
+
+    function defaultHabitDatabase() {
+      return { schema_version: 1, definitions: defaultHabitDefinitions(), days: [] };
+    }
+
+    function defaultMonthlyDatabase() {
+      return { schema_version: 1, months: [] };
+    }
+
+    function defaultHabitDefinitions() {
+      return [
+        { id: "habit-journal", label: "写了晨间日记" },
+        { id: "habit-focus", label: "推进了核心任务" },
+        { id: "habit-review", label: "晚上做了简短回看" }
+      ];
+    }
+
+    function readFallbackDatabases() {
+      return normalizeDatabaseSnapshot({
+        frogs: readFallbackDatabase(databaseFallbackKeys.frogs, defaultFrogDatabase()),
+        habits: readFallbackDatabase(databaseFallbackKeys.habits, defaultHabitDatabase()),
+        monthly: readFallbackDatabase(databaseFallbackKeys.monthly, defaultMonthlyDatabase())
+      });
+    }
+
+    function readFallbackDatabase(key, fallback) {
+      try {
+        return JSON.parse(localStorage.getItem(key) || "") || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function normalizeDatabaseSnapshot(snapshot) {
+      const definitions = normalizeHabitDefinitions(snapshot?.habits?.definitions || defaultHabitDefinitions());
+      return {
+        frogs: {
+          schema_version: 1,
+          days: normalizeFrogDays(snapshot?.frogs?.days || [])
+        },
+        habits: {
+          schema_version: 1,
+          definitions,
+          days: normalizeHabitDays(snapshot?.habits?.days || [], definitions)
+        },
+        monthly: {
+          schema_version: 1,
+          months: normalizeMonthlyRecords(snapshot?.monthly?.months || [])
+        },
+        paths: snapshot?.paths || {}
+      };
+    }
+
+    function normalizeFrogDays(days) {
+      const byDate = new Map();
+      (days || []).forEach((day) => {
+        if (!isDateKey(day?.date)) return;
+        if (!byDate.has(day.date)) byDate.set(day.date, day);
+      });
+      return Array.from(byDate.values())
+        .map((day) => ({
+          date: day.date,
+          items: normalizeFrogItems(day.items || []),
+          updated_at: day.updated_at || null
+        }))
+        .sort((left, right) => left.date.localeCompare(right.date));
+    }
+
+    function normalizeFrogItems(items) {
+      const bySlot = new Map();
+      (items || []).forEach((item) => {
+        const slot = Number(item?.slot);
+        if (slot >= 1 && slot <= 3 && !bySlot.has(slot)) bySlot.set(slot, item);
+      });
+      return [1, 2, 3].map((slot) => {
+        const item = bySlot.get(slot) || {};
+        return {
+          slot,
+          text: String(item.text || "").trim(),
+          done: Boolean(item.done)
+        };
+      });
+    }
+
+    function normalizeHabitDefinitions(definitions) {
+      const rows = [];
+      const seen = new Set();
+      (definitions || []).forEach((definition, index) => {
+        const label = String(definition?.label || "").trim();
+        if (!label) return;
+        let id = String(definition?.id || "").trim() || `habit-${index + 1}`;
+        if (seen.has(id)) id = `${id}-${index + 1}`;
+        seen.add(id);
+        rows.push({ id, label });
+      });
+      return rows.length ? rows : defaultHabitDefinitions();
+    }
+
+    function normalizeHabitDays(days, definitions) {
+      const validIds = new Set(normalizeHabitDefinitions(definitions).map((definition) => definition.id));
+      const byDate = new Map();
+      (days || []).forEach((day) => {
+        if (!isDateKey(day?.date) || byDate.has(day.date)) return;
+        const checks = {};
+        Object.entries(day.checks || {}).forEach(([id, checked]) => {
+          if (validIds.has(id)) checks[id] = Boolean(checked);
+        });
+        byDate.set(day.date, { date: day.date, checks, updated_at: day.updated_at || null });
+      });
+      return Array.from(byDate.values()).sort((left, right) => left.date.localeCompare(right.date));
+    }
+
+    function normalizeMonthlyRecords(months) {
+      const byMonth = new Map();
+      (months || []).forEach((record) => {
+        if (!isMonthKey(record?.month) || byMonth.has(record.month)) return;
+        const items = (record.items || [])
+          .map((item, index) => ({
+            id: String(item.id || `${record.month}-${index + 1}-${nowSeconds()}`),
+            text: String(item.text || "").trim(),
+            done: Boolean(item.done),
+            created_at: item.created_at || nowSeconds(),
+            updated_at: item.updated_at || null
+          }))
+          .filter((item) => item.text);
+        if (items.length) byMonth.set(record.month, { month: record.month, items, updated_at: record.updated_at || null });
+      });
+      return Array.from(byMonth.values()).sort((left, right) => left.month.localeCompare(right.month));
+    }
+
+    async function loadDatabasePreview() {
+      if (!el.databasePreviewPanel) return;
+      setDatabasePreviewStatus("", "读取数据库...");
+      try {
+        state.databases = normalizeDatabaseSnapshot(await invoke("get_database_manager", {}));
+        renderDatabasePreview();
+        setDatabasePreviewStatus("", "");
+      } catch (error) {
+        renderDatabasePreview();
+        setDatabasePreviewStatus("error", toErrorMessage(error));
+      }
+    }
+
+    function renderDatabasePreview() {
+      const snapshot = normalizeDatabaseSnapshot(state.databases);
+      state.databases = snapshot;
+      const frogItems = flattenFrogPreview(snapshot.frogs.days).filter((item) => !item.done);
+      const habitItems = todayHabitPreview(snapshot.habits);
+      const monthItems = flattenMonthlyPreview(snapshot.monthly.months).filter((item) => !item.done);
+
+      if (el.frogPreviewMeta) el.frogPreviewMeta.textContent = frogItems.length ? `${frogItems.length} 条未完成` : "没有未完成";
+      if (el.habitPreviewMeta) {
+        const checked = habitItems.filter((item) => item.checked).length;
+        el.habitPreviewMeta.textContent = `今日 ${checked}/${habitItems.length}`;
+      }
+      if (el.monthlyPreviewMeta) el.monthlyPreviewMeta.textContent = monthItems.length ? `${monthItems.length} 条未完成` : "没有未完成";
+
+      if (el.frogPreviewList) {
+        el.frogPreviewList.innerHTML = frogItems.length
+          ? [...frogItems.slice(0, 5).map(renderFrogPreviewRow), renderMorePreview(frogItems.length, "三只青蛙管理.html")].join("")
+          : renderPreviewEmpty("没有未完成青蛙。");
+      }
+
+      if (el.habitPreviewList) {
+        el.habitPreviewList.innerHTML = habitItems.length
+          ? [...habitItems.slice(0, 5).map(renderHabitPreviewRow), renderMorePreview(habitItems.length, "习惯坚持管理.html")].join("")
+          : renderPreviewEmpty("还没有习惯定义。");
+      }
+
+      if (el.monthlyPreviewList) {
+        el.monthlyPreviewList.innerHTML = monthItems.length
+          ? [...monthItems.slice(0, 5).map(renderMonthlyPreviewRow), renderMorePreview(monthItems.length, "本月重要几件事管理.html")].join("")
+          : renderPreviewEmpty("没有未完成月度事项。");
+      }
+    }
+
+    function flattenFrogPreview(days) {
+      return (days || []).flatMap((day) => normalizeFrogItems(day.items || [])
+        .filter((item) => item.text)
+        .map((item) => ({ ...item, date: day.date })))
+        .sort((left, right) => left.date.localeCompare(right.date) || left.slot - right.slot);
+    }
+
+    function todayHabitPreview(habits) {
+      const date = formatDate(today);
+      const day = (habits.days || []).find((item) => item.date === date);
+      return normalizeHabitDefinitions(habits.definitions || defaultHabitDefinitions()).map((definition) => ({
+        id: definition.id,
+        label: definition.label,
+        checked: Boolean(day?.checks?.[definition.id])
+      }));
+    }
+
+    function flattenMonthlyPreview(months) {
+      return (months || []).flatMap((record) => (record.items || [])
+        .filter((item) => item.text)
+        .map((item) => ({ ...item, month: record.month })))
+        .sort((left, right) => left.month.localeCompare(right.month) || String(left.text).localeCompare(String(right.text), "zh-Hans-CN"));
+    }
+
+    function renderFrogPreviewRow(item) {
+      return renderPreviewRow({
+        kind: "frog",
+        checked: item.done,
+        text: item.text,
+        meta: `${item.date} · 第 ${item.slot} 只青蛙`,
+        attrs: `data-date="${escapeHtml(item.date)}" data-slot="${escapeHtml(item.slot)}"`
+      });
+    }
+
+    function renderHabitPreviewRow(item) {
+      return renderPreviewRow({
+        kind: "habit",
+        checked: item.checked,
+        text: item.label,
+        meta: "今日打卡",
+        attrs: `data-habit-id="${escapeHtml(item.id)}"`
+      });
+    }
+
+    function renderMonthlyPreviewRow(item) {
+      return renderPreviewRow({
+        kind: "monthly",
+        checked: item.done,
+        text: item.text,
+        meta: `${formatMonthLabel(item.month)} · 月度事项`,
+        attrs: `data-month="${escapeHtml(item.month)}" data-item-id="${escapeHtml(item.id)}"`
+      });
+    }
+
+    function renderPreviewRow({ kind, checked, text, meta, attrs }) {
+      return `
+        <label class="preview-row ${checked ? "is-done" : ""}">
+          <input type="checkbox" data-preview-kind="${kind}" ${attrs} ${checked ? "checked" : ""}>
+          <span>
+            <span class="preview-text">${escapeHtml(text)}</span>
+            <span class="preview-meta">${escapeHtml(meta)}</span>
+          </span>
+        </label>
+      `;
+    }
+
+    function renderPreviewEmpty(text) {
+      return `<div class="preview-empty">${escapeHtml(text)}</div>`;
+    }
+
+    function renderMorePreview(total, href) {
+      if (total <= 5) return "";
+      return `<a class="preview-empty" href="${href}">还有 ${total - 5} 项，打开管理页</a>`;
+    }
+
+    async function handleDatabasePreviewChange(event) {
+      const field = event.target.closest("[data-preview-kind]");
+      if (!field) return;
+      const before = JSON.stringify(state.databases);
+      const kind = field.dataset.previewKind;
+      field.disabled = true;
+      setDatabasePreviewStatus("", "保存中...");
+
+      try {
+        applyDatabasePreviewChange(field);
+        await saveDatabasePreviewKind(kind);
+        renderDatabasePreview();
+        setDatabasePreviewStatus("", "已保存");
+        window.setTimeout(() => {
+          if (el.databasePreviewStatus?.textContent === "已保存") setDatabasePreviewStatus("", "");
+        }, 1200);
+      } catch (error) {
+        state.databases = normalizeDatabaseSnapshot(JSON.parse(before));
+        renderDatabasePreview();
+        setDatabasePreviewStatus("error", toErrorMessage(error));
+      }
+    }
+
+    function applyDatabasePreviewChange(field) {
+      const kind = field.dataset.previewKind;
+      if (kind === "frog") {
+        setFrogPreviewDone(field.dataset.date, Number(field.dataset.slot), field.checked);
+      } else if (kind === "habit") {
+        setHabitPreviewDone(field.dataset.habitId, field.checked);
+      } else if (kind === "monthly") {
+        setMonthlyPreviewDone(field.dataset.month, field.dataset.itemId, field.checked);
+      }
+    }
+
+    function setFrogPreviewDone(date, slot, done) {
+      const day = state.databases.frogs.days.find((item) => item.date === date);
+      const frog = day?.items?.find((item) => Number(item.slot) === slot);
+      if (!day || !frog) throw new Error("没有找到这条青蛙任务。");
+      frog.done = done;
+      day.updated_at = nowSeconds();
+    }
+
+    function setHabitPreviewDone(habitId, done) {
+      if (!habitId) throw new Error("没有找到这条习惯。");
+      const date = formatDate(today);
+      let day = state.databases.habits.days.find((item) => item.date === date);
+      if (!day) {
+        day = { date, checks: {}, updated_at: nowSeconds() };
+        state.databases.habits.days.push(day);
+      }
+      day.checks[habitId] = done;
+      day.updated_at = nowSeconds();
+    }
+
+    function setMonthlyPreviewDone(month, itemId, done) {
+      const record = state.databases.monthly.months.find((item) => item.month === month);
+      const item = record?.items?.find((entry) => entry.id === itemId);
+      if (!record || !item) throw new Error("没有找到这条月度事项。");
+      item.done = done;
+      item.updated_at = nowSeconds();
+      record.updated_at = nowSeconds();
+    }
+
+    async function saveDatabasePreviewKind(kind) {
+      if (kind === "frog") {
+        const saved = await invoke("save_frog_database", { days: state.databases.frogs.days });
+        state.databases.frogs = { schema_version: 1, days: normalizeFrogDays(saved.days || []) };
+        return;
+      }
+
+      if (kind === "habit") {
+        const saved = await invoke("save_habit_database", {
+          definitions: state.databases.habits.definitions,
+          days: state.databases.habits.days
+        });
+        state.databases.habits = {
+          schema_version: 1,
+          definitions: normalizeHabitDefinitions(saved.definitions || state.databases.habits.definitions),
+          days: normalizeHabitDays(saved.days || [], saved.definitions || state.databases.habits.definitions)
+        };
+        return;
+      }
+
+      if (kind === "monthly") {
+        const saved = await invoke("save_monthly_database", { months: state.databases.monthly.months });
+        state.databases.monthly = { schema_version: 1, months: normalizeMonthlyRecords(saved.months || []) };
+      }
+    }
+
+    function setDatabasePreviewStatus(kind, text) {
+      if (!el.databasePreviewStatus) return;
+      el.databasePreviewStatus.className = `preview-status ${kind === "error" ? "error" : ""}`.trim();
+      el.databasePreviewStatus.textContent = text || "";
+    }
+
+    function updateVaultLabel() {
+      if (!el.vaultLabel) return;
+      if (!tauriInvoke) {
+        el.vaultLabel.textContent = "本机预览";
+        return;
+      }
+
+      const source = state.vaultSource ? ` · ${state.vaultSource}` : "";
+      el.vaultLabel.textContent = `本地日记本${source}`;
+    }
+
+    function readFallbackVisualTemplates(storageKey) {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function normalizeVisualTemplates(templates) {
+      const result = DEFAULT_VISUAL_TEMPLATES.map((template) => ({ ...template }));
+      const seen = new Set(result.map((template) => template.id));
+
+      (Array.isArray(templates) ? templates : []).forEach((template) => {
+        const id = String(template?.id || "").trim();
+        const name = String(template?.name || "").trim();
+        const illustration = String(template?.illustration || "").trim();
+        if (!id || !name || !illustration || seen.has(id)) return;
+        seen.add(id);
+        result.push({ id, name, illustration });
+      });
+
+      return result;
+    }
+
+    function normalizeVisualTemplateId(templateId, templates) {
+      const id = String(templateId || DEFAULT_VISUAL_TEMPLATE_ID).trim();
+      return templates.some((template) => template.id === id) ? id : DEFAULT_VISUAL_TEMPLATE_ID;
+    }
+
+    function currentVisualTemplate() {
+      return state.visualTemplates.find((template) => template.id === state.visualTemplateId) || state.visualTemplates[0];
+    }
+
+    function applyVisualTemplate() {
+      const template = currentVisualTemplate();
+      if (!template || !el.anchorIllustration) return;
+
+      el.anchorArt?.classList.remove("is-missing");
+      el.anchorIllustration.src = template.illustration;
+    }
+
+    function renderVisualTemplateOptions() {
+      if (!el.visualTemplateSelect) return;
+      el.visualTemplateSelect.replaceChildren();
+      state.visualTemplates.forEach((template) => {
+        const option = document.createElement("option");
+        option.value = template.id;
+        option.textContent = template.name;
+        el.visualTemplateSelect.append(option);
+      });
+      el.visualTemplateSelect.value = state.visualTemplateId;
+    }
+
+    function updateVisualTemplateFields(settings) {
+      state.visualTemplates = normalizeVisualTemplates(settings?.visual_templates);
+      state.visualTemplateId = normalizeVisualTemplateId(settings?.visual_template_id, state.visualTemplates);
+      renderVisualTemplateOptions();
+      applyVisualTemplate();
+
+      const template = currentVisualTemplate();
+      if (el.templateSource && template) {
+        el.templateSource.textContent = `当前使用：${template.name}。`;
+      }
+      if (el.templateIllustrationInput && !el.templateIllustrationInput.value) {
+        el.templateIllustrationInput.placeholder = template?.illustration || "assets/...";
+      }
+    }
+
+    function updateSettingsFields(settings) {
+      state.vaultDir = settings?.vault_dir || state.vaultDir || "LifeOS-Vault";
+      state.vaultSource = settings?.source || "";
+      state.envOverride = Boolean(settings?.env_override);
+      state.appIconSource = settings?.app_icon_source || "";
+      updateVaultLabel();
+      updateVisualTemplateFields(settings);
+
+      if (el.vaultDirInput) {
+        el.vaultDirInput.value = settings?.configured_vault_dir || settings?.vault_dir || "";
+      }
+
+      if (el.appIconSourceInput) {
+        el.appIconSourceInput.value = state.appIconSource;
+      }
+
+      if (el.appIconSourceHelp) {
+        el.appIconSourceHelp.textContent = state.appIconSource
+          ? "已保存源图。运行 scripts/apply-app-icon.ps1 生成图标资源，然后重新打包生效。"
+          : "支持 PNG、JPG、JPEG、ICO。保存后需生成 Tauri 图标资源并重新打包才会生效。";
+      }
+
+      if (el.settingsSource) {
+        const source = settings?.source || "默认位置";
+        const overrideNote = settings?.env_override ? "。当前被 LIFEOS_VAULT_DIR 覆盖，保存的新位置会在移除环境变量后生效。" : "";
+        el.settingsSource.textContent = `当前使用：${settings?.vault_dir || "LifeOS-Vault"}（${source}）${overrideNote}`;
+      }
+    }
+
+    function setSettingsStatus(kind, text) {
+      if (!el.settingsStatus) return;
+      el.settingsStatus.className = `settings-status ${kind === "error" ? "error" : ""}`.trim();
+      el.settingsStatus.textContent = text;
+    }
+
+    async function refreshVaultSettings(showError = true) {
+      try {
+        const settings = await invoke("get_vault_settings", {});
+        updateSettingsFields(settings);
+        return settings;
+      } catch (error) {
+        if (showError) setSettingsStatus("error", toErrorMessage(error));
+        return null;
+      }
+    }
+
+    async function openSettings() {
+      if (!el.settingsOverlay) return;
+      el.settingsOverlay.hidden = false;
+      setSettingsStatus("", "");
+      await refreshVaultSettings(true);
+      window.setTimeout(() => {
+        el.chooseVaultDir?.focus();
+      }, 0);
+    }
+
+    function closeSettings() {
+      if (!el.settingsOverlay) return;
+      el.settingsOverlay.hidden = true;
+      setSettingsStatus("", "");
+    }
+
+    async function applyVaultDir(path, pendingText = "保存中...") {
+      setSettingsStatus("", pendingText);
+      try {
+        const settings = await invoke("set_vault_dir", { path });
+        updateSettingsFields(settings);
+        await loadMonth();
+        await loadDatabasePreview();
+        updateSelectedPanel();
+        setSettingsStatus("", settings.env_override ? "已保存，但当前环境变量仍在覆盖此设置。" : "已保存。");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
+    async function chooseVaultDir() {
+      setSettingsStatus("", "打开文件夹选择器...");
+      try {
+        const path = await invoke("pick_vault_dir", {});
+        if (!path) {
+          setSettingsStatus("", "未更改日记本位置。");
+          return;
+        }
+        if (el.vaultDirInput) el.vaultDirInput.value = path;
+        await applyVaultDir(path, "切换日记本中...");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
+    async function resetVaultSettings() {
+      setSettingsStatus("", "恢复中...");
+      try {
+        const settings = await invoke("reset_vault_dir", {});
+        updateSettingsFields(settings);
+        await loadMonth();
+        await loadDatabasePreview();
+        updateSelectedPanel();
+        setSettingsStatus("", "已恢复默认位置。");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
+    async function chooseAppIconSource() {
+      setSettingsStatus("", "打开图片选择器...");
+      try {
+        const path = await invoke("pick_app_icon_source", {});
+        if (!path) {
+          setSettingsStatus("", "未更改应用图标源图。");
+          return;
+        }
+        const settings = await invoke("set_app_icon_source", { path });
+        updateSettingsFields(settings);
+        setSettingsStatus("", "已保存应用图标源图。生成图标资源并重新打包后生效。");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
+    async function resetAppIconSource() {
+      setSettingsStatus("", "清空应用图标源图...");
+      try {
+        const settings = await invoke("reset_app_icon_source", {});
+        updateSettingsFields(settings);
+        setSettingsStatus("", "已清空应用图标源图。");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
+    async function saveVisualTemplate() {
+      const templateId = el.visualTemplateSelect?.value || DEFAULT_VISUAL_TEMPLATE_ID;
+      setSettingsStatus("", "应用模板中...");
+      try {
+        const settings = await invoke("set_visual_template", { templateId });
+        updateSettingsFields(settings);
+        setSettingsStatus("", "模板已应用。");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
+    async function addVisualTemplate() {
+      const name = el.templateNameInput?.value.trim() || "";
+      const illustration = el.templateIllustrationInput?.value.trim() || "";
+      if (!name) {
+        setSettingsStatus("error", "请填写模板名称。");
+        return;
+      }
+      if (!illustration) {
+        setSettingsStatus("error", "请填写插画图片路径。");
+        return;
+      }
+
+      setSettingsStatus("", "新增模板中...");
+      try {
+        const settings = await invoke("add_visual_template", { name, illustration });
+        updateSettingsFields(settings);
+        if (el.templateNameInput) el.templateNameInput.value = "";
+        if (el.templateIllustrationInput) el.templateIllustrationInput.value = "";
+        setSettingsStatus("", "模板已新增并应用。");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
+    function fallbackPath(date, vaultDir) {
+      const [year, month] = date.split("-");
+      return `${vaultDir}/01-Daily/${year}/${month}/${date}.md`;
+    }
+
+    function fallbackEntries(prefix, vaultDir) {
+      const entries = Object.keys(localStorage)
+        .filter((key) => key.startsWith(prefix))
+        .map((key) => {
+          const date = key.slice(prefix.length);
+          const content = localStorage.getItem(key) || "";
+          const dayIndex = dayIndexFromMarkdown(content) || 0;
+          return {
+            date,
+            path: fallbackPath(date, vaultDir),
+            content,
+            day_index: dayIndex,
+            title: titleFromMarkdown(content, date, dayIndex),
+            updated_at: null
+          };
+        })
+        .filter((entry) => /^\d{4}-\d{2}-\d{2}$/.test(entry.date))
+        .sort((left, right) => left.date.localeCompare(right.date));
+
+      return assignMissingDayIndices(entries)
+        .map((entry) => {
+          return {
+            ...entry,
+            title: titleFromMarkdown(entry.content, entry.date, entry.day_index)
+          };
+        });
+    }
+
+    function assignMissingDayIndices(entries) {
+      const used = new Set(entries.map((entry) => Number(entry.day_index) || 0).filter(Boolean));
+      let next = 1;
+      return entries.map((entry) => {
+        if (entry.day_index) return entry;
+        while (used.has(next)) next += 1;
+        used.add(next);
+        return { ...entry, day_index: next };
+      });
+    }
+
+    function nextDayIndexFromEntries(entries) {
+      return entries.reduce((max, entry) => Math.max(max, Number(entry.day_index) || 0), 0) + 1;
+    }
+
+    function dayIndexForDate(entries, date) {
+      const entry = entries.find((item) => item.date === date);
+      if (entry) return entry.day_index;
+      return nextDayIndexFromEntries(entries);
+    }
+
+    function getDayMeta(date) {
+      const dateKey = typeof date === "string" ? date : formatDate(date);
+      const dateObject = typeof date === "string" ? parseDateKey(date) : date;
+      const official = holiday2026.get(dateKey);
+      const weekday = `星期${weekdayNames[dateObject.getDay()]}`;
+
+      if (official) {
+        return {
+          ...official,
+          weekday,
+          short: official.type === "holiday" ? "休" : "班",
+          stateText: official.type === "holiday" ? official.label : "调休上班"
+        };
+      }
+
+      if (dateObject.getDay() === 0 || dateObject.getDay() === 6) {
+        return {
+          label: "周末",
+          type: "weekend",
+          weekday,
+          short: "休",
+          stateText: "普通周末"
+        };
+      }
+
+      return {
+        label: "工作日",
+        type: "workday-normal",
+        weekday,
+        short: "",
+        stateText: "普通工作日"
+      };
+    }
+
+    function monthHolidayCount(year, month) {
+      const prefix = `${year}-${String(month).padStart(2, "0")}`;
+      return Array.from(holiday2026.entries())
+        .filter(([date, meta]) => date.startsWith(prefix) && meta.type === "holiday")
+        .length;
+    }
+
+    async function loadMonth() {
+      const year = state.monthDate.getFullYear();
+      const month = state.monthDate.getMonth() + 1;
+
+      try {
+        const result = await invoke("get_journal_month", { year, month });
+        state.entries = new Map(result.entries.map((entry) => [entry.date, entry]));
+        state.totalEntries = result.total_entries ?? result.entries.length;
+        state.nextDayIndex = result.next_day_index ?? state.totalEntries + 1;
+        state.vaultDir = result.vault_dir || state.vaultDir || "LifeOS-Vault";
+        updateVaultLabel();
+        renderCalendar();
+        updateSelectedPanel();
+      } catch (error) {
+        el.calendarNotice.textContent = toErrorMessage(error);
+      }
+    }
+
+    function renderCalendar() {
+      const year = state.monthDate.getFullYear();
+      const monthIndex = state.monthDate.getMonth();
+      const month = monthIndex + 1;
+      const first = new Date(year, monthIndex, 1);
+      const totalDays = new Date(year, monthIndex + 1, 0).getDate();
+      const lead = (first.getDay() + 6) % 7;
+      const cells = [];
+      const monthProgress = Math.round((state.entries.size / totalDays) * 100);
+      const holidayCount = monthHolidayCount(year, month);
+
+      el.monthTitle.textContent = `${year} 年 ${String(month).padStart(2, "0")} 月`;
+      el.monthMeta.textContent = `本月 ${state.entries.size} 天 · 累计 ${state.totalEntries} 天 · 节假日 ${holidayCount} 天 · 进度 ${monthProgress}%`;
+      el.calendar.innerHTML = "";
+
+      for (const weekday of weekdays) {
+        const node = document.createElement("div");
+        node.className = "weekday";
+        node.textContent = weekday;
+        el.calendar.appendChild(node);
+      }
+
+      for (let index = 0; index < lead; index += 1) {
+        cells.push(null);
+      }
+
+      for (let day = 1; day <= totalDays; day += 1) {
+        cells.push(new Date(year, monthIndex, day));
+      }
+
+      while (cells.length % 7 !== 0) {
+        cells.push(null);
+      }
+
+      for (const date of cells) {
+        if (!date) {
+          const blank = document.createElement("div");
+          blank.className = "day outside";
+          el.calendar.appendChild(blank);
+          continue;
+        }
+
+        const dateKey = formatDate(date);
+        const entry = state.entries.get(dateKey);
+        const meta = getDayMeta(date);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = [
+          "day",
+          meta.type,
+          isSameDate(date, today) ? "today" : "",
+          dateKey === state.selectedDate ? "selected" : "",
+          entry ? "has-entry" : ""
+        ].filter(Boolean).join(" ");
+        button.title = `${formatLongDate(date)} · ${meta.label}`;
+        button.addEventListener("click", () => handleDayClick(dateKey));
+
+        const top = document.createElement("div");
+        top.className = "calendar-cell-top";
+
+        const dayNumber = document.createElement("div");
+        dayNumber.className = "day-number";
+        dayNumber.textContent = String(date.getDate()).padStart(2, "0");
+
+        const mark = document.createElement("span");
+        mark.className = "day-mark";
+        mark.textContent = meta.short || meta.weekday.replace("星期", "周");
+        top.append(dayNumber, mark);
+
+        const title = document.createElement("div");
+        title.className = "day-title";
+        title.textContent = entry ? entry.title : (meta.type === "holiday" ? meta.label : "未写日记");
+
+        const metaLine = document.createElement("div");
+        metaLine.className = "day-meta-line";
+        metaLine.textContent = entry ? `第 ${entry.day_index} 天` : meta.stateText;
+
+        const row = document.createElement("div");
+        row.className = "dot-row";
+        if (entry) {
+          const dot = document.createElement("span");
+          dot.className = "dot";
+          row.appendChild(dot);
+        }
+        const tiny = document.createElement("span");
+        tiny.className = "tiny";
+        tiny.textContent = isSameDate(date, today) ? "今天" : "";
+        row.appendChild(tiny);
+
+        button.append(top, title, metaLine, row);
+        el.calendar.appendChild(button);
+      }
+    }
+
+    async function handleDayClick(date) {
+      state.selectedDate = date;
+      renderCalendar();
+      updateSelectedPanel();
+
+      if (state.entries.has(date)) {
+        await openJournal(date);
+      }
+    }
+
+    async function openSelectedDate() {
+      if (state.entries.has(state.selectedDate)) {
+        await openJournal(state.selectedDate);
+      } else {
+        await openOrCreate(state.selectedDate);
+      }
+    }
+
+    async function openJournal(date) {
+      window.location.href = journalPageUrl(date);
+    }
+
+    async function openOrCreate(date) {
+      try {
+        await invoke("open_or_create_journal", { date });
+        window.location.href = journalPageUrl(date);
+      } catch (error) {
+        el.calendarNotice.textContent = toErrorMessage(error);
+      }
+    }
+
+    function journalPageUrl(date) {
+      return `晨间日记页面.html?date=${encodeURIComponent(date)}`;
+    }
+
+    function enterEditor(file) {
+      clearTimeout(state.saveTimer);
+      state.currentFile = file;
+      state.selectedDate = file.date;
+      state.form = parseMarkdown(file.content, file.date);
+      state.form.dayIndex = String(file.day_index || state.form.dayIndex || state.nextDayIndex || 1);
+      applyFormToInputs();
+      const content = buildMarkdown(state.form);
+      state.lastSavedContent = content;
+      el.editorDate.textContent = dayTitle(state.form.dayIndex);
+      el.editorPath.textContent = `连续记录 ${Number(state.form.dayIndex) || 1} 天`;
+      updateSummary();
+      setSaveStatus("saved", "已保存");
+      showEditor();
+    }
+
+    function handleFormInput() {
+      if (!state.currentFile) return;
+      readInputsToForm();
+      const content = buildMarkdown(state.form);
+      updateSummary();
+
+      if (content === state.lastSavedContent) {
+        setSaveStatus("saved", "已保存");
+        return;
+      }
+
+      setSaveStatus("dirty", "未保存");
+      clearTimeout(state.saveTimer);
+      state.saveTimer = setTimeout(() => saveCurrent(false), 800);
+    }
+
+    async function saveCurrent(force) {
+      if (!state.currentFile) return;
+
+      readInputsToForm();
+      const content = buildMarkdown(state.form);
+      if (!force && content === state.lastSavedContent) {
+        setSaveStatus("saved", "已保存");
+        return;
+      }
+
+      const token = state.saveToken + 1;
+      state.saveToken = token;
+      clearTimeout(state.saveTimer);
+      setSaveStatus("saving", "保存中");
+
+      try {
+        const file = await invoke("save_journal", {
+          date: state.currentFile.date,
+          content
+        });
+
+        if (token !== state.saveToken) return;
+
+        state.currentFile = file;
+        state.form.dayIndex = String(file.day_index || state.form.dayIndex || state.nextDayIndex || 1);
+        const savedContent = buildMarkdown(state.form);
+        state.lastSavedContent = savedContent;
+        el.editorDate.textContent = dayTitle(state.form.dayIndex);
+        el.editorPath.textContent = `连续记录 ${Number(state.form.dayIndex) || 1} 天`;
+        setSaveStatus("saved", "已保存");
+        await loadMonth();
+      } catch (error) {
+        if (token !== state.saveToken) return;
+        setSaveStatus("error", "保存失败");
+        el.calendarNotice.textContent = toErrorMessage(error);
+      }
+    }
+
+    function updateSelectedPanel() {
+      const date = parseDateKey(state.selectedDate);
+      const entry = state.entries.get(state.selectedDate);
+      const meta = getDayMeta(state.selectedDate);
+      el.selectedDayNumber.textContent = String(date.getDate()).padStart(2, "0");
+      el.selectedDayTitle.textContent = formatLongDate(date);
+      el.selectedHoliday.textContent = meta.label;
+      el.selectedHoliday.className = `holiday-chip ${meta.type}`;
+
+      if (entry) {
+        el.selectedStatus.className = "status-chip";
+        el.selectedStatus.textContent = "已创建";
+        el.selectedEntryTitle.textContent = entry.title;
+        el.selectedEntryMeta.textContent = `${formatLongDate(date)} · 点击日期或按钮打开`;
+        el.openSelected.textContent = "打开日记";
+      } else {
+        el.selectedStatus.className = "status-chip empty";
+        el.selectedStatus.textContent = "未创建";
+        el.selectedEntryTitle.textContent = `第 ${state.nextDayIndex} 天`;
+        el.selectedEntryMeta.textContent = isSameDate(date, today) ? "准备写下今天的开场。" : "为这个日期创建一篇新日记。";
+        el.openSelected.textContent = isSameDate(date, today) ? "新的一天" : "创建这一天";
+      }
+    }
+
+    function selectDate(date) {
+      state.selectedDate = date;
+      renderCalendar();
+      updateSelectedPanel();
+    }
+
+    function shiftMonth(delta) {
+      state.monthDate = new Date(
+        state.monthDate.getFullYear(),
+        state.monthDate.getMonth() + delta,
+        1
+      );
+      state.selectedDate = formatDate(new Date(state.monthDate.getFullYear(), state.monthDate.getMonth(), 1));
+      loadMonth();
+    }
+
+    function goToToday() {
+      state.monthDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      state.selectedDate = formatDate(today);
+      loadMonth();
+    }
+
+    function showCalendar() {
+      document.body.classList.remove("is-editor-mode");
+      el.calendarView?.classList.add("active");
+      el.editorView?.classList.remove("active");
+      renderCalendar();
+      updateSelectedPanel();
+    }
+
+    function showEditor() {
+      document.body.classList.add("is-editor-mode");
+      el.calendarView?.classList.remove("active");
+      el.editorView?.classList.add("active");
+    }
+
+    function setSaveStatus(kind, text) {
+      if (!el.saveStatus) return;
+      el.saveStatus.className = `autosave-dot ${kind === "saved" ? "" : kind}`.trim();
+      el.saveStatus.setAttribute("aria-label", text);
+      el.saveStatus.title = text;
+    }
+
+    function defaultForm(date, dayIndex = "") {
+      return {
+        date,
+        dayIndex: String(dayIndex || ""),
+        weather: "",
+        sleep: "",
+        wakeTime: "",
+        mood: "平静",
+        energy: "6",
+        todayNote: "",
+        frog1: "",
+        frog2: "",
+        frog3: "",
+        currentState: "",
+        identity: "",
+        avoid: "",
+        todos: "",
+        eveningReview: "",
+        free: "",
+        reminder: ""
+      };
+    }
+
+    function applyFormToInputs() {
+      document.querySelectorAll("[data-field]").forEach((field) => {
+        field.value = state.form[field.dataset.field] ?? "";
+      });
+      const mood = document.querySelector(`input[name="mood"][value="${cssEscape(state.form.mood || "平静")}"]`);
+      if (mood) mood.checked = true;
+      const energyValue = document.getElementById("energyValue");
+      if (energyValue) energyValue.textContent = state.form.energy || "6";
+    }
+
+    function readInputsToForm() {
+      document.querySelectorAll("[data-field]").forEach((field) => {
+        state.form[field.dataset.field] = field.value;
+      });
+      state.form.mood = document.querySelector("input[name='mood']:checked")?.value || "平静";
+      state.form.energy = state.form.energy || "6";
+      const energyValue = document.getElementById("energyValue");
+      if (energyValue) energyValue.textContent = state.form.energy;
+    }
+
+    function buildMarkdown(form) {
+      const frogs = [form.frog1, form.frog2, form.frog3].map((value) => value.trim());
+      const todoLines = splitLines(form.todos);
+      const parts = [
+        "---",
+        "type: daily",
+        `date: ${form.date}`,
+        `day_index: ${form.dayIndex || ""}`,
+        `mood: ${form.mood || ""}`,
+        `energy: ${form.energy || ""}`,
+        `sleep_hours: ${form.sleep || ""}`,
+        `wake_time: ${form.wakeTime || ""}`,
+        `weather: ${form.weather || ""}`,
+        "tags:",
+        "  - daily",
+        "  - morning",
+        "---",
+        "",
+        `# ${dayTitle(form.dayIndex)}`,
+        "",
+        "## 今天是什么日子",
+        textOrBlank(form.todayNote),
+        "",
+        "## 今日状态",
+        `- 心情：${form.mood || ""}`,
+        `- 能量：${form.energy || ""}`,
+        `- 睡眠：${form.sleep || ""}`,
+        `- 起床：${form.wakeTime || ""}`,
+        `- 天气：${form.weather || ""}`,
+        "",
+        "## 今天最重要的三件事",
+        `1. ${frogs[0] || ""}`,
+        `2. ${frogs[1] || ""}`,
+        `3. ${frogs[2] || ""}`,
+        "",
+        "## 我现在的状态",
+        textOrBlank(form.currentState),
+        "",
+        "## 今天想成为怎样的人",
+        textOrBlank(form.identity),
+        "",
+        "## 今天要避免什么",
+        textOrBlank(form.avoid),
+        "",
+        "## 今日待办",
+        todoLines.length ? todoLines.map((line) => `- [ ] ${line}`).join("\n") : "- [ ] ",
+        "",
+        "## 晚间回看",
+        textOrBlank(form.eveningReview),
+        "",
+        "## 自由记录",
+        textOrBlank(form.free),
+        "",
+        "## 今日提醒",
+        textOrBlank(form.reminder),
+        ""
+      ];
+      return parts.join("\n");
+    }
+
+    function parseMarkdown(markdown, date) {
+      const form = defaultForm(date);
+      const frontmatter = extractFrontmatter(markdown);
+      form.dayIndex = frontmatter.day_index || frontmatter.day || "";
+      form.mood = frontmatter.mood || form.mood;
+      form.energy = frontmatter.energy || form.energy;
+      form.sleep = frontmatter.sleep_hours || frontmatter.sleep || "";
+      form.wakeTime = frontmatter.wake_time || frontmatter.wakeTime || "";
+      form.weather = frontmatter.weather || "";
+
+      const sections = splitSections(stripFrontmatter(markdown));
+      form.todayNote = findSection(sections, ["今天是什么日子", "今天是什么日子？", "今天是什么日子（天气或者感受）"]);
+
+      const frogs = parseNumberedList(findSection(sections, ["今天最重要的三件事", "今天要吃掉哪三只青蛙"]));
+      form.frog1 = frogs[0] || "";
+      form.frog2 = frogs[1] || "";
+      form.frog3 = frogs[2] || "";
+
+      const status = findSection(sections, ["今日状态"]);
+      const parsedStatus = parseStatusLines(status);
+      form.mood = parsedStatus.mood || form.mood;
+      form.energy = parsedStatus.energy || form.energy;
+      form.sleep = parsedStatus.sleep || form.sleep;
+      form.wakeTime = parsedStatus.wakeTime || form.wakeTime;
+      form.weather = parsedStatus.weather || form.weather;
+
+      form.currentState = findSection(sections, ["我现在的状态", "现在的我"]);
+      form.identity = findSection(sections, ["今天想成为怎样的人", "今天我想成为怎样的人", "我想成为怎样的人"]);
+      form.avoid = findSection(sections, ["今天要避免什么", "今天要避免什么？"]);
+      form.todos = parseTodoLines(findSection(sections, ["今日待办"])).join("\n");
+      form.eveningReview = findSection(sections, ["晚间回看"]);
+      form.free = findSection(sections, ["自由记录", "其他我想记录的"]);
+      form.reminder = findSection(sections, ["今日提醒", "今天提醒自己"]);
+
+      const used = new Set([
+        "今天是什么日子",
+        "今天是什么日子？",
+        "今天是什么日子（天气或者感受）",
+        "今日状态",
+        "今天最重要的三件事",
+        "今天要吃掉哪三只青蛙",
+        "我现在的状态",
+        "现在的我",
+        "今天想成为怎样的人",
+        "今天我想成为怎样的人",
+        "我想成为怎样的人",
+        "今天要避免什么",
+        "今天要避免什么？",
+        "今日待办",
+        "晚间回看",
+        "自由记录",
+        "其他我想记录的",
+        "今日提醒",
+        "今天提醒自己"
+      ]);
+      const extras = sections
+        .filter((section) => !used.has(section.title))
+        .map((section) => `## ${section.title}\n${section.body}`.trim())
+        .filter(Boolean);
+      if (extras.length) {
+        form.free = [form.free, extras.join("\n\n")].filter(Boolean).join("\n\n");
+      }
+
+      return form;
+    }
+
+    function extractFrontmatter(markdown) {
+      const frontmatter = {};
+      if (!markdown.startsWith("---")) return frontmatter;
+      const end = markdown.indexOf("\n---", 3);
+      if (end === -1) return frontmatter;
+      markdown.slice(3, end).split(/\r?\n/).forEach((line) => {
+        const index = line.indexOf(":");
+        if (index === -1) return;
+        const key = line.slice(0, index).trim();
+        const value = line.slice(index + 1).trim();
+        frontmatter[key] = value;
+      });
+      return frontmatter;
+    }
+
+    function stripFrontmatter(markdown) {
+      if (!markdown.startsWith("---")) return markdown;
+      const end = markdown.indexOf("\n---", 3);
+      if (end === -1) return markdown;
+      return markdown.slice(end + 4).trimStart();
+    }
+
+    function splitSections(markdown) {
+      const sections = [];
+      let current = null;
+      markdown.split(/\r?\n/).forEach((line) => {
+        if (line.startsWith("## ")) {
+          if (current) sections.push(current);
+          current = { title: line.slice(3).trim(), body: "" };
+          return;
+        }
+        if (!current) return;
+        current.body += `${line}\n`;
+      });
+      if (current) sections.push(current);
+      return sections.map((section) => ({ title: section.title, body: section.body.trim() }));
+    }
+
+    function findSection(sections, names) {
+      const section = sections.find((item) => names.includes(item.title));
+      return section ? section.body.trim() : "";
+    }
+
+    function parseNumberedList(text) {
+      return splitLines(text).map((line) => line.replace(/^\d+[.、]\s*/, "").trim()).filter(Boolean);
+    }
+
+    function parseTodoLines(text) {
+      return splitLines(text).map((line) => line.replace(/^-\s+\[[ xX]\]\s*/, "").trim()).filter(Boolean);
+    }
+
+    function parseStatusLines(text) {
+      const result = {};
+      splitLines(text).forEach((line) => {
+        const clean = line.replace(/^-\s*/, "");
+        const index = clean.indexOf("：");
+        if (index === -1) return;
+        const key = clean.slice(0, index).trim();
+        const value = clean.slice(index + 1).trim();
+        if (key === "心情") result.mood = value;
+        if (key === "能量") result.energy = value;
+        if (key === "睡眠") result.sleep = value;
+        if (key === "起床") result.wakeTime = value;
+        if (key === "天气") result.weather = value;
+      });
+      return result;
+    }
+
+    function updateSummary() {
+      const frogs = [state.form.frog1, state.form.frog2, state.form.frog3].filter((value) => value.trim()).length;
+      const todos = splitLines(state.form.todos).length;
+      if (el.journalSummary) el.journalSummary.textContent = `${frogs} 项重点，${todos} 项待办`;
+      const totalDays = Math.max(state.totalEntries || 0, Number(state.form.dayIndex) || 1);
+      const energy = Math.max(1, Math.min(10, Number(state.form.energy) || 6));
+      const starCount = Math.max(1, Math.min(4, Math.round(energy / 2.5)));
+      if (el.summaryTotalDays) el.summaryTotalDays.innerHTML = `${totalDays}<small>篇</small>`;
+      if (el.summaryFrogs) el.summaryFrogs.innerHTML = `${Math.max(frogs, totalDays * 3)}<small>次</small>`;
+      if (el.summaryGrowth) el.summaryGrowth.textContent = String(Math.min(99, 70 + totalDays * 2 + frogs));
+      if (el.summaryEnergyStars) el.summaryEnergyStars.textContent = `${"✦ ".repeat(starCount)}${"✧ ".repeat(4 - starCount)}`.trim();
+    }
+
+    function dayIndexFromMarkdown(content) {
+      return Number(extractFrontmatter(content).day_index || extractFrontmatter(content).day || 0);
+    }
+
+    function dayTitle(dayIndex) {
+      return `第 ${Number(dayIndex) || 1} 天`;
+    }
+
+    function isLegacyTitle(title, date) {
+      return title === `${date} 晨间日记` || title.endsWith("晨间日记");
+    }
+
+    function titleFromMarkdown(content, date, dayIndex = 1) {
+      const title = content
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.startsWith("# "));
+      if (!title) return dayTitle(dayIndex);
+      const cleanTitle = title.slice(2);
+      return isLegacyTitle(cleanTitle, date) ? dayTitle(dayIndex) : cleanTitle;
+    }
+
+    function splitLines(text) {
+      return String(text || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+
+    function textOrBlank(value) {
+      return String(value || "").trim();
+    }
+
+    function formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function parseDateKey(date) {
+      const [year, month, day] = date.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    function isDateKey(value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return false;
+      return formatDate(parseDateKey(value)) === value;
+    }
+
+    function isMonthKey(value) {
+      return /^\d{4}-\d{2}$/.test(String(value || ""));
+    }
+
+    function formatMonthLabel(value) {
+      if (!isMonthKey(value)) return value || "";
+      const [year, month] = value.split("-");
+      return `${year} 年 ${month} 月`;
+    }
+
+    function nowSeconds() {
+      return Math.floor(Date.now() / 1000);
+    }
+
+    function formatLongDate(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} 星期${"日一二三四五六"[date.getDay()]}`;
+    }
+
+    function isSameDate(left, right) {
+      return left.getFullYear() === right.getFullYear()
+        && left.getMonth() === right.getMonth()
+        && left.getDate() === right.getDate();
+    }
+
+    function cssEscape(value) {
+      if (window.CSS?.escape) return CSS.escape(value);
+      return String(value).replaceAll('"', '\\"');
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function toErrorMessage(error) {
+      if (typeof error === "string") return error;
+      if (error?.message) return error.message;
+      return "操作失败";
+    }
+  </script>
+</body>
+</html>
+
