@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$SourcePath,
-  [switch]$SkipWhenUnconfigured
+  [switch]$SkipWhenUnconfigured,
+  [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -156,11 +157,32 @@ function Remove-UnusedDesktopIconOutputs {
   }
 }
 
+function Get-IconFingerprint {
+  param([string]$Path)
+
+  $hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+  return "$Path|$hash"
+}
+
 $source = Resolve-IconSource -Path $SourcePath
 if (-not $source) {
   Write-Host "No app icon source configured; skipped icon generation."
   return
 }
+
+$fingerprintFile = Join-Path $iconsDir ".app-icon.fingerprint"
+$fingerprint = Get-IconFingerprint -Path $source
+
+if (-not $Force -and
+    (Test-Path -LiteralPath $fingerprintFile) -and
+    (Test-Path -LiteralPath (Join-Path $iconsDir "icon.ico"))) {
+  $previous = (Get-Content -LiteralPath $fingerprintFile -Raw -ErrorAction SilentlyContinue)
+  if ($previous -and $previous.Trim() -eq $fingerprint) {
+    Write-Host "App icon source unchanged; skipped icon generation."
+    return
+  }
+}
+
 $normalizedPng = New-NormalizedIconPng -Path $source
 
 try {
@@ -170,6 +192,7 @@ try {
     throw "Tauri icon generation failed with exit code $LASTEXITCODE."
   }
   Remove-UnusedDesktopIconOutputs
+  Set-Content -LiteralPath $fingerprintFile -Value $fingerprint -Encoding UTF8 -NoNewline
 } finally {
   Pop-Location
   Remove-Item -LiteralPath $normalizedPng -Force -ErrorAction SilentlyContinue

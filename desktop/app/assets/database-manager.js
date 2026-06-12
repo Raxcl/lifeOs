@@ -1,4 +1,13 @@
 (() => {
+  const {
+    formatDate,
+    nowSeconds,
+    escapeHtml,
+    toErrorMessage,
+    defaultHabitDefinitions
+  } = window.LifeOSShared;
+  const isDate = window.LifeOSShared.isDateKey;
+  const isMonth = window.LifeOSShared.isMonthKey;
   const managerType = document.body.dataset.manager;
   const today = new Date();
   const currentDate = formatDate(today);
@@ -398,6 +407,12 @@
     return `<span class="status-pill" data-done="${done ? "true" : "false"}">${done ? "已完成" : "未完成"}</span>`;
   }
 
+  let filterTimer = null;
+  function scheduleFilters() {
+    clearTimeout(filterTimer);
+    filterTimer = setTimeout(applyCurrentFilters, 200);
+  }
+
   el.list.addEventListener("input", (event) => {
     updateRowMeta(event.target.closest("[data-row]"));
     requestSave();
@@ -422,7 +437,7 @@
   });
 
   el.toolbar.addEventListener("input", (event) => {
-    if (event.target.matches("[data-filter]")) applyCurrentFilters();
+    if (event.target.matches("[data-filter]")) scheduleFilters();
   });
   el.toolbar.addEventListener("change", (event) => {
     if (event.target.matches("[data-filter]")) applyCurrentFilters();
@@ -495,6 +510,12 @@
 
   async function saveNow(options = {}) {
     clearTimeout(state.saveTimer);
+    const saveButton = el.saveNow;
+    const originalLabel = saveButton?.textContent;
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.textContent = "保存中…";
+    }
     try {
       if (managerType === "habits") {
         const habits = collectHabits();
@@ -513,6 +534,11 @@
       if (options.rerenderAfterSave) render();
     } catch (error) {
       setNotice(toErrorMessage(error), "error");
+    } finally {
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = originalLabel;
+      }
     }
   }
 
@@ -678,7 +704,7 @@
           <tbody></tbody>
         </table>
       </div>
-      <p class="table-note">共关联 1 个日记日期；筛选只影响显示，不会删掉隐藏记录。</p>
+      <p class="table-note">筛选只影响显示，不会删掉隐藏记录。</p>
     `;
     return el.list.querySelector("tbody");
   }
@@ -803,14 +829,6 @@
     return { schema_version: 1, months: [] };
   }
 
-  function defaultHabitDefinitions() {
-    return [
-      { id: "habit-journal", label: "写了晨间日记" },
-      { id: "habit-focus", label: "推进了核心任务" },
-      { id: "habit-review", label: "晚上做了简短回看" }
-    ];
-  }
-
   function normalizeFrogDays(days) {
     return [...dedupeBy(days, "date")].filter((day) => isDate(day.date)).map((day) => ({
       date: day.date,
@@ -890,50 +908,9 @@
     return `<div class="empty">${escapeHtml(message)}</div>`;
   }
 
-  function formatDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  function isDate(value) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value || "");
-  }
-
-  function isMonth(value) {
-    return /^\d{4}-\d{2}$/.test(value || "");
-  }
-
-  function nowSeconds() {
-    return Math.floor(Date.now() / 1000);
-  }
-
-  function formatUpdated(value) {
-    if (!value) return "未保存";
-    const date = new Date(Number(value) * 1000);
-    if (Number.isNaN(date.getTime())) return "已保存";
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  }
-
   function uid(prefix) {
     if (crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
     return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  }
-
-  function toErrorMessage(error) {
-    if (!error) return "出现未知错误";
-    if (typeof error === "string") return error;
-    return error.message || JSON.stringify(error);
-  }
-
-  function escapeHtml(value) {
-    return String(value)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
   }
 
   function escapeAttr(value) {
