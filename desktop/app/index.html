@@ -918,48 +918,6 @@
       border-bottom: 0;
     }
 
-    .database-links {
-      display: grid;
-      gap: 6px;
-    }
-
-    .database-link {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      min-height: 38px;
-      padding: 7px 10px;
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      background: rgba(255, 253, 248, 0.54);
-      color: var(--ink);
-      text-decoration: none;
-      transition: transform 120ms ease, border-color 160ms ease, background 160ms ease;
-    }
-
-    .database-link:hover {
-      transform: translateY(-1px);
-      border-color: rgba(36, 40, 33, 0.24);
-      background: rgba(255, 248, 228, 0.88);
-    }
-
-    .database-link:focus-visible {
-      outline: 2px solid rgba(47, 115, 93, 0.42);
-      outline-offset: 3px;
-    }
-
-    .database-link strong {
-      font-size: 0.96rem;
-      line-height: 1.25;
-    }
-
-    .database-link::after {
-      content: "›";
-      color: var(--muted);
-      font-size: 1rem;
-      line-height: 1;
-    }
-
     .selected-day {
       display: grid;
       gap: 8px;
@@ -1168,144 +1126,8 @@
       color: var(--coral);
     }
 
-    .journal-shell {
-      position: relative;
-      overflow: hidden;
-      min-height: calc(100vh - 104px);
-      background:
-        linear-gradient(90deg, var(--theme-line) 0 1px, transparent 1px 100%),
-        linear-gradient(180deg, var(--theme-line) 0 1px, transparent 1px 100%),
-        var(--journal-bg);
-      background-size: 38px 38px, 38px 38px, auto;
-    }
-
-    .journal-shell::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background:
-        radial-gradient(circle at 14% 9%, rgba(166, 122, 44, 0.08), transparent 26%),
-        radial-gradient(circle at 88% 18%, rgba(66, 111, 143, 0.07), transparent 24%);
-      opacity: 0;
-      transition: opacity 220ms ease;
-    }
-
-    .journal-head {
-      position: relative;
-      z-index: 1;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 14px;
-      align-items: center;
-      padding: 20px 24px;
-      border-bottom: 1px solid rgba(36, 40, 33, 0.10);
-      background:
-        linear-gradient(90deg, rgba(47, 115, 93, 0.08), transparent 54%),
-        var(--surface);
-    }
-
-    .journal-head::after {
-      content: "";
-      position: absolute;
-      left: 24px;
-      bottom: -1px;
-      width: min(240px, 36vw);
-      height: 2px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, var(--green), transparent);
-      transform-origin: left center;
-      animation: storyLine 520ms ease both;
-    }
-
-    .journal-title {
-      min-width: 0;
-    }
-
-    .journal-title h2 {
-      margin: 0;
-      color: var(--ink);
-      font-size: 1.56rem;
-      font-weight: 950;
-      line-height: 1.1;
-      letter-spacing: 0;
-    }
-
-    .journal-title .journal-meta {
-      display: inline-flex;
-      width: fit-content;
-      margin-top: 8px;
-      padding: 4px 8px;
-      border: 1px solid rgba(36, 40, 33, 0.10);
-      border-radius: var(--radius);
-      background: rgba(255, 253, 248, 0.68);
-      font-size: 0.82rem;
-    }
-
-    .autosave-dot {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 12px;
-      height: 12px;
-      flex: 0 0 12px;
-      border: 2px solid rgba(255, 253, 248, 0.96);
-      border-radius: 999px;
-      background: var(--green);
-      color: var(--green);
-      box-shadow: 0 0 0 1px rgba(36, 40, 33, 0.12);
-      font-size: 0;
-    }
-
-    .autosave-dot.dirty {
-      background: var(--gold);
-    }
-
-    .autosave-dot.saving {
-      background: var(--blue);
-      animation: statusPulse 1.2s ease-in-out infinite;
-    }
-
     .autosave-dot.error {
       background: var(--coral);
-    }
-
-    .journal-summary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 32px;
-      padding: 5px 10px;
-      border: 1px solid rgba(36, 40, 33, 0.12);
-      border-radius: var(--radius);
-      background: var(--surface-soft);
-      color: var(--muted);
-      font-size: 0.8rem;
-      font-weight: 850;
-      white-space: nowrap;
-    }
-
-    .journal-layout {
-      position: relative;
-      z-index: 1;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 16px;
-      min-height: calc(100vh - 182px);
-      padding: 18px;
-    }
-
-    .journal-illustration {
-      display: none;
-    }
-
-    .card-stack {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      grid-auto-rows: minmax(0, 1fr);
-      gap: 12px;
-      min-width: 0;
-      min-height: calc(100vh - 218px);
     }
 
     .card {
@@ -1331,27 +1153,6 @@
     .card:nth-child(7) { animation-delay: 210ms; }
     .card:nth-child(8) { animation-delay: 245ms; }
     .card:nth-child(9) { animation-delay: 280ms; }
-
-    .card-head {
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
-      min-width: 0;
-    }
-
-    .card-no {
-      display: grid;
-      place-items: center;
-      flex: 0 0 32px;
-      width: 32px;
-      height: 32px;
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      background: var(--card-no-bg);
-      color: var(--card-no-color);
-      font-size: 0.78rem;
-      font-weight: 900;
-    }
 
     .card h3 {
       margin: 0;
@@ -1379,12 +1180,6 @@
         var(--card-bg);
     }
 
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-
     .field {
       display: grid;
       gap: 6px;
@@ -1400,144 +1195,15 @@
       line-height: 1.35;
     }
 
-    .mood-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 7px;
-    }
-
-    .mood-option {
-      position: relative;
-      min-width: 0;
-    }
-
-    .mood-option input {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .mood-option span {
-      display: grid;
-      min-height: 36px;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: #fffefa;
-      color: var(--muted);
-      font-size: 0.82rem;
-      font-weight: 850;
-    }
-
-    .mood-option input:checked + span {
-      border-color: var(--green);
-      background: var(--green);
-      color: #fffdf8;
-    }
-
-    .energy-line {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 34px;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .energy-line strong {
-      text-align: right;
-      color: var(--green);
-    }
-
-    .frog-grid {
-      display: grid;
-      gap: 8px;
-    }
-
-    .frog-row {
-      display: grid;
-      grid-template-columns: 28px minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
-    }
-
-    .frog-row span {
-      display: grid;
-      place-items: center;
-      height: 28px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--surface-soft);
-      color: var(--blue);
-      font-size: 0.78rem;
-      font-weight: 900;
-    }
-
     @media (min-width: 1680px) {
       .page {
         width: calc(100% - 18px);
         padding-top: 9px;
       }
 
-      .journal-layout {
-        gap: 18px;
-        padding: 20px;
-      }
-
-      .card-stack {
-        gap: 14px;
-      }
-
       .card {
         padding: 16px;
       }
-    }
-
-    .style-switcher {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-      justify-content: flex-end;
-      min-width: 0;
-    }
-
-    .style-switcher label {
-      position: relative;
-    }
-
-    .style-switcher input {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .style-switcher span {
-      display: inline-flex;
-      align-items: center;
-      min-height: 32px;
-      padding: 6px 9px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--surface-soft);
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 850;
-      white-space: nowrap;
-    }
-
-    .style-switcher input:checked + span {
-      border-color: var(--green);
-      background: var(--green);
-      color: #fffdf8;
-    }
-
-    html[data-ui-theme="anime"] .journal-head {
-      background:
-        linear-gradient(90deg, rgba(207, 109, 138, 0.18), rgba(84, 122, 167, 0.13), rgba(59, 122, 115, 0.10)),
-        var(--surface);
-    }
-
-    html[data-ui-theme="anime"] .card-no {
-      border-radius: 999px;
     }
 
     html[data-ui-theme="anime"] .card:nth-child(3n + 1) {
@@ -1797,442 +1463,6 @@
         0 7px 16px rgba(95, 117, 54, 0.13);
     }
 
-    html[data-ui-theme="whimsy"] .journal-shell {
-      min-height: calc(100vh - 104px);
-      background:
-        linear-gradient(90deg, rgba(247, 184, 181, 0.34) 0 76px, transparent 76px calc(100% - 58px), rgba(216, 236, 177, 0.44) calc(100% - 58px)),
-        repeating-linear-gradient(90deg, rgba(174, 139, 78, 0.115) 0 1px, transparent 1px 34px),
-        repeating-linear-gradient(180deg, rgba(174, 139, 78, 0.09) 0 1px, transparent 1px 34px),
-        linear-gradient(135deg, #fff9e8 0%, #fff4dd 52%, #edf2cf 100%);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-shell::before {
-      opacity: 1;
-      background:
-        linear-gradient(90deg, rgba(145, 178, 87, 0.38) 0 46px, transparent 46px calc(100% - 38px), rgba(239, 201, 79, 0.42) calc(100% - 38px)),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.56), transparent 34%, rgba(244, 221, 156, 0.38));
-    }
-
-    html[data-ui-theme="whimsy"] .journal-shell::after {
-      content: "";
-      position: absolute;
-      right: 34px;
-      bottom: 34px;
-      width: 150px;
-      height: 112px;
-      pointer-events: none;
-      border: 2px solid rgba(116, 159, 77, 0.25);
-      border-radius: 40% 60% 46% 54%;
-      background:
-        repeating-linear-gradient(135deg, transparent 0 14px, rgba(116, 159, 77, 0.08) 14px 16px),
-        rgba(255, 253, 242, 0.26);
-      transform: rotate(-7deg);
-      opacity: 0.78;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-head {
-      border-bottom: 1px dashed rgba(151, 124, 76, 0.30);
-      background:
-        linear-gradient(90deg, rgba(245, 180, 176, 0.42), rgba(255, 249, 236, 0.96) 30%, rgba(218, 235, 181, 0.54)),
-        var(--surface);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-head::before {
-      content: "";
-      position: absolute;
-      top: -5px;
-      right: clamp(112px, 18vw, 260px);
-      width: 118px;
-      height: 34px;
-      border-radius: 5px;
-      background:
-        linear-gradient(90deg, rgba(255, 255, 255, 0.42), transparent 30% 70%, rgba(255, 255, 255, 0.30)),
-        repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.28) 0 6px, transparent 6px 12px),
-        rgba(239, 171, 169, 0.74);
-      box-shadow: 0 8px 18px rgba(98, 72, 38, 0.12);
-      transform-origin: center;
-      animation: bookmarkSway 6.2s ease-in-out infinite;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-head::after {
-      height: 3px;
-      background: linear-gradient(90deg, #b7d787, #efc15a, transparent);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-title h2 {
-      color: #5d4717;
-      font-size: 1.82rem;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-title h2::after {
-      content: "今日手帐";
-      display: inline-flex;
-      margin-left: 10px;
-      transform: translateY(-3px) rotate(-4deg);
-      padding: 3px 9px;
-      border: 1px solid rgba(194, 111, 113, 0.22);
-      border-radius: 999px;
-      background: #f9ded7;
-      color: #b96866;
-      font-size: 0.68rem;
-      font-weight: 950;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-title .journal-meta,
-    html[data-ui-theme="whimsy"] .journal-summary,
-    html[data-ui-theme="whimsy"] .style-switcher span {
-      border-color: rgba(156, 125, 73, 0.20);
-      background: rgba(255, 253, 244, 0.78);
-      color: #7a6334;
-    }
-
-    html[data-ui-theme="whimsy"] .style-switcher input:checked + span {
-      border-color: rgba(111, 151, 69, 0.38);
-      background: #83ad55;
-      color: #fffdf5;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-layout {
-      grid-template-columns: minmax(0, 1fr);
-      align-items: stretch;
-      gap: 0;
-      min-height: 720px;
-      padding: 34px 42px 42px;
-      overflow: hidden;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-layout::before {
-      content: "";
-      position: absolute;
-      inset: 18px 20px;
-      pointer-events: none;
-      border: 2px solid rgba(177, 149, 94, 0.24);
-      border-radius: 14px;
-      background:
-        linear-gradient(90deg, rgba(205, 169, 96, 0.13) 0 2px, transparent 2px calc(50% - 1px), rgba(201, 169, 108, 0.16) 50%, transparent calc(50% + 1px)),
-        repeating-linear-gradient(90deg, rgba(190, 160, 108, 0.09) 0 1px, transparent 1px 34px),
-        repeating-linear-gradient(180deg, rgba(190, 160, 108, 0.074) 0 1px, transparent 1px 34px),
-        linear-gradient(135deg, #fff9ea 0%, #fff6e1 42%, #f0e9cf 50%, #fff8e8 58%, #f8f6dc 100%);
-      box-shadow:
-        0 24px 58px rgba(72, 58, 31, 0.19),
-        inset 18px 0 26px rgba(255, 255, 255, 0.58),
-        inset -20px 0 26px rgba(140, 116, 65, 0.07);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-layout::after {
-      content: "";
-      position: absolute;
-      top: 52px;
-      right: 94px;
-      width: 210px;
-      height: 116px;
-      pointer-events: none;
-      border: 2px solid rgba(199, 121, 123, 0.24);
-      border-radius: 52% 48% 47% 53%;
-      background:
-        repeating-linear-gradient(90deg, transparent 0 18px, rgba(199, 121, 123, 0.06) 18px 20px),
-        rgba(255, 250, 240, 0.16);
-      transform: rotate(4deg);
-      opacity: 0.76;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-illustration {
-      display: block;
-      position: absolute;
-      inset: 0;
-      z-index: 2;
-      width: auto;
-      height: auto;
-      min-height: 0;
-      pointer-events: none;
-      opacity: 1;
-      transform: none;
-      overflow: hidden;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-illustration::before {
-      display: block;
-      content: "";
-      position: absolute;
-      left: 44px;
-      top: 46px;
-      width: 430px;
-      height: 430px;
-      border: 2px solid rgba(171, 137, 80, 0.14);
-      border-radius: 34% 66% 42% 58%;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 42%),
-        repeating-linear-gradient(90deg, transparent 0 22px, rgba(171, 137, 80, 0.044) 22px 24px),
-        rgba(255, 253, 244, 0.18);
-      transform: rotate(-6deg);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-illustration::after {
-      display: block;
-      content: "";
-      position: absolute;
-      right: 80px;
-      bottom: 76px;
-      width: 260px;
-      height: 2px;
-      border-radius: 999px;
-      background: rgba(119, 151, 84, 0.20);
-      box-shadow:
-        38px 12px 0 rgba(219, 165, 66, 0.12),
-        138px -9px 0 rgba(196, 112, 117, 0.12);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-art {
-      display: block;
-      position: absolute;
-      max-width: none;
-      pointer-events: none;
-      user-select: none;
-      object-fit: contain;
-      filter: drop-shadow(0 14px 16px rgba(93, 68, 26, 0.12));
-    }
-
-    html[data-ui-theme="whimsy"] .art-main {
-      left: 32px;
-      top: 30px;
-      width: 430px;
-      height: 572px;
-      object-fit: cover;
-      object-position: left top;
-      border: 2px solid rgba(184, 145, 76, 0.16);
-      border-radius: 28px;
-      opacity: 0.92;
-      transform: rotate(-2deg);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-illustration > span {
-      display: none;
-    }
-
-    html[data-ui-theme="whimsy"] .illust-sun {
-      position: absolute;
-      top: 74px;
-      left: 78px;
-      width: 58px;
-      height: 58px;
-      border: 4px solid rgba(223, 164, 52, 0.62);
-      border-radius: 999px;
-      background: rgba(255, 237, 156, 0.62);
-      box-shadow:
-        0 -22px 0 -17px rgba(223, 164, 52, 0.56),
-        0 22px 0 -17px rgba(223, 164, 52, 0.56),
-        22px 0 0 -17px rgba(223, 164, 52, 0.56),
-        -22px 0 0 -17px rgba(223, 164, 52, 0.56),
-        16px 16px 0 -18px rgba(223, 164, 52, 0.56),
-        -16px 16px 0 -18px rgba(223, 164, 52, 0.56),
-        16px -16px 0 -18px rgba(223, 164, 52, 0.56),
-        -16px -16px 0 -18px rgba(223, 164, 52, 0.56);
-    }
-
-    html[data-ui-theme="whimsy"] .illust-sun::before {
-      content: "";
-      position: absolute;
-      inset: 8px;
-      border: 3px solid rgba(223, 164, 52, 0.40);
-      border-left-color: transparent;
-      border-radius: 999px;
-      transform: rotate(-28deg);
-    }
-
-    html[data-ui-theme="whimsy"] .illust-flower {
-      position: absolute;
-      width: 82px;
-      height: 88px;
-    }
-
-    html[data-ui-theme="whimsy"] .illust-flower::before {
-      content: "";
-      position: absolute;
-      left: 34px;
-      top: 20px;
-      width: 2px;
-      height: 54px;
-      border-radius: 999px;
-      background: rgba(112, 151, 74, 0.46);
-      transform: rotate(9deg);
-    }
-
-    html[data-ui-theme="whimsy"] .illust-flower::after {
-      content: "";
-      position: absolute;
-      left: 21px;
-      top: 13px;
-      width: 18px;
-      height: 20px;
-      border: 2px solid rgba(198, 111, 121, 0.42);
-      border-radius: 70% 30% 68% 32%;
-      background: rgba(248, 211, 209, 0.52);
-      box-shadow:
-        14px -8px 0 -1px rgba(248, 211, 209, 0.52),
-        24px 5px 0 -2px rgba(248, 211, 209, 0.52),
-        6px 18px 0 -2px rgba(248, 211, 209, 0.50);
-      transform: rotate(-18deg);
-    }
-
-    html[data-ui-theme="whimsy"] .flower-a {
-      left: 34px;
-      bottom: 154px;
-      transform: rotate(-7deg);
-    }
-
-    html[data-ui-theme="whimsy"] .flower-b {
-      right: 26px;
-      top: 166px;
-      transform: scale(0.92) rotate(18deg);
-    }
-
-    html[data-ui-theme="whimsy"] .illust-friend {
-      position: absolute;
-      left: 98px;
-      bottom: 210px;
-      width: 104px;
-      height: 136px;
-      transform: rotate(2deg) scale(1.08);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-head {
-      position: absolute;
-      left: 27px;
-      top: 20px;
-      width: 46px;
-      height: 44px;
-      border: 2px solid rgba(125, 95, 55, 0.42);
-      border-radius: 45% 55% 50% 50%;
-      background: #fff3df;
-      box-shadow: inset 8px -4px 0 rgba(244, 188, 178, 0.28);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-head::before,
-    html[data-ui-theme="whimsy"] .friend-head::after {
-      content: "";
-      position: absolute;
-      top: 20px;
-      width: 4px;
-      height: 5px;
-      border-radius: 999px;
-      background: rgba(87, 69, 31, 0.70);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-head::before {
-      left: 14px;
-    }
-
-    html[data-ui-theme="whimsy"] .friend-head::after {
-      right: 14px;
-      box-shadow: -8px 10px 0 -3px rgba(198, 111, 121, 0.42);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-hair {
-      position: absolute;
-      left: 23px;
-      top: 12px;
-      width: 52px;
-      height: 28px;
-      border: 2px solid rgba(125, 95, 55, 0.34);
-      border-bottom: 0;
-      border-radius: 50% 50% 32% 32%;
-      background: #f3bfbd;
-      transform: rotate(-4deg);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-hair::before {
-      content: "";
-      position: absolute;
-      left: -9px;
-      top: 11px;
-      width: 24px;
-      height: 34px;
-      border-radius: 999px;
-      background: rgba(243, 191, 189, 0.86);
-      transform: rotate(22deg);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-body {
-      position: absolute;
-      left: 30px;
-      top: 62px;
-      width: 44px;
-      height: 48px;
-      border: 2px solid rgba(98, 135, 73, 0.36);
-      border-radius: 20px 20px 14px 14px;
-      background: #cfe7a8;
-      box-shadow: inset 0 -8px 0 rgba(118, 160, 82, 0.12);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-body::before,
-    html[data-ui-theme="whimsy"] .friend-body::after {
-      content: "";
-      position: absolute;
-      top: 8px;
-      width: 24px;
-      height: 8px;
-      border-radius: 999px;
-      background: #f0c4bc;
-    }
-
-    html[data-ui-theme="whimsy"] .friend-body::before {
-      left: -17px;
-      transform: rotate(24deg);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-body::after {
-      right: -17px;
-      transform: rotate(-24deg);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-book {
-      position: absolute;
-      right: 0;
-      bottom: 22px;
-      width: 36px;
-      height: 27px;
-      border: 2px solid rgba(126, 97, 54, 0.34);
-      border-radius: 5px;
-      background: #fff0b4;
-      transform: rotate(-9deg);
-    }
-
-    html[data-ui-theme="whimsy"] .friend-book::before {
-      content: "";
-      position: absolute;
-      top: 4px;
-      bottom: 4px;
-      left: 50%;
-      width: 1px;
-      background: rgba(126, 97, 54, 0.20);
-    }
-
-    html[data-ui-theme="whimsy"] .card-stack {
-      position: relative;
-      z-index: 4;
-      display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
-      grid-auto-rows: minmax(112px, auto);
-      gap: 16px;
-      min-height: 720px;
-      padding: 38px 34px 34px 46px;
-      align-content: start;
-    }
-
-    html[data-ui-theme="whimsy"] .card-stack::before {
-      content: "";
-      position: absolute;
-      right: 34px;
-      top: 24px;
-      width: 70px;
-      height: 70px;
-      pointer-events: none;
-      border-top: 1px solid rgba(151, 124, 76, 0.23);
-      border-right: 1px solid rgba(151, 124, 76, 0.23);
-      border-radius: 0 8px 0 0;
-      background: linear-gradient(45deg, transparent 48%, rgba(177, 149, 94, 0.10) 49%, rgba(255, 255, 255, 0.70) 50%);
-    }
-
     html[data-ui-theme="whimsy"] .card {
       position: relative;
       --tilt: 0deg;
@@ -2392,16 +1622,6 @@
       --card-border: rgba(104, 151, 141, 0.22);
     }
 
-    html[data-ui-theme="whimsy"] .card-no {
-      border: 3px solid rgba(255, 253, 244, 0.84);
-      border-radius: 999px;
-      background: #e0aa3c;
-      color: #fffdf5;
-      box-shadow:
-        inset 0 -2px 0 rgba(122, 82, 21, 0.15),
-        0 2px 0 rgba(104, 77, 30, 0.10);
-    }
-
     html[data-ui-theme="whimsy"] .card h3 {
       color: #5b471c;
       font-size: 1.05rem;
@@ -2415,46 +1635,10 @@
       min-height: 78px;
     }
 
-    html[data-ui-theme="whimsy"] input,
-    html[data-ui-theme="whimsy"] textarea,
-    html[data-ui-theme="whimsy"] .mood-option span {
-      border-color: rgba(153, 124, 75, 0.21);
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 251, 239, 0.66));
-      color: #5e4a22;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
-    }
-
     html[data-ui-theme="whimsy"] input:focus,
     html[data-ui-theme="whimsy"] textarea:focus {
       border-color: #83ad55;
       box-shadow: 0 0 0 3px rgba(131, 173, 85, 0.16);
-    }
-
-    html[data-ui-theme="whimsy"] .mood-option input:checked + span {
-      border-color: rgba(112, 148, 72, 0.38);
-      background: #83ad55;
-      color: #fffdf5;
-    }
-
-    html[data-ui-theme="whimsy"] .frog-row span {
-      border-color: rgba(153, 124, 75, 0.20);
-      border-radius: 999px;
-      background: #fff6dc;
-      color: #d19a34;
-    }
-
-    html[data-ui-theme="whimsy"] .autosave-dot {
-      border-color: #fff9ea;
-      box-shadow: 0 0 0 2px rgba(112, 142, 71, 0.12);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-shell {
-      --journal-sheet-width: min(calc(100vw - 18px), calc(150vh - 27px));
-    }
-
-    html[data-ui-theme="whimsy"] body.is-editor-mode {
-      overflow: hidden;
     }
 
     html[data-ui-theme="whimsy"] body.is-editor-mode .page {
@@ -2473,30 +1657,6 @@
       display: none;
     }
 
-    html[data-ui-theme="whimsy"] body.is-editor-mode #editorView {
-      min-height: 100vh;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-head {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      z-index: 8;
-      width: var(--journal-sheet-width);
-      aspect-ratio: 3 / 2;
-      display: block;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      pointer-events: none;
-      transform: translate(-50%, -50%);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-head::before,
-    html[data-ui-theme="whimsy"] .journal-head::after {
-      display: none;
-    }
-
     html[data-ui-theme="whimsy"] .journal-head .actions {
       position: fixed;
       top: 12px;
@@ -2506,120 +1666,6 @@
       transform: none;
       pointer-events: auto;
       opacity: 0.9;
-    }
-
-    html[data-ui-theme="whimsy"] body.is-editor-mode .journal-summary,
-    html[data-ui-theme="whimsy"] body.is-editor-mode .style-switcher {
-      display: none;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-title {
-      position: absolute;
-      left: 5.8%;
-      top: 5.2%;
-      width: 24%;
-      min-width: 0;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-title::after {
-      content: "晴";
-      position: absolute;
-      left: clamp(176px, 14.4vw, 226px);
-      top: 4px;
-      display: grid;
-      place-items: center;
-      min-width: 42px;
-      height: 28px;
-      padding: 0 10px;
-      border: 1px solid rgba(219, 165, 66, 0.30);
-      border-radius: 999px;
-      background: rgba(255, 252, 237, 0.62);
-      color: #8b6428;
-      font-size: 0.9rem;
-      font-weight: 900;
-      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.24);
-    }
-
-    html[data-ui-theme="whimsy"] .journal-title h2 {
-      margin: 0;
-      font-size: clamp(1.9rem, 3.15vw, 2.85rem);
-      line-height: 0.96;
-      white-space: nowrap;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-title h2::after {
-      display: none;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-title .journal-meta {
-      margin-top: 10px;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      color: #7a5a21;
-      font-size: clamp(0.8rem, 1vw, 0.98rem);
-      font-weight: 900;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-layout {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: 9px;
-      overflow: hidden;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-layout::before,
-    html[data-ui-theme="whimsy"] .journal-layout::after,
-    html[data-ui-theme="whimsy"] .journal-illustration::before,
-    html[data-ui-theme="whimsy"] .journal-illustration::after {
-      display: none;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-illustration {
-      left: 50%;
-      top: 50%;
-      right: auto;
-      bottom: auto;
-      width: var(--journal-sheet-width);
-      height: auto;
-      aspect-ratio: 3 / 2;
-      z-index: 7;
-      overflow: visible;
-      transform: translate(-50%, -50%);
-    }
-
-    html[data-ui-theme="whimsy"] .card-stack {
-      width: var(--journal-sheet-width);
-      min-height: 0;
-      aspect-ratio: 3 / 2;
-      grid-template-columns: repeat(24, minmax(0, 1fr));
-      grid-template-rows: repeat(14, minmax(0, 1fr));
-      grid-auto-rows: minmax(0, 1fr);
-      gap: 10px;
-      padding: 104px 56px 50px;
-      border: 2px solid rgba(177, 149, 94, 0.36);
-      border-radius: 18px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 251, 239, 0.18)),
-        #fffaf0;
-      box-shadow:
-        0 24px 58px rgba(78, 60, 28, 0.16),
-        inset 0 0 0 5px rgba(255, 255, 255, 0.42);
-      overflow: visible;
-    }
-
-    html[data-ui-theme="whimsy"] .card-stack::before {
-      inset: 10px;
-      width: auto;
-      height: auto;
-      border: 1px solid rgba(177, 149, 94, 0.18);
-      border-radius: 13px;
-      background:
-        linear-gradient(90deg, transparent 0 calc(50% - 1px), rgba(184, 150, 92, 0.16) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
-        linear-gradient(90deg, rgba(177, 149, 94, 0.16), transparent 13%, transparent 87%, rgba(177, 149, 94, 0.13)),
-        linear-gradient(180deg, rgba(177, 149, 94, 0.13), transparent 16%, transparent 84%, rgba(177, 149, 94, 0.13));
-      z-index: 0;
     }
 
     html[data-ui-theme="whimsy"] .card-stack > .card {
@@ -2651,18 +1697,6 @@
       opacity: 0.36;
     }
 
-    html[data-ui-theme="whimsy"] .card-head {
-      gap: 8px;
-    }
-
-    html[data-ui-theme="whimsy"] .card-no {
-      flex-basis: 24px;
-      width: 24px;
-      height: 24px;
-      border-width: 2px;
-      font-size: 0.68rem;
-    }
-
     html[data-ui-theme="whimsy"] .card h3 {
       font-size: 0.9rem;
     }
@@ -2673,53 +1707,6 @@
 
     html[data-ui-theme="whimsy"] .card textarea {
       min-height: 40px;
-    }
-
-    html[data-ui-theme="whimsy"] .summary-strip {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    html[data-ui-theme="whimsy"] .summary-tile {
-      min-height: 52px;
-      padding: 7px 8px;
-      border: 1px solid rgba(181, 137, 70, 0.24);
-      border-radius: 8px;
-      background: rgba(255, 253, 244, 0.52);
-      color: #6c5220;
-      text-align: center;
-      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.20);
-    }
-
-    html[data-ui-theme="whimsy"] .summary-tile span {
-      display: block;
-      font-size: 0.68rem;
-      font-weight: 900;
-      line-height: 1.1;
-    }
-
-    html[data-ui-theme="whimsy"] .summary-tile strong {
-      display: block;
-      margin-top: 5px;
-      color: #7a5420;
-      font-size: 1.22rem;
-      line-height: 1;
-    }
-
-    html[data-ui-theme="whimsy"] .summary-tile small {
-      margin-left: 2px;
-      color: #9c7a42;
-      font-size: 0.7rem;
-      font-weight: 900;
-    }
-
-    html[data-ui-theme="whimsy"] .summary-stars {
-      margin-top: 7px;
-      color: #e3aa35;
-      font-size: 1rem;
-      line-height: 1;
-      white-space: nowrap;
     }
 
     html[data-ui-theme="whimsy"] .card[data-card="today"] .form-grid,
@@ -2741,157 +1728,15 @@
       display: none;
     }
 
-    html[data-ui-theme="whimsy"] .form-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 7px;
-    }
-
     html[data-ui-theme="whimsy"] .field label,
     html[data-ui-theme="whimsy"] .field-label {
       font-size: 0.72rem;
-    }
-
-    html[data-ui-theme="whimsy"] input,
-    html[data-ui-theme="whimsy"] textarea,
-    html[data-ui-theme="whimsy"] .mood-option span {
-      min-height: 30px;
-      padding: 6px 8px;
-      border-color: rgba(158, 127, 75, 0.16);
-      border-radius: 7px;
-      background: rgba(255, 253, 243, 0.50);
-      font-size: 0.78rem;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40);
     }
 
     html[data-ui-theme="whimsy"] textarea {
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 253, 244, 0.42)),
         repeating-linear-gradient(180deg, transparent 0 31px, rgba(171, 137, 80, 0.10) 31px 32px);
-    }
-
-    html[data-ui-theme="whimsy"] .mood-grid {
-      gap: 6px;
-    }
-
-    html[data-ui-theme="whimsy"] .frog-grid {
-      gap: 10px;
-    }
-
-    html[data-ui-theme="whimsy"] .frog-row span {
-      height: 26px;
-    }
-
-    html[data-ui-theme="whimsy"] .art-main {
-      display: none;
-    }
-
-    html[data-ui-theme="whimsy"] .journal-art {
-      z-index: 1;
-      pointer-events: none;
-      filter: drop-shadow(0 10px 10px rgba(93, 68, 26, 0.10));
-    }
-
-    html[data-ui-theme="whimsy"] .art-hero-group {
-      top: 6.3%;
-      right: 8.4%;
-      width: 32.6%;
-      opacity: 0.93;
-      transform: rotate(0.8deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-corner-tr {
-      right: -1.5%;
-      top: -1.8%;
-      width: 10.6%;
-      opacity: 0.86;
-      transform: rotate(4deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-corner-bl {
-      left: -2%;
-      bottom: -2.6%;
-      width: 19.2%;
-      opacity: 0.88;
-      transform: rotate(-1deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-small-can {
-      right: 9.4%;
-      bottom: 7.8%;
-      width: 6.3%;
-      opacity: 0.88;
-      transform: rotate(-4deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-corner-tl {
-      left: -2.1%;
-      top: -2.4%;
-      width: 14.4%;
-      opacity: 0.9;
-      transform: rotate(-2deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-corner-br {
-      right: -2.1%;
-      bottom: -2.8%;
-      width: 20.6%;
-      opacity: 0.9;
-      transform: rotate(-3deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-small-plant {
-      right: 27.6%;
-      bottom: 9.6%;
-      width: 5.6%;
-      opacity: 0.84;
-      transform: rotate(2deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-small-flower {
-      left: 41.4%;
-      bottom: 8.2%;
-      width: 6%;
-      opacity: 0.82;
-      transform: rotate(-6deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-small-border {
-      left: 36.5%;
-      bottom: -2%;
-      width: 38.5%;
-      opacity: 0.52;
-    }
-
-    html[data-ui-theme="whimsy"] .art-top-border {
-      left: 24.5%;
-      top: -1.15%;
-      width: 43%;
-      opacity: 0.34;
-      transform: scaleY(0.48) rotate(0.2deg);
-      transform-origin: top center;
-    }
-
-    html[data-ui-theme="whimsy"] .art-book {
-      left: 4.3%;
-      bottom: 8.2%;
-      width: 10.8%;
-      opacity: 0.22;
-      transform: rotate(-6deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-sun {
-      left: 16.8%;
-      top: 5.6%;
-      width: 4.2%;
-      opacity: 0.9;
-      transform: rotate(8deg);
-    }
-
-    html[data-ui-theme="whimsy"] .art-mood {
-      right: 14.5%;
-      top: 34.3%;
-      width: 21.8%;
-      opacity: 0.48;
     }
 
     html[data-ui-theme="whimsy"] .card[data-card="today"] {
@@ -2988,39 +1833,9 @@
         grid-template-columns: minmax(0, 1fr);
       }
 
-      html[data-ui-theme="whimsy"] .journal-illustration {
-        display: block;
-        opacity: 1;
-      }
-
-      html[data-ui-theme="whimsy"] .journal-layout {
-        grid-template-columns: minmax(0, 1fr);
-        min-height: max(720px, calc(100vh - 182px));
-      }
-
-      html[data-ui-theme="whimsy"] .card-stack {
-        grid-template-columns: repeat(24, minmax(0, 1fr));
-        grid-template-rows: repeat(14, minmax(0, 1fr));
-        grid-auto-rows: minmax(0, 1fr);
-        min-height: 0;
-      }
-
       html[data-ui-theme="whimsy"] .card {
         grid-column: var(--journal-grid-column) !important;
         grid-row: var(--journal-grid-row) !important;
-      }
-
-      html[data-ui-theme="whimsy"] .journal-layout::before {
-        background:
-          repeating-linear-gradient(90deg, rgba(190, 160, 108, 0.095) 0 1px, transparent 1px 34px),
-          repeating-linear-gradient(180deg, rgba(190, 160, 108, 0.078) 0 1px, transparent 1px 34px),
-          linear-gradient(90deg, #fff9ea, #fff6e2 49%, #f1e8cf 50%, #fff8e8 51%, #fffaf0);
-      }
-
-      .card-stack {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-auto-rows: minmax(230px, auto);
-        min-height: 0;
       }
 
       .calendar-main,
@@ -3098,20 +1913,6 @@
       .day-title {
         min-height: 24px;
         font-size: 0.72rem;
-      }
-
-      .form-grid,
-      .mood-grid,
-      .card-stack {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      html[data-ui-theme="whimsy"] .journal-illustration {
-        display: block;
-      }
-
-      .card-stack {
-        grid-auto-rows: minmax(220px, auto);
       }
 
       html[data-ui-theme="whimsy"] .card[data-card="today"] {
@@ -3203,8 +2004,8 @@
           <section class="calendar-main">
             <div class="month-toolbar">
               <div class="month-title">
-                <h2 id="monthTitle">2026 年 06 月</h2>
-                <p id="monthMeta">已记录 0 天</p>
+                <h2 id="monthTitle">—— 年 —— 月</h2>
+                <p id="monthMeta">正在加载…</p>
               </div>
               <div class="actions">
                 <button class="btn secondary" type="button" id="prevMonth">上个月</button>
@@ -3217,8 +2018,8 @@
 
           <aside class="day-panel">
             <section class="panel-block selected-day">
-              <strong id="selectedDayNumber">06</strong>
-              <h2 id="selectedDayTitle">2026-06-06</h2>
+              <strong id="selectedDayNumber">—</strong>
+              <h2 id="selectedDayTitle">——</h2>
               <div class="selected-day-tags">
                 <span class="status-chip empty" id="selectedStatus">未创建</span>
                 <span class="holiday-chip" id="selectedHoliday">工作日</span>
@@ -3300,7 +2101,18 @@
     </section>
   </div>
 
+  <script src="assets/lifeos-shared.js"></script>
   <script>
+    const {
+      formatDate,
+      parseDateKey,
+      isDateKey,
+      isMonthKey,
+      nowSeconds,
+      escapeHtml,
+      toErrorMessage,
+      defaultHabitDefinitions
+    } = window.LifeOSShared;
     const tauriInvoke = window.__TAURI__?.core?.invoke;
     const today = new Date();
     const themeVersion = localStorage.getItem("lifeos-ui-theme-version");
@@ -3333,11 +2145,6 @@
       entries: new Map(),
       totalEntries: 0,
       nextDayIndex: 1,
-      currentFile: null,
-      form: defaultForm(formatDate(today)),
-      saveTimer: null,
-      saveToken: 0,
-      lastSavedContent: "",
       vaultDir: "LifeOS-Vault",
       vaultSource: "",
       envOverride: false,
@@ -3370,7 +2177,6 @@
       settingsStatus: document.getElementById("settingsStatus"),
       resetVaultDir: document.getElementById("resetVaultDir"),
       calendarView: document.getElementById("calendarView"),
-      editorView: document.getElementById("editorView"),
       calendar: document.getElementById("calendar"),
       monthTitle: document.getElementById("monthTitle"),
       monthMeta: document.getElementById("monthMeta"),
@@ -3389,15 +2195,7 @@
       monthlyPreviewList: document.getElementById("monthlyPreviewList"),
       monthlyPreviewMeta: document.getElementById("monthlyPreviewMeta"),
       databasePreviewStatus: document.getElementById("databasePreviewStatus"),
-      calendarNotice: document.getElementById("calendarNotice"),
-      editorDate: document.getElementById("editorDate"),
-      editorPath: document.getElementById("editorPath"),
-      saveStatus: document.getElementById("saveStatus"),
-      journalSummary: document.getElementById("journalSummary"),
-      summaryTotalDays: document.getElementById("summaryTotalDays"),
-      summaryFrogs: document.getElementById("summaryFrogs"),
-      summaryGrowth: document.getElementById("summaryGrowth"),
-      summaryEnergyStars: document.getElementById("summaryEnergyStars")
+      calendarNotice: document.getElementById("calendarNotice")
     };
 
     const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
@@ -3407,7 +2205,9 @@
       habits: "lifeos-db:habits",
       monthly: "lifeos-db:monthly-important"
     };
-    const holiday2026 = new Map();
+    // 法定节假日与调休表，按年份维护；新一年的安排公布后在此追加即可。
+    // 未收录年份的日期会按普通周末/工作日处理。
+    const officialHolidays = new Map();
     [
       ["2026-01-01", "元旦", "holiday"],
       ["2026-01-02", "元旦假期", "holiday"],
@@ -3449,14 +2249,18 @@
       ["2026-10-07", "国庆假期", "holiday"],
       ["2026-10-10", "调休上班", "workday"]
     ].forEach(([date, label, type]) => {
-      holiday2026.set(date, { label, type });
+      officialHolidays.set(date, { label, type });
     });
 
+    const monthNavButtons = ["prevMonth", "nextMonth", "goToday"].map((id) => document.getElementById(id));
     document.getElementById("prevMonth").addEventListener("click", () => shiftMonth(-1));
     document.getElementById("nextMonth").addEventListener("click", () => shiftMonth(1));
     document.getElementById("goToday").addEventListener("click", goToToday);
-    document.getElementById("backToCalendar")?.addEventListener("click", showCalendar);
     document.getElementById("openSelected").addEventListener("click", () => openSelectedDate());
+    document.getElementById("calendar").addEventListener("click", (event) => {
+      const dayButton = event.target.closest("button.day[data-date]");
+      if (dayButton) handleDayClick(dayButton.dataset.date);
+    });
     el.databasePreviewPanel?.addEventListener("change", handleDatabasePreviewChange);
     el.settingsButton?.addEventListener("click", openSettings);
     el.settingsClose?.addEventListener("click", closeSettings);
@@ -3478,26 +2282,8 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !el.settingsOverlay?.hidden) closeSettings();
     });
-    document.querySelectorAll("[data-field]").forEach((field) => {
-      field.addEventListener("input", handleFormInput);
-      field.addEventListener("change", handleFormInput);
-    });
-    document.querySelectorAll("input[name='mood']").forEach((field) => {
-      field.addEventListener("change", handleFormInput);
-    });
-    document.querySelectorAll("input[name='uiTheme']").forEach((field) => {
-      field.addEventListener("change", () => {
-        document.documentElement.dataset.uiTheme = field.value;
-        localStorage.setItem("lifeos-ui-theme", field.value);
-      });
-    });
-    const activeTheme = document.querySelector(`input[name="uiTheme"][value="${cssEscape(savedTheme)}"]`);
-    if (activeTheme) activeTheme.checked = true;
-
     window.addEventListener("pageshow", (event) => {
-      document.body.classList.remove("is-editor-mode");
       el.calendarView?.classList.add("active");
-      el.editorView?.classList.remove("active");
       if (event.persisted) {
         loadMonth();
         loadDatabasePreview();
@@ -3758,14 +2544,6 @@
       return { schema_version: 1, months: [] };
     }
 
-    function defaultHabitDefinitions() {
-      return [
-        { id: "habit-journal", label: "写了晨间日记" },
-        { id: "habit-focus", label: "推进了核心任务" },
-        { id: "habit-review", label: "晚上做了简短回看" }
-      ];
-    }
-
     function readFallbackDatabases() {
       return normalizeDatabaseSnapshot({
         frogs: readFallbackDatabase(databaseFallbackKeys.frogs, defaultFrogDatabase()),
@@ -4020,6 +2798,8 @@
         state.databases = normalizeDatabaseSnapshot(JSON.parse(before));
         renderDatabasePreview();
         setDatabasePreviewStatus("error", toErrorMessage(error));
+      } finally {
+        field.disabled = false;
       }
     }
 
@@ -4400,7 +3180,7 @@
     function getDayMeta(date) {
       const dateKey = typeof date === "string" ? date : formatDate(date);
       const dateObject = typeof date === "string" ? parseDateKey(date) : date;
-      const official = holiday2026.get(dateKey);
+      const official = officialHolidays.get(dateKey);
       const weekday = `星期${weekdayNames[dateObject.getDay()]}`;
 
       if (official) {
@@ -4433,7 +3213,7 @@
 
     function monthHolidayCount(year, month) {
       const prefix = `${year}-${String(month).padStart(2, "0")}`;
-      return Array.from(holiday2026.entries())
+      return Array.from(officialHolidays.entries())
         .filter(([date, meta]) => date.startsWith(prefix) && meta.type === "holiday")
         .length;
     }
@@ -4441,6 +3221,7 @@
     async function loadMonth() {
       const year = state.monthDate.getFullYear();
       const month = state.monthDate.getMonth() + 1;
+      monthNavButtons.forEach((button) => { if (button) button.disabled = true; });
 
       try {
         const result = await invoke("get_journal_month", { year, month });
@@ -4453,6 +3234,8 @@
         updateSelectedPanel();
       } catch (error) {
         el.calendarNotice.textContent = toErrorMessage(error);
+      } finally {
+        monthNavButtons.forEach((button) => { if (button) button.disabled = false; });
       }
     }
 
@@ -4511,7 +3294,7 @@
           entry ? "has-entry" : ""
         ].filter(Boolean).join(" ");
         button.title = `${formatLongDate(date)} · ${meta.label}`;
-        button.addEventListener("click", () => handleDayClick(dateKey));
+        button.dataset.date = dateKey;
 
         const top = document.createElement("div");
         top.className = "calendar-cell-top";
@@ -4585,76 +3368,6 @@
       return `晨间日记页面.html?date=${encodeURIComponent(date)}`;
     }
 
-    function enterEditor(file) {
-      clearTimeout(state.saveTimer);
-      state.currentFile = file;
-      state.selectedDate = file.date;
-      state.form = parseMarkdown(file.content, file.date);
-      state.form.dayIndex = String(file.day_index || state.form.dayIndex || state.nextDayIndex || 1);
-      applyFormToInputs();
-      const content = buildMarkdown(state.form);
-      state.lastSavedContent = content;
-      el.editorDate.textContent = dayTitle(state.form.dayIndex);
-      el.editorPath.textContent = `连续记录 ${Number(state.form.dayIndex) || 1} 天`;
-      updateSummary();
-      setSaveStatus("saved", "已保存");
-      showEditor();
-    }
-
-    function handleFormInput() {
-      if (!state.currentFile) return;
-      readInputsToForm();
-      const content = buildMarkdown(state.form);
-      updateSummary();
-
-      if (content === state.lastSavedContent) {
-        setSaveStatus("saved", "已保存");
-        return;
-      }
-
-      setSaveStatus("dirty", "未保存");
-      clearTimeout(state.saveTimer);
-      state.saveTimer = setTimeout(() => saveCurrent(false), 800);
-    }
-
-    async function saveCurrent(force) {
-      if (!state.currentFile) return;
-
-      readInputsToForm();
-      const content = buildMarkdown(state.form);
-      if (!force && content === state.lastSavedContent) {
-        setSaveStatus("saved", "已保存");
-        return;
-      }
-
-      const token = state.saveToken + 1;
-      state.saveToken = token;
-      clearTimeout(state.saveTimer);
-      setSaveStatus("saving", "保存中");
-
-      try {
-        const file = await invoke("save_journal", {
-          date: state.currentFile.date,
-          content
-        });
-
-        if (token !== state.saveToken) return;
-
-        state.currentFile = file;
-        state.form.dayIndex = String(file.day_index || state.form.dayIndex || state.nextDayIndex || 1);
-        const savedContent = buildMarkdown(state.form);
-        state.lastSavedContent = savedContent;
-        el.editorDate.textContent = dayTitle(state.form.dayIndex);
-        el.editorPath.textContent = `连续记录 ${Number(state.form.dayIndex) || 1} 天`;
-        setSaveStatus("saved", "已保存");
-        await loadMonth();
-      } catch (error) {
-        if (token !== state.saveToken) return;
-        setSaveStatus("error", "保存失败");
-        el.calendarNotice.textContent = toErrorMessage(error);
-      }
-    }
-
     function updateSelectedPanel() {
       const date = parseDateKey(state.selectedDate);
       const entry = state.entries.get(state.selectedDate);
@@ -4701,27 +3414,6 @@
       loadMonth();
     }
 
-    function showCalendar() {
-      document.body.classList.remove("is-editor-mode");
-      el.calendarView?.classList.add("active");
-      el.editorView?.classList.remove("active");
-      renderCalendar();
-      updateSelectedPanel();
-    }
-
-    function showEditor() {
-      document.body.classList.add("is-editor-mode");
-      el.calendarView?.classList.remove("active");
-      el.editorView?.classList.add("active");
-    }
-
-    function setSaveStatus(kind, text) {
-      if (!el.saveStatus) return;
-      el.saveStatus.className = `autosave-dot ${kind === "saved" ? "" : kind}`.trim();
-      el.saveStatus.setAttribute("aria-label", text);
-      el.saveStatus.title = text;
-    }
-
     function defaultForm(date, dayIndex = "") {
       return {
         date,
@@ -4743,26 +3435,6 @@
         free: "",
         reminder: ""
       };
-    }
-
-    function applyFormToInputs() {
-      document.querySelectorAll("[data-field]").forEach((field) => {
-        field.value = state.form[field.dataset.field] ?? "";
-      });
-      const mood = document.querySelector(`input[name="mood"][value="${cssEscape(state.form.mood || "平静")}"]`);
-      if (mood) mood.checked = true;
-      const energyValue = document.getElementById("energyValue");
-      if (energyValue) energyValue.textContent = state.form.energy || "6";
-    }
-
-    function readInputsToForm() {
-      document.querySelectorAll("[data-field]").forEach((field) => {
-        state.form[field.dataset.field] = field.value;
-      });
-      state.form.mood = document.querySelector("input[name='mood']:checked")?.value || "平静";
-      state.form.energy = state.form.energy || "6";
-      const energyValue = document.getElementById("energyValue");
-      if (energyValue) energyValue.textContent = state.form.energy;
     }
 
     function buildMarkdown(form) {
@@ -4825,72 +3497,6 @@
       return parts.join("\n");
     }
 
-    function parseMarkdown(markdown, date) {
-      const form = defaultForm(date);
-      const frontmatter = extractFrontmatter(markdown);
-      form.dayIndex = frontmatter.day_index || frontmatter.day || "";
-      form.mood = frontmatter.mood || form.mood;
-      form.energy = frontmatter.energy || form.energy;
-      form.sleep = frontmatter.sleep_hours || frontmatter.sleep || "";
-      form.wakeTime = frontmatter.wake_time || frontmatter.wakeTime || "";
-      form.weather = frontmatter.weather || "";
-
-      const sections = splitSections(stripFrontmatter(markdown));
-      form.todayNote = findSection(sections, ["今天是什么日子", "今天是什么日子？", "今天是什么日子（天气或者感受）"]);
-
-      const frogs = parseNumberedList(findSection(sections, ["今天最重要的三件事", "今天要吃掉哪三只青蛙"]));
-      form.frog1 = frogs[0] || "";
-      form.frog2 = frogs[1] || "";
-      form.frog3 = frogs[2] || "";
-
-      const status = findSection(sections, ["今日状态"]);
-      const parsedStatus = parseStatusLines(status);
-      form.mood = parsedStatus.mood || form.mood;
-      form.energy = parsedStatus.energy || form.energy;
-      form.sleep = parsedStatus.sleep || form.sleep;
-      form.wakeTime = parsedStatus.wakeTime || form.wakeTime;
-      form.weather = parsedStatus.weather || form.weather;
-
-      form.currentState = findSection(sections, ["我现在的状态", "现在的我"]);
-      form.identity = findSection(sections, ["今天想成为怎样的人", "今天我想成为怎样的人", "我想成为怎样的人"]);
-      form.avoid = findSection(sections, ["今天要避免什么", "今天要避免什么？"]);
-      form.todos = parseTodoLines(findSection(sections, ["今日待办"])).join("\n");
-      form.eveningReview = findSection(sections, ["晚间回看"]);
-      form.free = findSection(sections, ["自由记录", "其他我想记录的"]);
-      form.reminder = findSection(sections, ["今日提醒", "今天提醒自己"]);
-
-      const used = new Set([
-        "今天是什么日子",
-        "今天是什么日子？",
-        "今天是什么日子（天气或者感受）",
-        "今日状态",
-        "今天最重要的三件事",
-        "今天要吃掉哪三只青蛙",
-        "我现在的状态",
-        "现在的我",
-        "今天想成为怎样的人",
-        "今天我想成为怎样的人",
-        "我想成为怎样的人",
-        "今天要避免什么",
-        "今天要避免什么？",
-        "今日待办",
-        "晚间回看",
-        "自由记录",
-        "其他我想记录的",
-        "今日提醒",
-        "今天提醒自己"
-      ]);
-      const extras = sections
-        .filter((section) => !used.has(section.title))
-        .map((section) => `## ${section.title}\n${section.body}`.trim())
-        .filter(Boolean);
-      if (extras.length) {
-        form.free = [form.free, extras.join("\n\n")].filter(Boolean).join("\n\n");
-      }
-
-      return form;
-    }
-
     function extractFrontmatter(markdown) {
       const frontmatter = {};
       if (!markdown.startsWith("---")) return frontmatter;
@@ -4904,72 +3510,6 @@
         frontmatter[key] = value;
       });
       return frontmatter;
-    }
-
-    function stripFrontmatter(markdown) {
-      if (!markdown.startsWith("---")) return markdown;
-      const end = markdown.indexOf("\n---", 3);
-      if (end === -1) return markdown;
-      return markdown.slice(end + 4).trimStart();
-    }
-
-    function splitSections(markdown) {
-      const sections = [];
-      let current = null;
-      markdown.split(/\r?\n/).forEach((line) => {
-        if (line.startsWith("## ")) {
-          if (current) sections.push(current);
-          current = { title: line.slice(3).trim(), body: "" };
-          return;
-        }
-        if (!current) return;
-        current.body += `${line}\n`;
-      });
-      if (current) sections.push(current);
-      return sections.map((section) => ({ title: section.title, body: section.body.trim() }));
-    }
-
-    function findSection(sections, names) {
-      const section = sections.find((item) => names.includes(item.title));
-      return section ? section.body.trim() : "";
-    }
-
-    function parseNumberedList(text) {
-      return splitLines(text).map((line) => line.replace(/^\d+[.、]\s*/, "").trim()).filter(Boolean);
-    }
-
-    function parseTodoLines(text) {
-      return splitLines(text).map((line) => line.replace(/^-\s+\[[ xX]\]\s*/, "").trim()).filter(Boolean);
-    }
-
-    function parseStatusLines(text) {
-      const result = {};
-      splitLines(text).forEach((line) => {
-        const clean = line.replace(/^-\s*/, "");
-        const index = clean.indexOf("：");
-        if (index === -1) return;
-        const key = clean.slice(0, index).trim();
-        const value = clean.slice(index + 1).trim();
-        if (key === "心情") result.mood = value;
-        if (key === "能量") result.energy = value;
-        if (key === "睡眠") result.sleep = value;
-        if (key === "起床") result.wakeTime = value;
-        if (key === "天气") result.weather = value;
-      });
-      return result;
-    }
-
-    function updateSummary() {
-      const frogs = [state.form.frog1, state.form.frog2, state.form.frog3].filter((value) => value.trim()).length;
-      const todos = splitLines(state.form.todos).length;
-      if (el.journalSummary) el.journalSummary.textContent = `${frogs} 项重点，${todos} 项待办`;
-      const totalDays = Math.max(state.totalEntries || 0, Number(state.form.dayIndex) || 1);
-      const energy = Math.max(1, Math.min(10, Number(state.form.energy) || 6));
-      const starCount = Math.max(1, Math.min(4, Math.round(energy / 2.5)));
-      if (el.summaryTotalDays) el.summaryTotalDays.innerHTML = `${totalDays}<small>篇</small>`;
-      if (el.summaryFrogs) el.summaryFrogs.innerHTML = `${Math.max(frogs, totalDays * 3)}<small>次</small>`;
-      if (el.summaryGrowth) el.summaryGrowth.textContent = String(Math.min(99, 70 + totalDays * 2 + frogs));
-      if (el.summaryEnergyStars) el.summaryEnergyStars.textContent = `${"✦ ".repeat(starCount)}${"✧ ".repeat(4 - starCount)}`.trim();
     }
 
     function dayIndexFromMarkdown(content) {
@@ -5005,35 +3545,10 @@
       return String(value || "").trim();
     }
 
-    function formatDate(date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-
-    function parseDateKey(date) {
-      const [year, month, day] = date.split("-").map(Number);
-      return new Date(year, month - 1, day);
-    }
-
-    function isDateKey(value) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return false;
-      return formatDate(parseDateKey(value)) === value;
-    }
-
-    function isMonthKey(value) {
-      return /^\d{4}-\d{2}$/.test(String(value || ""));
-    }
-
     function formatMonthLabel(value) {
       if (!isMonthKey(value)) return value || "";
       const [year, month] = value.split("-");
       return `${year} 年 ${month} 月`;
-    }
-
-    function nowSeconds() {
-      return Math.floor(Date.now() / 1000);
     }
 
     function formatLongDate(date) {
@@ -5046,25 +3561,6 @@
         && left.getDate() === right.getDate();
     }
 
-    function cssEscape(value) {
-      if (window.CSS?.escape) return CSS.escape(value);
-      return String(value).replaceAll('"', '\\"');
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    function toErrorMessage(error) {
-      if (typeof error === "string") return error;
-      if (error?.message) return error.message;
-      return "操作失败";
-    }
   </script>
 </body>
 </html>

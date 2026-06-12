@@ -269,8 +269,7 @@ a {
 .toolbar input,
 .toolbar select,
 .record input,
-.record select,
-.item-row input {
+.record select {
   min-height: 36px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -283,8 +282,7 @@ a {
 .toolbar input:focus,
 .toolbar select:focus,
 .record input:focus,
-.record select:focus,
-.item-row input:focus {
+.record select:focus {
   border-color: color-mix(in oklch, var(--leaf) 70%, var(--line));
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--leaf) 14%, transparent);
 }
@@ -316,10 +314,6 @@ a {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-}
-
-.record-title input {
-  width: 150px;
 }
 
 .record-title strong {
@@ -477,11 +471,6 @@ a {
   white-space: nowrap;
 }
 
-.mono-token {
-  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
-  font-size: 0.72rem;
-}
-
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -589,29 +578,6 @@ a {
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--leaf) 18%, transparent);
 }
 
-.item-list {
-  display: grid;
-  gap: 8px;
-}
-
-.item-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-}
-
-.item-row input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  min-height: 20px;
-  accent-color: var(--leaf);
-}
-
-.item-row input[type="text"] {
-  width: 100%;
-}
-
 .empty {
   padding: 24px;
   border: 1px dashed var(--line);
@@ -672,9 +638,5 @@ a {
   .workspace,
   .sidebar {
     padding: 12px;
-  }
-
-  .item-row {
-    grid-template-columns: minmax(0, 1fr);
   }
 }

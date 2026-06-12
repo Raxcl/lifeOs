@@ -1332,27 +1332,27 @@
       <div class="masthead">
         <div class="day-row">
           <div class="day-title">
-            <h1>第 3 天</h1>
+            <h1>第 — 天</h1>
             <small>晨光页</small>
           </div>
           <span class="sun-mark" aria-hidden="true"></span>
-          <span class="weather-chip">晴 · 早间记录</span>
+          <span class="weather-chip">早间记录</span>
         </div>
-        <p class="streak">连续记录 3 天</p>
-        <p class="meta-line">2026.06.08 · 周一 · LifeOS Daily</p>
+        <p class="streak">已记录 — 天</p>
+        <p class="meta-line">LifeOS Daily</p>
 
         <div class="metric-grid" aria-label="今日指标">
           <article class="metric">
             <div class="metric-label">累计日记</div>
-            <div class="metric-value">42 <span>篇</span></div>
+            <div class="metric-value" id="metricJournalCount">— <span>篇</span></div>
           </article>
           <article class="metric">
-            <div class="metric-label">三只青蛙</div>
-            <div class="metric-value">18 <span>次</span></div>
+            <div class="metric-label">未完成青蛙</div>
+            <div class="metric-value" id="metricFrogOpen">— <span>项</span></div>
           </article>
           <article class="metric">
-            <div class="metric-label">成长值</div>
-            <div class="metric-value">76</div>
+            <div class="metric-label">习惯打卡</div>
+            <div class="metric-value" id="metricHabitChecks">—</div>
           </article>
           <article class="metric">
             <div class="metric-label">今日能量</div>
@@ -1407,8 +1407,8 @@
                 <strong id="energyValue">6</strong>
               </label>
               <div class="chip-row" aria-label="今日关键词">
-                <span class="intent-chip">晴 · 早间记录</span>
-                <span class="intent-chip">连续 3 天</span>
+                <span class="intent-chip" id="chipWeekday">早间记录</span>
+                <span class="intent-chip" id="chipDayIndex">第 — 天</span>
               </div>
             </article>
 
@@ -1603,214 +1603,17 @@
     </section>
   </main>
 
-  <script type="application/x-legacy-local-draft">
-    (() => {
-      const STORE_KEY = "lifeos-morning-journal-2026-06-08";
-      const fields = Array.from(document.querySelectorAll("[data-save]"));
-      const moodButtons = Array.from(document.querySelectorAll(".mood-btn"));
-      const ratingButtons = Array.from(document.querySelectorAll("[data-rating]"));
-      const saveButton = document.getElementById("saveDraft");
-      const clearButton = document.getElementById("clearDraft");
-      const status = document.getElementById("saveStatus");
-      const moodLabel = document.getElementById("moodLabel");
-      const energyRange = document.getElementById("energyRange");
-      const energyValue = document.getElementById("energyValue");
-      const goalConfidence = document.querySelector('[data-save="half-year-confidence"]');
-      const goalConfidenceValue = document.getElementById("goalConfidenceValue");
-      const message = document.querySelector('[data-save="self-message"]');
-      const messageCount = document.getElementById("messageCount");
-      const todoList = document.getElementById("todoList");
-      const todoInput = document.getElementById("todoInput");
-      const addTodo = document.getElementById("addTodo");
-      const todoCount = document.getElementById("todoCount");
-
-      const defaultState = {
-        mood: "元气",
-        rating: 4,
-        "half-year-confidence": "5",
-        todos: [
-          { text: "完成晨间日记九宫格原型", done: false },
-          { text: "整理本月最重要的项目", done: false },
-          { text: "预留一次月度复盘", done: false }
-        ]
-      };
-
-      let state = loadState();
-      let saveTimer = null;
-
-      function loadState() {
-        try {
-          return { ...defaultState, ...JSON.parse(localStorage.getItem(STORE_KEY) || "{}") };
-        } catch {
-          return { ...defaultState };
-        }
-      }
-
-      function collectState() {
-        const next = { ...state };
-        fields.forEach((field) => {
-          if (field.type === "checkbox") {
-            next[field.dataset.save] = field.checked;
-          } else {
-            next[field.dataset.save] = field.value;
-          }
-        });
-        next.todos = Array.from(todoList.querySelectorAll(".todo-item")).map((item) => ({
-          text: item.querySelector("span").textContent,
-          done: item.querySelector("input").checked
-        }));
-        return next;
-      }
-
-      function persist(label = "已保存到本地草稿") {
-        state = collectState();
-        localStorage.setItem(STORE_KEY, JSON.stringify(state));
-        status.textContent = label;
-      }
-
-      function scheduleSave() {
-        status.textContent = "正在记录草稿…";
-        window.clearTimeout(saveTimer);
-        saveTimer = window.setTimeout(() => persist(), 450);
-      }
-
-      function restoreFields() {
-        fields.forEach((field) => {
-          const value = state[field.dataset.save];
-          if (field.type === "checkbox") {
-            field.checked = Boolean(value);
-          } else if (value !== undefined) {
-            field.value = value;
-          }
-        });
-        updateMood(state.mood || defaultState.mood, false);
-        updateRating(Number(state.rating || defaultState.rating), false);
-        updateEnergy();
-        updateGoalConfidence();
-        updateMessageCount();
-        renderTodos(state.todos || defaultState.todos);
-      }
-
-      function updateMood(mood, shouldSave = true) {
-        state.mood = mood;
-        moodButtons.forEach((button) => {
-          const active = button.dataset.mood === mood;
-          button.classList.toggle("is-active", active);
-          button.setAttribute("aria-pressed", String(active));
-        });
-        moodLabel.textContent = mood;
-        if (shouldSave) persist("状态已更新");
-      }
-
-      function updateRating(value, shouldSave = true) {
-        state.rating = value;
-        ratingButtons.forEach((button) => {
-          button.classList.toggle("is-active", Number(button.dataset.rating) <= value);
-        });
-        if (shouldSave) persist("能量星级已更新");
-      }
-
-      function updateEnergy() {
-        energyValue.textContent = energyRange.value;
-      }
-
-      function updateGoalConfidence() {
-        goalConfidenceValue.textContent = goalConfidence.value;
-      }
-
-      function updateMessageCount() {
-        messageCount.textContent = String(message.value.trim().length);
-      }
-
-      function renderTodos(todos) {
-        todoList.innerHTML = "";
-        todos.forEach((todo) => addTodoItem(todo.text, todo.done, false));
-        updateTodoCount();
-      }
-
-      function addTodoItem(text, done = false, shouldSave = true) {
-        const cleanText = text.trim();
-        if (!cleanText) return;
-        const item = document.createElement("li");
-        item.className = "todo-item";
-        item.innerHTML = `
-          <input type="checkbox" ${done ? "checked" : ""} aria-label="完成本月事项" />
-          <span></span>
-          <button class="delete-todo" type="button" aria-label="删除本月事项">×</button>
-        `;
-        item.querySelector("span").textContent = cleanText;
-        item.classList.toggle("is-done", done);
-        item.querySelector("input").addEventListener("change", () => {
-          item.classList.toggle("is-done", item.querySelector("input").checked);
-          updateTodoCount();
-          persist("本月事项已更新");
-        });
-        item.querySelector(".delete-todo").addEventListener("click", () => {
-          item.remove();
-          updateTodoCount();
-          persist("本月事项已删除");
-        });
-        todoList.append(item);
-        updateTodoCount();
-        if (shouldSave) persist("本月事项已添加");
-      }
-
-      function updateTodoCount() {
-        const items = Array.from(todoList.querySelectorAll(".todo-item"));
-        const done = items.filter((item) => item.querySelector("input").checked).length;
-        todoCount.textContent = `${done}/${items.length}`;
-      }
-
-      fields.forEach((field) => {
-        field.addEventListener("input", () => {
-          if (field === energyRange) updateEnergy();
-          if (field === goalConfidence) updateGoalConfidence();
-          if (field === message) updateMessageCount();
-          scheduleSave();
-        });
-        field.addEventListener("change", scheduleSave);
-      });
-
-      moodButtons.forEach((button) => {
-        button.addEventListener("click", () => updateMood(button.dataset.mood));
-      });
-
-      ratingButtons.forEach((button) => {
-        button.addEventListener("click", () => updateRating(Number(button.dataset.rating)));
-      });
-
-      addTodo.addEventListener("click", () => {
-        addTodoItem(todoInput.value);
-        todoInput.value = "";
-        todoInput.focus();
-      });
-
-      todoInput.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          addTodo.click();
-        }
-      });
-
-      saveButton.addEventListener("click", () => persist("今日草稿已保存"));
-
-      clearButton.addEventListener("click", () => {
-        localStorage.removeItem(STORE_KEY);
-        state = { ...defaultState };
-        fields.forEach((field) => {
-          if (field.type === "checkbox") field.checked = false;
-          else if (field.type !== "range") field.value = "";
-        });
-        energyRange.value = "6";
-        restoreFields();
-        status.textContent = "草稿已清空，已恢复默认样例";
-      });
-
-      restoreFields();
-    })();
-  </script>
+  <script src="assets/lifeos-shared.js"></script>
   <script>
     (() => {
+      const {
+        formatDate,
+        parseDateKey,
+        normaliseDate,
+        weekdayLabel,
+        toErrorMessage,
+        defaultHabitDefinitions: habitDefinitions
+      } = window.LifeOSShared;
       const tauriInvoke = window.__TAURI__?.core?.invoke;
       const query = new URLSearchParams(window.location.search);
       const date = normaliseDate(query.get("date")) || formatDate(new Date());
@@ -1891,10 +1694,12 @@
 
       frogDebtList?.addEventListener("change", () => {
         updateFrogDebtCount();
+        updateMetrics();
         scheduleSave("未完成青蛙已更新，正在保存…");
       });
 
       habitCheckList?.addEventListener("change", () => {
+        updateMetrics();
         scheduleSave("习惯勾选已更新，正在保存…");
       });
 
@@ -1925,8 +1730,16 @@
           setStatus(file.path ? `已连接：${file.path}` : "已连接当天 Markdown");
           if (file.created) await saveNow(true);
         } catch (error) {
-          setStatus(toErrorMessage(error));
+          setFormDisabled(true);
+          setStatus(`连接失败，当前内容无法保存：${toErrorMessage(error)}`);
         }
+      }
+
+      function setFormDisabled(disabled) {
+        dataSaveFields().forEach((field) => { field.disabled = disabled; });
+        [...moodButtons, ...ratingButtons, addTodo, todoInput].forEach((node) => {
+          if (node) node.disabled = disabled;
+        });
       }
 
       async function invoke(command, args) {
@@ -2487,6 +2300,7 @@
         if (messageCount && message) messageCount.textContent = String(message.value.trim().length);
         updateFrogDebtCount();
         updateTodoCount();
+        updateMetrics();
       }
 
       function updateFrogDebtCount() {
@@ -2503,11 +2317,34 @@
 
       function updateMasthead() {
         const currentDate = parseDateKey(state.form.date);
-        const dayTitle = `第 ${Number(state.form.dayIndex) || 1} 天`;
+        const dayIndex = Number(state.form.dayIndex) || 1;
+        const dayTitle = `第 ${dayIndex} 天`;
         document.querySelector(".day-title h1").textContent = dayTitle;
-        document.querySelector(".streak").textContent = `连续记录 ${Number(state.form.dayIndex) || 1} 天`;
+        document.querySelector(".streak").textContent = `已记录 ${dayIndex} 天`;
         document.querySelector(".meta-line").textContent = `${state.form.date.replaceAll("-", ".")} · ${weekdayLabel(currentDate)} · LifeOS Daily`;
         document.querySelector(".weather-chip").textContent = `${weekdayLabel(currentDate)} · 早间记录`;
+        const chipWeekday = document.getElementById("chipWeekday");
+        const chipDayIndex = document.getElementById("chipDayIndex");
+        if (chipWeekday) chipWeekday.textContent = `${weekdayLabel(currentDate)} · 早间记录`;
+        if (chipDayIndex) chipDayIndex.textContent = dayTitle;
+        const metricJournalCount = document.getElementById("metricJournalCount");
+        if (metricJournalCount) metricJournalCount.innerHTML = `${dayIndex} <span>篇</span>`;
+        updateMetrics();
+      }
+
+      function updateMetrics() {
+        const metricFrogOpen = document.getElementById("metricFrogOpen");
+        if (metricFrogOpen) {
+          const open = Array.from(frogDebtList.querySelectorAll(".debt-item"))
+            .filter((item) => !item.querySelector("input")?.checked).length;
+          metricFrogOpen.innerHTML = `${open} <span>项</span>`;
+        }
+        const metricHabitChecks = document.getElementById("metricHabitChecks");
+        if (metricHabitChecks && habitCheckList) {
+          const boxes = Array.from(habitCheckList.querySelectorAll('input[type="checkbox"]'));
+          const checked = boxes.filter((box) => box.checked).length;
+          metricHabitChecks.textContent = `${checked}/${boxes.length}`;
+        }
       }
 
       function buildMarkdown(form) {
@@ -2587,18 +2424,18 @@
         form["half-year-confidence"] = frontmatter.half_year_confidence || form["half-year-confidence"];
 
         const sections = splitSections(stripFrontmatter(markdown));
-        parseStatusLines(findSection(sections, ["规划今天", "今日状态"])).forEach(([key, value]) => {
+        parseStatusLines(findSection(sections, ["规划今天"])).forEach(([key, value]) => {
           if (key === "心情") form.mood = value || form.mood;
           if (key === "能量") form.energy = value || form.energy;
           if (key === "星级") form.rating = value || form.rating;
         });
 
-        const frogs = parseNumberedList(findSection(sections, ["三只青蛙", "今天最重要的三件事", "今天要吃掉哪三只青蛙"]));
+        const frogs = parseNumberedList(findSection(sections, ["三只青蛙"]));
         form["frog-1"] = frogs[0] || "";
         form["frog-2"] = frogs[1] || "";
         form["frog-3"] = frogs[2] || "";
-        form["self-message"] = findSection(sections, ["我想成为怎样的人", "今天想成为怎样的人", "今天我想成为怎样的人"]);
-        const habitChecklist = parseChecklistLines(findSection(sections, ["理解昨天", "习惯坚持了吗"]));
+        form["self-message"] = findSection(sections, ["我想成为怎样的人"]);
+        const habitChecklist = parseChecklistLines(findSection(sections, ["理解昨天"]));
         form.habitChecklistByLabel = Object.fromEntries(habitChecklist.map((item) => [item.label, item.checked]));
         applyChecklistEntries(form, habitChecklist, {
           "写了晨间日记": "habit-journal",
@@ -2618,17 +2455,14 @@
           "喝够水": "health-water",
           "散步或运动": "health-walk"
         });
-        form.todos = parseTodoLines(findSection(sections, ["看见未来", "本月重要几件事", "今日待办"]));
+        form.todos = parseTodoLines(findSection(sections, ["看见未来"]));
         const halfYear = parseNumberedList(findSection(sections, ["半年目标"]));
         form["half-year-identity"] = halfYear[0] || "";
         form["half-year-proof"] = halfYear[1] || "";
         parseStatusLines(findSection(sections, ["半年目标"])).forEach(([key, value]) => {
           if (key === "把握") form["half-year-confidence"] = value;
         });
-        form["brain-dump"] = findSection(sections, ["其他想记录的", "自由记录", "其他我想记录的"]);
-        if (!form["brain-dump"]) {
-          form["brain-dump"] = findSection(sections, ["我现在的状态", "现在的我"]);
-        }
+        form["brain-dump"] = findSection(sections, ["其他想记录的"]);
         return form;
       }
 
@@ -2645,14 +2479,6 @@
           frogDebt: [],
           todos: []
         };
-      }
-
-      function habitDefinitions() {
-        return [
-          { id: "habit-journal", label: "写了晨间日记" },
-          { id: "habit-focus", label: "推进了核心任务" },
-          { id: "habit-review", label: "晚上做了简短回看" }
-        ];
       }
 
       function normaliseHabitDefinitions(definitions) {
@@ -2794,34 +2620,8 @@
         return String(value || "").trim();
       }
 
-      function formatDate(dateObject) {
-        const year = dateObject.getFullYear();
-        const month = String(dateObject.getMonth() + 1).padStart(2, "0");
-        const day = String(dateObject.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      }
-
-      function normaliseDate(value) {
-        return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : "";
-      }
-
-      function parseDateKey(value) {
-        const [year, month, day] = value.split("-").map(Number);
-        return new Date(year, month - 1, day);
-      }
-
-      function weekdayLabel(dateObject) {
-        return `周${"日一二三四五六"[dateObject.getDay()]}`;
-      }
-
       function setStatus(text) {
         if (status) status.textContent = text;
-      }
-
-      function toErrorMessage(error) {
-        if (typeof error === "string") return error;
-        if (error?.message) return error.message;
-        return "操作失败";
       }
     })();
   </script>
