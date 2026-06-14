@@ -482,6 +482,56 @@
       min-width: 0;
     }
 
+    .calendar-anchor {
+      position: relative;
+    }
+
+    .anchor-edit {
+      display: inline-flex;
+      align-items: center;
+      margin: 0 0 10px;
+      min-height: 28px;
+      padding: 3px 12px;
+      font-size: 0.78rem;
+      opacity: 0.6;
+    }
+
+    .anchor-edit:hover {
+      opacity: 1;
+    }
+
+    .anchor-editor {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .anchor-editor[hidden] {
+      display: none;
+    }
+
+    .anchor-editor-title,
+    .anchor-editor-lines {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      background: rgba(255, 253, 248, 0.9);
+      color: var(--green);
+      font: inherit;
+      font-size: 0.9rem;
+    }
+
+    .anchor-editor-lines {
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .anchor-editor-actions {
+      display: flex;
+      gap: 8px;
+    }
+
     .anchor-title {
       display: flex;
       align-items: center;
@@ -1952,13 +2002,22 @@
       <section class="view active" id="calendarView">
         <div class="calendar-layout">
           <section class="calendar-anchor" aria-label="今日心锚">
-            <div class="anchor-copy">
-              <div class="anchor-title">一天之际在于晨</div>
-              <ul class="anchor-lines">
+            <div class="anchor-copy" id="anchorCopy">
+              <button class="icon-btn anchor-edit" type="button" id="anchorEditButton" aria-label="编辑心锚文字">编辑</button>
+              <div class="anchor-title" id="anchorTitle">一天之际在于晨</div>
+              <ul class="anchor-lines" id="anchorLines">
                 <li>“重塑”</li>
                 <li>“勇气就是亲手打碎自己一次，再重塑自己一千零一次”</li>
                 <li>《庄子·齐物论》：方生方死，方死方生</li>
               </ul>
+            </div>
+            <div class="anchor-editor" id="anchorEditor" hidden>
+              <input class="anchor-editor-title" id="anchorEditorTitle" type="text" placeholder="标题">
+              <textarea class="anchor-editor-lines" id="anchorEditorLines" rows="4" placeholder="每行一句，可增减行数"></textarea>
+              <div class="anchor-editor-actions">
+                <button class="btn" type="button" id="anchorEditorSave">保存</button>
+                <button class="btn secondary" type="button" id="anchorEditorCancel">取消</button>
+              </div>
             </div>
             <figure class="anchor-art" id="anchorArt" aria-hidden="true">
               <img id="anchorIllustration" src="assets/晨间日记/少女读书伙伴.png" alt="">
@@ -2076,6 +2135,17 @@
           </div>
         </div>
         <div class="settings-field">
+          <label for="imagesDirInput">日记图片目录</label>
+          <div class="settings-path-row">
+            <input id="imagesDirInput" type="text" spellcheck="false" readonly placeholder="默认保存在日记本 02-Images 文件夹">
+            <button class="btn secondary" type="button" id="chooseImagesDir">选择文件夹</button>
+          </div>
+          <p class="settings-help">晨间日记“碎碎念”里上传的图片会保存到这里。</p>
+          <div class="template-actions">
+            <button class="btn secondary" type="button" id="resetImagesDir">恢复默认位置</button>
+          </div>
+        </div>
+        <div class="settings-field">
           <label for="visualTemplateSelect">视觉模板</label>
           <select id="visualTemplateSelect"></select>
           <p class="settings-help" id="templateSource">当前使用：模板 1：晨间花园。</p>
@@ -2158,6 +2228,15 @@
       vaultLabel: document.getElementById("vaultLabel"),
       anchorArt: document.getElementById("anchorArt"),
       anchorIllustration: document.getElementById("anchorIllustration"),
+      anchorCopy: document.getElementById("anchorCopy"),
+      anchorTitle: document.getElementById("anchorTitle"),
+      anchorLines: document.getElementById("anchorLines"),
+      anchorEditButton: document.getElementById("anchorEditButton"),
+      anchorEditor: document.getElementById("anchorEditor"),
+      anchorEditorTitle: document.getElementById("anchorEditorTitle"),
+      anchorEditorLines: document.getElementById("anchorEditorLines"),
+      anchorEditorSave: document.getElementById("anchorEditorSave"),
+      anchorEditorCancel: document.getElementById("anchorEditorCancel"),
       settingsButton: document.getElementById("settingsButton"),
       settingsOverlay: document.getElementById("settingsOverlay"),
       settingsClose: document.getElementById("settingsClose"),
@@ -2166,6 +2245,9 @@
       appIconSourceInput: document.getElementById("appIconSourceInput"),
       chooseAppIconSource: document.getElementById("chooseAppIconSource"),
       resetAppIconSource: document.getElementById("resetAppIconSource"),
+      imagesDirInput: document.getElementById("imagesDirInput"),
+      chooseImagesDir: document.getElementById("chooseImagesDir"),
+      resetImagesDir: document.getElementById("resetImagesDir"),
       appIconSourceHelp: document.getElementById("appIconSourceHelp"),
       visualTemplateSelect: document.getElementById("visualTemplateSelect"),
       templateSource: document.getElementById("templateSource"),
@@ -2271,6 +2353,8 @@
     el.resetVaultDir?.addEventListener("click", resetVaultSettings);
     el.chooseAppIconSource?.addEventListener("click", chooseAppIconSource);
     el.resetAppIconSource?.addEventListener("click", resetAppIconSource);
+    el.chooseImagesDir?.addEventListener("click", chooseImagesDir);
+    el.resetImagesDir?.addEventListener("click", resetImagesDir);
     el.saveVisualTemplate?.addEventListener("click", saveVisualTemplate);
     el.addVisualTemplate?.addEventListener("click", addVisualTemplate);
     el.anchorIllustration?.addEventListener("error", () => {
@@ -2279,6 +2363,65 @@
     el.anchorIllustration?.addEventListener("load", () => {
       el.anchorArt?.classList.remove("is-missing");
     });
+
+    const ANCHOR_COPY_KEY = "lifeos-anchor-copy";
+
+    function readAnchorCopy() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(ANCHOR_COPY_KEY) || "");
+        if (parsed && typeof parsed.title === "string" && Array.isArray(parsed.lines)) {
+          return { title: parsed.title, lines: parsed.lines.map(String) };
+        }
+      } catch {}
+      return null;
+    }
+
+    function applyAnchorCopy() {
+      const copy = readAnchorCopy();
+      if (!copy || !el.anchorTitle || !el.anchorLines) return;
+      el.anchorTitle.textContent = copy.title;
+      el.anchorLines.replaceChildren(...copy.lines.map((line) => {
+        const item = document.createElement("li");
+        item.textContent = line;
+        return item;
+      }));
+    }
+
+    function currentAnchorCopy() {
+      return {
+        title: el.anchorTitle?.textContent.trim() || "",
+        lines: Array.from(el.anchorLines?.querySelectorAll("li") || []).map((item) => item.textContent.trim()).filter(Boolean)
+      };
+    }
+
+    function setAnchorEditing(editing) {
+      if (!el.anchorEditor || !el.anchorCopy) return;
+      el.anchorEditor.hidden = !editing;
+      el.anchorCopy.hidden = editing;
+      if (el.anchorEditButton) el.anchorEditButton.hidden = editing;
+    }
+
+    el.anchorEditButton?.addEventListener("click", () => {
+      const copy = currentAnchorCopy();
+      if (el.anchorEditorTitle) el.anchorEditorTitle.value = copy.title;
+      if (el.anchorEditorLines) el.anchorEditorLines.value = copy.lines.join("\n");
+      setAnchorEditing(true);
+      el.anchorEditorTitle?.focus();
+    });
+
+    el.anchorEditorCancel?.addEventListener("click", () => setAnchorEditing(false));
+
+    el.anchorEditorSave?.addEventListener("click", () => {
+      const copy = {
+        title: el.anchorEditorTitle?.value.trim() || "今日心锚",
+        lines: (el.anchorEditorLines?.value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+      };
+      localStorage.setItem(ANCHOR_COPY_KEY, JSON.stringify(copy));
+      applyAnchorCopy();
+      setAnchorEditing(false);
+    });
+
+    applyAnchorCopy();
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !el.settingsOverlay?.hidden) closeSettings();
     });
@@ -2321,6 +2464,8 @@
       const visualTemplates = normalizeVisualTemplates(readFallbackVisualTemplates(customTemplatesKey));
       const visualTemplateId = normalizeVisualTemplateId(localStorage.getItem(templateIdKey), visualTemplates);
 
+      const imagesDirKey = "lifeos-settings:images-dir";
+
       if (command === "get_vault_settings") {
         return {
           vault_dir: vaultDir,
@@ -2329,8 +2474,25 @@
           env_override: false,
           app_icon_source: localStorage.getItem(appIconSourceKey),
           visual_template_id: visualTemplateId,
-          visual_templates: visualTemplates
+          visual_templates: visualTemplates,
+          journal_images_dir: localStorage.getItem(imagesDirKey) || `${vaultDir}/02-Images`,
+          configured_journal_images_dir: localStorage.getItem(imagesDirKey)
         };
+      }
+
+      if (command === "pick_journal_images_dir") {
+        const selected = window.prompt("请输入日记图片目录完整路径：", localStorage.getItem(imagesDirKey) || "");
+        return selected ? selected.trim() : null;
+      }
+
+      if (command === "set_journal_images_dir") {
+        localStorage.setItem(imagesDirKey, args.path);
+        return fallbackInvoke("get_vault_settings", {});
+      }
+
+      if (command === "reset_journal_images_dir") {
+        localStorage.removeItem(imagesDirKey);
+        return fallbackInvoke("get_vault_settings", {});
       }
 
       if (command === "pick_vault_dir") {
@@ -2971,6 +3133,10 @@
         el.appIconSourceInput.value = state.appIconSource;
       }
 
+      if (el.imagesDirInput) {
+        el.imagesDirInput.value = settings?.configured_journal_images_dir || settings?.journal_images_dir || "";
+      }
+
       if (el.appIconSourceHelp) {
         el.appIconSourceHelp.textContent = state.appIconSource
           ? "已保存源图。运行 scripts/apply-app-icon.ps1 生成图标资源，然后重新打包生效。"
@@ -3087,6 +3253,33 @@
       }
     }
 
+    async function chooseImagesDir() {
+      setSettingsStatus("", "打开文件夹选择器...");
+      try {
+        const path = await invoke("pick_journal_images_dir", {});
+        if (!path) {
+          setSettingsStatus("", "未更改日记图片目录。");
+          return;
+        }
+        const settings = await invoke("set_journal_images_dir", { path });
+        updateSettingsFields(settings);
+        setSettingsStatus("", "已保存日记图片目录。");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
+    async function resetImagesDir() {
+      setSettingsStatus("", "恢复默认图片目录...");
+      try {
+        const settings = await invoke("reset_journal_images_dir", {});
+        updateSettingsFields(settings);
+        setSettingsStatus("", "已恢复默认图片目录。");
+      } catch (error) {
+        setSettingsStatus("error", toErrorMessage(error));
+      }
+    }
+
     async function saveVisualTemplate() {
       const templateId = el.visualTemplateSelect?.value || DEFAULT_VISUAL_TEMPLATE_ID;
       setSettingsStatus("", "应用模板中...");
@@ -3198,7 +3391,7 @@
           type: "weekend",
           weekday,
           short: "休",
-          stateText: "普通周末"
+          stateText: "周末"
         };
       }
 
@@ -3207,7 +3400,7 @@
         type: "workday-normal",
         weekday,
         short: "",
-        stateText: "普通工作日"
+        stateText: "工作日"
       };
     }
 
@@ -3310,7 +3503,7 @@
 
         const title = document.createElement("div");
         title.className = "day-title";
-        title.textContent = entry ? entry.title : (meta.type === "holiday" ? meta.label : "未写日记");
+        title.textContent = entry ? entry.title : (meta.type === "holiday" ? meta.label : "");
 
         const metaLine = document.createElement("div");
         metaLine.className = "day-meta-line";
@@ -3337,10 +3530,6 @@
       state.selectedDate = date;
       renderCalendar();
       updateSelectedPanel();
-
-      if (state.entries.has(date)) {
-        await openJournal(date);
-      }
     }
 
     async function openSelectedDate() {
@@ -3381,7 +3570,7 @@
         el.selectedStatus.className = "status-chip";
         el.selectedStatus.textContent = "已创建";
         el.selectedEntryTitle.textContent = entry.title;
-        el.selectedEntryMeta.textContent = `${formatLongDate(date)} · 点击日期或按钮打开`;
+        el.selectedEntryMeta.textContent = `${formatLongDate(date)} · 点击按钮打开`;
         el.openSelected.textContent = "打开日记";
       } else {
         el.selectedStatus.className = "status-chip empty";
