@@ -31,7 +31,7 @@
     habits: {
       mark: "习",
       title: "习惯坚持管理",
-      subtitle: "维护习惯定义，并用月度矩阵查看坚持情况。",
+      subtitle: "维护习惯定义，并通过统计图查看坚持情况。",
       pathKey: "habits",
       saveCommand: "save_habit_database",
       fileName: "habits.csv"
@@ -237,12 +237,12 @@
       ["历史完成", `${checkedCount} 次`]
     ]);
     el.toolbar.innerHTML = `
-      <div class="toolbar-group filter-group" aria-label="矩阵月份">
+      <div class="toolbar-group filter-group" aria-label="统计月份">
         <label class="toolbar-field">
-          <span>月份</span>
-          <input type="month" id="matrixMonth" value="${escapeAttr(selectedMonth)}" aria-label="查看月份">
+          <span>统计月份</span>
+          <input type="month" id="matrixMonth" value="${escapeAttr(selectedMonth)}" aria-label="统计月份">
         </label>
-        <button class="btn secondary" type="button" data-action="show-habit-month">查看月份</button>
+        <button class="btn secondary" type="button" data-action="show-habit-month">查看统计</button>
       </div>
       <div class="toolbar-group create-group" aria-label="新增记录">
         <button class="btn secondary" type="button" data-action="add-habit-definition">新增习惯</button>
@@ -278,55 +278,83 @@
           </table>
         </div>
       </section>
-      ${renderHabitMatrix(definitions, days, monthDates)}
+      ${renderHabitStats(definitions, days, monthDates)}
     `;
   }
 
-  function renderHabitMatrix(definitions, days, monthDates) {
+  function renderHabitStats(definitions, days, monthDates) {
+    const month = getMatrixMonth();
     const byDate = new Map(days.map((day) => [day.date, day.checks || {}]));
+    const recentMonths = lastMonths(month, 6);
+    const cards = definitions.map((definition) => {
+      const monthDone = monthDates.filter((date) => byDate.get(date)?.[definition.id]).length;
+      const totalDone = days.filter((day) => day.checks?.[definition.id]).length;
+      const streak = currentStreak(byDate, definition.id);
+      const monthRate = monthDates.length ? Math.round((monthDone / monthDates.length) * 100) : 0;
+      const monthCounts = recentMonths.map((value) => ({
+        month: value,
+        count: days.filter((day) => day.date.startsWith(value) && day.checks?.[definition.id]).length
+      }));
+      const maxCount = Math.max(1, ...monthCounts.map((item) => item.count));
+      return `
+        <article class="habit-stat-card">
+          <div class="habit-stat-head">
+            <strong>${escapeHtml(definition.label)}</strong>
+            <span class="muted">连续 ${streak} 天 · 累计 ${totalDone} 次</span>
+          </div>
+          <div class="stat-progress" role="img" aria-label="${escapeAttr(month)} 完成率 ${monthRate}%">
+            <div class="stat-progress-fill" style="width: ${monthRate}%"></div>
+          </div>
+          <p class="stat-progress-label">${escapeHtml(month)} 完成 ${monthDone}/${monthDates.length} 天（${monthRate}%）</p>
+          <div class="stat-bars" aria-label="最近 6 个月打卡次数">
+            ${monthCounts.map((item) => `
+              <div class="stat-bar" title="${escapeAttr(item.month)}：${item.count} 次">
+                <em>${item.count}</em>
+                <div class="stat-bar-track"><div class="stat-bar-fill" style="height: ${Math.max(4, Math.round((item.count / maxCount) * 100))}%"></div></div>
+                <span>${Number(item.month.slice(5))}月</span>
+              </div>
+            `).join("")}
+          </div>
+        </article>
+      `;
+    }).join("");
+
     return `
-      <section class="record" data-kind="habit-matrix" data-month="${escapeAttr(getMatrixMonth())}">
+      <section class="record" data-kind="habit-stats" data-month="${escapeAttr(month)}">
         <div class="record-head">
           <div class="record-title">
-            <strong>${escapeHtml(getMatrixMonth())} 打卡矩阵</strong>
-            <span class="muted">横向是日期，纵向是习惯</span>
+            <strong>坚持统计</strong>
+            <span class="muted">打卡在日历首页或晨间日记里完成，这里看趋势</span>
           </div>
         </div>
-        <div class="matrix-scroll">
-          <table class="habit-matrix" aria-label="习惯月度打卡矩阵">
-            <thead>
-              <tr>
-                <th class="sticky-col">习惯</th>
-                ${monthDates.map((date) => `
-                  <th>
-                    <span>${Number(date.slice(-2))}</span>
-                    <small>${weekdayLabel(date)}</small>
-                  </th>
-                `).join("")}
-              </tr>
-            </thead>
-            <tbody>
-              ${definitions.map((definition) => `
-                <tr>
-                  <th class="sticky-col">${escapeHtml(definition.label)}</th>
-                  ${monthDates.map((date) => {
-                    const checks = byDate.get(date) || {};
-                    return `
-                      <td>
-                        <label class="day-check" title="${escapeAttr(date)} ${escapeAttr(definition.label)}">
-                          <input type="checkbox" data-field="habit-check" data-date="${escapeAttr(date)}" data-habit-id="${escapeAttr(definition.id)}" ${checks[definition.id] ? "checked" : ""}>
-                          <span></span>
-                        </label>
-                      </td>
-                    `;
-                  }).join("")}
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
+        <div class="habit-stat-grid">
+          ${cards || emptyState("还没有习惯定义。")}
         </div>
       </section>
     `;
+  }
+
+  function lastMonths(endMonth, count) {
+    const [year, monthNumber] = (isMonth(endMonth) ? endMonth : currentMonth).split("-").map(Number);
+    const months = [];
+    for (let offset = count - 1; offset >= 0; offset -= 1) {
+      const date = new Date(year, monthNumber - 1 - offset, 1);
+      months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+    }
+    return months;
+  }
+
+  function currentStreak(byDate, habitId) {
+    let streak = 0;
+    const cursor = new Date(today);
+    if (!byDate.get(formatDate(cursor))?.[habitId]) {
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    while (byDate.get(formatDate(cursor))?.[habitId]) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
   }
 
   function renderMonthly() {
@@ -565,31 +593,14 @@
     }));
     const validDefinitions = normalizeDefinitions(definitions);
     const validIds = new Set(validDefinitions.map((definition) => definition.id));
-    const matrix = el.list.querySelector('[data-kind="habit-matrix"]');
-    const displayedDates = new Set(matrix ? getMonthDates(matrix.dataset.month || currentMonth) : []);
-    const preservedDays = (state.snapshot.habits.days || [])
-      .filter((day) => !displayedDates.has(day.date))
-      .map((day) => {
-        const checks = {};
-        Object.entries(day.checks || {}).forEach(([id, checked]) => {
-          if (validIds.has(id)) checks[id] = Boolean(checked);
-        });
-        return { date: day.date, checks, updated_at: day.updated_at || null };
+    const days = (state.snapshot.habits.days || []).map((day) => {
+      const checks = {};
+      Object.entries(day.checks || {}).forEach(([id, checked]) => {
+        if (validIds.has(id)) checks[id] = Boolean(checked);
       });
-    const matrixByDate = new Map();
-    el.list.querySelectorAll('[data-field="habit-check"]').forEach((field) => {
-      const date = field.dataset.date;
-      const habitId = field.dataset.habitId;
-      if (!isDate(date) || !validIds.has(habitId)) return;
-      if (!matrixByDate.has(date)) matrixByDate.set(date, {});
-      matrixByDate.get(date)[habitId] = field.checked;
+      return { date: day.date, checks, updated_at: day.updated_at || null };
     });
-    const matrixDays = [...matrixByDate.entries()].map(([date, checks]) => ({
-      date,
-      checks,
-      updated_at: null
-    })).filter((day) => Object.values(day.checks).some(Boolean));
-    return { definitions: validDefinitions, days: [...preservedDays, ...matrixDays] };
+    return { definitions: validDefinitions, days };
   }
 
   function collectMonthly() {

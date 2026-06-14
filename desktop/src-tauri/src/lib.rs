@@ -30,6 +30,8 @@ struct AppSettings {
     visual_template_id: Option<String>,
     #[serde(default)]
     custom_templates: Vec<VisualTemplate>,
+    #[serde(default)]
+    journal_images_dir: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -41,6 +43,8 @@ struct VaultSettings {
     app_icon_source: Option<String>,
     visual_template_id: String,
     visual_templates: Vec<VisualTemplate>,
+    journal_images_dir: String,
+    configured_journal_images_dir: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -404,6 +408,21 @@ fn ensure_vault_dirs(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn configured_images_dir(settings: &AppSettings) -> Result<Option<PathBuf>, String> {
+    match settings.journal_images_dir.as_deref() {
+        Some(value) => configured_vault_path(value),
+        None => Ok(None),
+    }
+}
+
+fn images_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let settings = read_app_settings(app)?;
+    if let Some(path) = configured_images_dir(&settings)? {
+        return Ok(path);
+    }
+    Ok(vault_root(app)?.join("02-Images"))
+}
+
 fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
     let settings = read_app_settings(app)?;
     let configured = settings
@@ -416,6 +435,9 @@ fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
         .filter(|value| !value.trim().is_empty());
     let visual_templates = normalize_visual_templates(&settings.custom_templates);
     let visual_template_id = selected_visual_template_id(&settings, &visual_templates);
+    let journal_images_dir = images_root(app)?.display().to_string();
+    let configured_journal_images_dir =
+        configured_images_dir(&settings)?.map(|path| path.display().to_string());
 
     if let Some(path) = env_vault_root() {
         return Ok(VaultSettings {
@@ -426,6 +448,8 @@ fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
             app_icon_source: app_icon_source.clone(),
             visual_template_id,
             visual_templates,
+            journal_images_dir,
+            configured_journal_images_dir,
         });
     }
 
@@ -438,6 +462,8 @@ fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
             app_icon_source: app_icon_source.clone(),
             visual_template_id,
             visual_templates,
+            journal_images_dir,
+            configured_journal_images_dir,
         });
     }
 
@@ -454,6 +480,8 @@ fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
         app_icon_source,
         visual_template_id,
         visual_templates,
+        journal_images_dir,
+        configured_journal_images_dir,
     })
 }
 
@@ -1597,6 +1625,113 @@ fn reset_app_icon_source(app: tauri::AppHandle) -> Result<VaultSettings, String>
 }
 
 #[tauri::command]
+async fn pick_journal_images_dir(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let mut dialog = app.dialog().file().set_title("选择日记图片目录");
+    if let Ok(path) = images_root(&app) {
+        if let Some(start_dir) = existing_dialog_dir(&path) {
+            dialog = dialog.set_directory(start_dir);
+        }
+    }
+
+    match dialog.blocking_pick_folder() {
+        Some(path) => dialog_path_to_string(path).map(Some),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+fn set_journal_images_dir(app: tauri::AppHandle, path: String) -> Result<VaultSettings, String> {
+    let path =
+        configured_vault_path(&path)?.ok_or_else(|| "请填写图片目录的完整路径".to_string())?;
+    fs::create_dir_all(&path).map_err(|err| format!("创建图片目录失败：{err}"))?;
+    let mut settings = read_app_settings(&app)?;
+    settings.journal_images_dir = Some(path.display().to_string());
+    write_app_settings(&app, &settings)?;
+    vault_settings(&app)
+}
+
+#[tauri::command]
+fn reset_journal_images_dir(app: tauri::AppHandle) -> Result<VaultSettings, String> {
+    let mut settings = read_app_settings(&app)?;
+    settings.journal_images_dir = None;
+    write_app_settings(&app, &settings)?;
+    vault_settings(&app)
+}
+
+fn sanitize_image_file_name(name: &str) -> String {
+    let trimmed = name.trim();
+    let base = trimmed
+        .rsplit(|character| character == '/' || character == '\\')
+        .next()
+        .unwrap_or(trimmed)
+        .trim();
+    let cleaned: String = base
+        .chars()
+        .filter(|&character| {
+            !matches!(
+                character,
+                '<' | '>' | ':' | '"' | '|' | '?' | '*' | '\u{0}'
+            )
+        })
+        .collect();
+    let cleaned = cleaned.trim().trim_matches('.').trim();
+    if cleaned.is_empty() {
+        "image.png".to_string()
+    } else {
+        cleaned.to_string()
+    }
+}
+
+#[tauri::command]
+async fn save_journal_image_bytes(
+    app: tauri::AppHandle,
+    date: String,
+    file_name: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    let (year, month, _) = parse_date(&date)?;
+    if bytes.is_empty() {
+        return Err("图片内容为空".to_string());
+    }
+
+    let target_dir = images_root(&app)?.join(year).join(month);
+    fs::create_dir_all(&target_dir).map_err(|err| format!("创建图片目录失败：{err}"))?;
+
+    let safe_name = sanitize_image_file_name(&file_name);
+    let target = target_dir.join(format!("{date}-{}-{safe_name}", write_nonce()));
+    fs::write(&target, &bytes).map_err(|err| format!("保存图片失败：{err}"))?;
+    Ok(target.display().to_string())
+}
+
+#[tauri::command]
+async fn pick_journal_image(app: tauri::AppHandle, date: String) -> Result<Option<String>, String> {
+    let (year, month, _) = parse_date(&date)?;
+    let dialog = app
+        .dialog()
+        .file()
+        .set_title("选择要插入的图片")
+        .add_filter("图片", &["png", "jpg", "jpeg", "gif", "webp", "bmp"]);
+
+    let Some(picked) = dialog.blocking_pick_file() else {
+        return Ok(None);
+    };
+    let source = picked
+        .into_path()
+        .map_err(|err| format!("无法读取选择路径：{err}"))?;
+
+    let target_dir = images_root(&app)?.join(year).join(month);
+    fs::create_dir_all(&target_dir).map_err(|err| format!("创建图片目录失败：{err}"))?;
+
+    let file_name = source
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("image.png");
+    let target = target_dir.join(format!("{date}-{}-{file_name}", write_nonce()));
+    fs::copy(&source, &target).map_err(|err| format!("复制图片失败：{err}"))?;
+    Ok(Some(target.display().to_string()))
+}
+
+#[tauri::command]
 fn set_visual_template(
     app: tauri::AppHandle,
     template_id: String,
@@ -1646,7 +1781,7 @@ fn add_visual_template(
 }
 
 #[tauri::command]
-fn get_database_manager(app: tauri::AppHandle) -> Result<JournalDatabaseManager, String> {
+async fn get_database_manager(app: tauri::AppHandle) -> Result<JournalDatabaseManager, String> {
     let (frogs_path, habits_path, monthly_path) = database_paths(&app)?;
     let mut habits = read_habit_database(&habits_path)?;
     if habits.definitions.is_empty() {
@@ -1663,7 +1798,10 @@ fn get_database_manager(app: tauri::AppHandle) -> Result<JournalDatabaseManager,
 }
 
 #[tauri::command]
-fn save_frog_database(app: tauri::AppHandle, days: Vec<FrogDay>) -> Result<FrogDatabase, String> {
+async fn save_frog_database(
+    app: tauri::AppHandle,
+    days: Vec<FrogDay>,
+) -> Result<FrogDatabase, String> {
     let (frogs_path, _, _) = database_paths(&app)?;
     let database = FrogDatabase {
         schema_version: 1,
@@ -1674,7 +1812,7 @@ fn save_frog_database(app: tauri::AppHandle, days: Vec<FrogDay>) -> Result<FrogD
 }
 
 #[tauri::command]
-fn save_habit_database(
+async fn save_habit_database(
     app: tauri::AppHandle,
     definitions: Vec<HabitDefinition>,
     days: Vec<HabitDay>,
@@ -1692,7 +1830,7 @@ fn save_habit_database(
 }
 
 #[tauri::command]
-fn save_monthly_database(
+async fn save_monthly_database(
     app: tauri::AppHandle,
     months: Vec<MonthlyRecord>,
 ) -> Result<MonthlyDatabase, String> {
@@ -1706,7 +1844,10 @@ fn save_monthly_database(
 }
 
 #[tauri::command]
-fn get_journal_databases(app: tauri::AppHandle, date: String) -> Result<JournalDatabases, String> {
+async fn get_journal_databases(
+    app: tauri::AppHandle,
+    date: String,
+) -> Result<JournalDatabases, String> {
     parse_date(&date)?;
     let month = month_key(&date)?;
     let (frogs_path, habits_path, monthly_path) = database_paths(&app)?;
@@ -1760,7 +1901,7 @@ fn get_journal_databases(app: tauri::AppHandle, date: String) -> Result<JournalD
 }
 
 #[tauri::command]
-fn save_journal_databases(
+async fn save_journal_databases(
     app: tauri::AppHandle,
     date: String,
     frogs: Vec<FrogItem>,
@@ -1847,7 +1988,11 @@ fn save_journal_databases(
 }
 
 #[tauri::command]
-fn get_journal_month(app: tauri::AppHandle, year: i32, month: u32) -> Result<JournalMonth, String> {
+async fn get_journal_month(
+    app: tauri::AppHandle,
+    year: i32,
+    month: u32,
+) -> Result<JournalMonth, String> {
     if !(1..=12).contains(&month) {
         return Err("月份应在 1 到 12 之间".to_string());
     }
@@ -1891,7 +2036,10 @@ fn get_journal_month(app: tauri::AppHandle, year: i32, month: u32) -> Result<Jou
 }
 
 #[tauri::command]
-fn open_or_create_journal(app: tauri::AppHandle, date: String) -> Result<JournalFile, String> {
+async fn open_or_create_journal(
+    app: tauri::AppHandle,
+    date: String,
+) -> Result<JournalFile, String> {
     let path = daily_path(&app, &date)?;
     let created = !path.exists();
     let vault_dir = vault_root(&app)?;
@@ -1919,7 +2067,7 @@ fn open_or_create_journal(app: tauri::AppHandle, date: String) -> Result<Journal
 }
 
 #[tauri::command]
-fn read_journal(app: tauri::AppHandle, date: String) -> Result<Option<JournalFile>, String> {
+async fn read_journal(app: tauri::AppHandle, date: String) -> Result<Option<JournalFile>, String> {
     let path = daily_path(&app, &date)?;
     if !path.exists() {
         return Ok(None);
@@ -1940,7 +2088,7 @@ fn read_journal(app: tauri::AppHandle, date: String) -> Result<Option<JournalFil
 }
 
 #[tauri::command]
-fn save_journal(
+async fn save_journal(
     app: tauri::AppHandle,
     date: String,
     content: String,
@@ -2162,6 +2310,7 @@ pub fn run() {
                 if let Err(err) = window.set_icon(APP_ICON) {
                     log::warn!("failed to set main window icon: {err}");
                 }
+                let _ = window.maximize();
             }
             Ok(())
         })
@@ -2173,6 +2322,11 @@ pub fn run() {
             reset_vault_dir,
             set_app_icon_source,
             reset_app_icon_source,
+            pick_journal_images_dir,
+            set_journal_images_dir,
+            reset_journal_images_dir,
+            pick_journal_image,
+            save_journal_image_bytes,
             set_visual_template,
             add_visual_template,
             get_database_manager,

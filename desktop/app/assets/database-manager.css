@@ -601,6 +601,98 @@ a {
   color: color-mix(in oklch, var(--rose) 74%, var(--ink));
 }
 
+.habit-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.habit-stat-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklch, var(--ink) 12%, transparent);
+  border-radius: 16px;
+  background: color-mix(in oklch, var(--surface) 72%, transparent);
+}
+
+.habit-stat-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.habit-stat-head strong {
+  font-size: 1rem;
+}
+
+.habit-stat-head .muted {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.stat-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--ink) 8%, transparent);
+}
+
+.stat-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--leaf);
+  transition: width 240ms ease;
+}
+
+.stat-progress-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.stat-bars {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.stat-bar {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.stat-bar em {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.stat-bar-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 30px;
+  height: 64px;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--ink) 6%, transparent);
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  background: color-mix(in oklch, var(--leaf) 82%, var(--surface));
+}
+
+.stat-bar span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
 @media (max-width: 980px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);

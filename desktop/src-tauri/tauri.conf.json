@@ -18,11 +18,19 @@
         "minHeight": 720,
         "backgroundColor": "#f3f6f1",
         "resizable": true,
+        "maximized": true,
+        "dragDropEnabled": false,
         "fullscreen": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**"
+        ]
+      }
     }
   },
   "bundle": {
