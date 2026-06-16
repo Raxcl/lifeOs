@@ -616,7 +616,7 @@
       grid-column: 2;
       grid-row: 1 / span 3;
       align-self: end;
-      grid-template-columns: repeat(4, minmax(118px, 1fr));
+      grid-template-columns: repeat(3, minmax(118px, 1fr));
       gap: 10px;
       margin-top: 0;
       max-width: 640px;
@@ -928,6 +928,10 @@
       color: var(--fg);
       outline: 0;
       padding: 7px 4px 4px;
+      font: inherit;
+      line-height: 1.6;
+      resize: none;
+      overflow: hidden;
     }
 
     .write-line:focus {
@@ -944,7 +948,8 @@
       color: var(--fg);
       line-height: 1.7;
       outline: 0;
-      resize: vertical;
+      resize: none;
+      overflow: hidden;
     }
 
     .textarea:focus {
@@ -1031,6 +1036,71 @@
 
     .mood-btn[data-mood="超棒"] .mood-face {
       background: color-mix(in oklch, var(--leaf) 22%, var(--surface));
+    }
+
+    .mood-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 9px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .mood-icon-edit-btn {
+      margin-left: 8px;
+      font-size: 11px;
+      padding: 2px 9px;
+    }
+
+    .mood-icon-editor {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in oklch, var(--surface) 70%, transparent);
+    }
+
+    .mood-icon-row {
+      display: grid;
+      grid-template-columns: 26px 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mood-icon-row .mood-icon-preview {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      object-fit: cover;
+      background: color-mix(in oklch, var(--surface) 80%, transparent);
+    }
+
+    .mood-icon-row .mood-icon-name {
+      color: var(--fg);
+      font-size: 13px;
+    }
+
+    .mood-icon-row .mood-icon-actions {
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .mood-icon-row .mood-icon-actions button {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .mood-icon-row .mood-icon-actions button:hover {
+      color: var(--fg);
+      border-color: color-mix(in oklch, var(--border) 60%, var(--fg));
     }
 
     .range-row {
@@ -1417,6 +1487,36 @@
       font-size: 13px;
     }
 
+    .tag-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+      min-height: 22px;
+    }
+
+    .tag-summary .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--accent) 16%, var(--surface));
+      border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border));
+      color: var(--fg);
+      font-size: 13px;
+    }
+
+    .tag-summary .tag-chip-note {
+      background: color-mix(in oklch, var(--surface) 90%, transparent);
+      border-color: var(--border);
+      color: var(--muted);
+    }
+
+    .tag-summary-empty {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
     .future-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -1668,7 +1768,6 @@
           <span class="sun-mark" aria-hidden="true"></span>
           <span class="weather-chip">早间记录</span>
         </div>
-        <p class="streak">已记录 — 天</p>
         <p class="meta-line">LifeOS Daily</p>
 
         <div class="masthead-controls" aria-label="今日状态速记">
@@ -1683,7 +1782,9 @@
             </div>
           </div>
           <div class="control-group">
-            <span class="control-label">心情 · <span id="moodLabel">未选择</span></span>
+            <span class="control-label">心情 · <span id="moodLabel">未选择</span>
+              <button class="tag-edit-btn mood-icon-edit-btn" id="moodIconEdit" type="button">自定义图标</button>
+            </span>
             <div class="mood-grid" role="radiogroup" aria-label="选择当前状态">
               <button class="mood-btn" type="button" data-mood="超棒" aria-pressed="false">
                 <span class="mood-face"><span class="mouth"></span></span>
@@ -1706,14 +1807,7 @@
                 <span>开心</span>
               </button>
             </div>
-          </div>
-          <div class="control-group">
-            <span class="control-label">能量</span>
-            <label class="range-row">
-              <span>能量</span>
-              <input id="energyRange" type="range" min="1" max="10" value="6" data-save="energy" />
-              <strong id="energyValue">6</strong>
-            </label>
+            <div class="mood-icon-editor" id="moodIconEditor" hidden></div>
           </div>
         </div>
 
@@ -1729,16 +1823,6 @@
           <article class="metric">
             <div class="metric-label">习惯打卡</div>
             <div class="metric-value" id="metricHabitChecks">—</div>
-          </article>
-          <article class="metric">
-            <div class="metric-label">今日能量</div>
-            <div class="star-meter" role="radiogroup" aria-label="今日能量">
-              <button type="button" aria-label="1 星" data-rating="1"></button>
-              <button type="button" aria-label="2 星" data-rating="2"></button>
-              <button type="button" aria-label="3 星" data-rating="3"></button>
-              <button type="button" aria-label="4 星" data-rating="4"></button>
-              <button type="button" aria-label="5 星" data-rating="5"></button>
-            </div>
           </article>
         </div>
       </div>
@@ -1838,11 +1922,11 @@
               <div class="field-list">
                 <label class="line-field">
                   <span class="line-number">进</span>
-                  <input class="write-line" data-save="yesterday-progress" autocomplete="off" placeholder="昨天向前推进了什么" />
+                  <textarea class="write-line" data-save="yesterday-progress" rows="1" placeholder="昨天向前推进了什么"></textarea>
                 </label>
                 <label class="line-field">
                   <span class="line-number">学</span>
-                  <input class="write-line" data-save="yesterday-learn" autocomplete="off" placeholder="今天要带走的一点经验" />
+                  <textarea class="write-line" data-save="yesterday-learn" rows="1" placeholder="今天要带走的一点经验"></textarea>
                 </label>
               </div>
             </article>
@@ -1850,20 +1934,21 @@
             <article class="journal-panel path-card soft-rose" data-od-id="body-health">
               <div class="panel-title">
                 <h2><span class="flower-dot" aria-hidden="true"></span>今天身体有没有提醒我什么？</h2>
-                <button class="panel-action tag-edit-btn" id="bodyTagsEdit" type="button">编辑标签</button>
+                <button class="panel-action tag-edit-btn" id="bodyTagsEdit" type="button">编辑</button>
               </div>
-              <div class="tag-grid" id="bodyTagGrid" aria-label="身体信号标签"></div>
+              <div class="tag-summary" id="bodyTagSummary" aria-label="今日身体信号"></div>
               <div class="tag-editor" id="bodyTagEditor" hidden>
-                <textarea class="textarea" id="bodyTagEditorInput" rows="4" placeholder="每行一个标签，可增减"></textarea>
+                <div class="tag-grid" id="bodyTagGrid" aria-label="身体信号标签"></div>
+                <label class="small-field">
+                  <span>备注</span>
+                  <input class="mini-input" data-save="health-signal" autocomplete="off" placeholder="其他想补充的身体信号" />
+                </label>
+                <textarea class="textarea" id="bodyTagEditorInput" rows="3" placeholder="管理标签库：每行一个，可增减"></textarea>
                 <div class="tag-editor-actions">
-                  <button class="btn btn-primary" id="bodyTagSave" type="button">保存标签</button>
+                  <button class="btn btn-primary" id="bodyTagSave" type="button">完成</button>
                   <button class="btn btn-secondary" id="bodyTagCancel" type="button">取消</button>
                 </div>
               </div>
-              <label class="small-field" style="margin-top: 12px;">
-                <span>备注</span>
-                <input class="mini-input" data-save="health-signal" autocomplete="off" placeholder="其他想补充的身体信号" />
-              </label>
             </article>
           </div>
         </div>
@@ -1897,26 +1982,21 @@
               <img class="module-sticker" src="assets/晨间日记/浇水壶嫩芽.png" alt="" aria-hidden="true" />
             </article>
 
-            <article class="journal-panel path-card soft-gold" data-od-id="half-year-goal">
+            <article class="journal-panel path-card soft-gold" data-od-id="annual-goal">
               <div class="panel-title">
-                <h2><span class="flower-dot" aria-hidden="true"></span>半年目标</h2>
-                <span class="panel-action">6 MONTHS</span>
+                <h2><span class="flower-dot" aria-hidden="true"></span>年度目标</h2>
+                <span class="panel-action">1 YEAR</span>
               </div>
               <div class="field-list">
                 <label class="line-field">
                   <span class="line-number">1</span>
-                  <input class="write-line" data-save="half-year-identity" autocomplete="off" placeholder="半年后希望自己更像谁" />
+                  <input class="write-line" data-save="half-year-identity" autocomplete="off" placeholder="一年后希望自己更像谁" />
                 </label>
                 <label class="line-field">
                   <span class="line-number">2</span>
-                  <input class="write-line" data-save="half-year-proof" autocomplete="off" placeholder="最想拿到的一个证据" />
+                  <input class="write-line" data-save="half-year-proof" autocomplete="off" placeholder="今年最想拿到的一个证据" />
                 </label>
               </div>
-              <label class="goal-meter">
-                <span>把握</span>
-                <input type="range" min="1" max="10" value="5" data-save="half-year-confidence" />
-                <strong id="goalConfidenceValue">5</strong>
-              </label>
             </article>
 
           </div>
@@ -1943,7 +2023,6 @@
       const dataSaveFields = () => Array.from(document.querySelectorAll("[data-save]"));
       const fields = dataSaveFields();
       const moodButtons = Array.from(document.querySelectorAll(".mood-btn"));
-      const ratingButtons = Array.from(document.querySelectorAll("[data-rating]"));
       const weatherButtons = Array.from(document.querySelectorAll("[data-weather]"));
       const bodyTagGrid = document.getElementById("bodyTagGrid");
       const bodyTagsEdit = document.getElementById("bodyTagsEdit");
@@ -1951,6 +2030,10 @@
       const bodyTagEditorInput = document.getElementById("bodyTagEditorInput");
       const bodyTagSave = document.getElementById("bodyTagSave");
       const bodyTagCancel = document.getElementById("bodyTagCancel");
+      const bodyTagSummary = document.getElementById("bodyTagSummary");
+      const moodIconEdit = document.getElementById("moodIconEdit");
+      const moodIconEditor = document.getElementById("moodIconEditor");
+      const MOOD_ICONS_KEY = "lifeos-mood-icons";
       const bodyTagButtonEls = () => Array.from(bodyTagGrid?.querySelectorAll("[data-body-tag]") || []);
       const BODY_TAGS_KEY = "lifeos-body-tags";
       const DEFAULT_BODY_TAGS = ["肩颈紧", "腰疼", "眼睛酸", "状态不错", "没什么问题"];
@@ -1968,8 +2051,6 @@
       const habitCheckList = document.getElementById("habitCheckList");
       const status = document.getElementById("saveStatus");
       const backButton = document.getElementById("backToCalendar");
-      const energyValue = document.getElementById("energyValue");
-      const goalConfidenceValue = document.getElementById("goalConfidenceValue");
       const messageCount = document.getElementById("messageCount");
       const todoCount = document.getElementById("todoCount");
       const frogDebtCount = document.getElementById("frogDebtCount");
@@ -2005,10 +2086,27 @@
       fields.forEach((field) => {
         field.addEventListener("input", () => {
           updateDerivedLabels();
+          if (field.dataset.save === "health-signal") renderBodyTagSummary();
           scheduleSave();
         });
         field.addEventListener("change", scheduleSave);
       });
+
+      // 让多行文本域随内容自动增高（替代固定高度 + 内部滚动条）。
+      const autoGrowTextareas = Array.from(document.querySelectorAll("textarea.textarea, textarea.write-line"));
+      function autoSizeTextarea(el) {
+        if (!el) return;
+        el.style.height = "auto";
+        const next = el.scrollHeight;
+        if (next > 0) el.style.height = `${next}px`;
+      }
+      function autoSizeAll() {
+        autoGrowTextareas.forEach(autoSizeTextarea);
+      }
+      autoGrowTextareas.forEach((el) => {
+        el.addEventListener("input", () => autoSizeTextarea(el));
+      });
+      window.addEventListener("resize", autoSizeAll);
 
       moodButtons.forEach((button) => {
         button.addEventListener("click", () => {
@@ -2017,11 +2115,14 @@
         });
       });
 
-      ratingButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-          setRating(Number(button.dataset.rating));
-          scheduleSave("能量星级已更新，正在保存…");
-        });
+      applyMoodIcons();
+
+      moodIconEdit?.addEventListener("click", () => {
+        if (!moodIconEditor) return;
+        const opening = moodIconEditor.hidden;
+        moodIconEditor.hidden = !opening;
+        moodIconEdit.textContent = opening ? "完成" : "自定义图标";
+        if (opening) renderMoodIconEditor();
       });
 
       weatherButtons.forEach((button) => {
@@ -2036,22 +2137,28 @@
         const button = event.target.closest("[data-body-tag]");
         if (!button) return;
         button.classList.toggle("is-active");
+        renderBodyTagSummary();
         scheduleSave("身体信号已更新，正在保存…");
       });
 
       bodyTagsEdit?.addEventListener("click", () => {
         if (!bodyTagEditor) return;
-        if (!bodyTagEditor.hidden) {
-          bodyTagEditor.hidden = true;
-          return;
+        const opening = bodyTagEditor.hidden;
+        bodyTagEditor.hidden = !opening;
+        bodyTagsEdit.textContent = opening ? "完成" : "编辑";
+        if (opening) {
+          if (bodyTagEditorInput) bodyTagEditorInput.value = storedBodyTags().join("\n");
+          bodyTagEditorInput?.focus();
+          autoSizeTextarea(bodyTagEditorInput);
+        } else {
+          renderBodyTagSummary();
         }
-        if (bodyTagEditorInput) bodyTagEditorInput.value = storedBodyTags().join("\n");
-        bodyTagEditor.hidden = false;
-        bodyTagEditorInput?.focus();
       });
 
       bodyTagCancel?.addEventListener("click", () => {
         if (bodyTagEditor) bodyTagEditor.hidden = true;
+        if (bodyTagsEdit) bodyTagsEdit.textContent = "编辑";
+        renderBodyTagSummary();
       });
 
       bodyTagSave?.addEventListener("click", () => {
@@ -2061,6 +2168,8 @@
         renderBodyTags(tags);
         applyBodyTags(stillActive);
         if (bodyTagEditor) bodyTagEditor.hidden = true;
+        if (bodyTagsEdit) bodyTagsEdit.textContent = "编辑";
+        renderBodyTagSummary();
         scheduleSave("身体标签已更新，正在保存…");
       });
 
@@ -2195,7 +2304,7 @@
 
       function setFormDisabled(disabled) {
         dataSaveFields().forEach((field) => { field.disabled = disabled; });
-        [...moodButtons, ...ratingButtons, addTodo, todoInput].forEach((node) => {
+        [...moodButtons, addTodo, todoInput].forEach((node) => {
           if (node) node.disabled = disabled;
         });
       }
@@ -2577,15 +2686,16 @@
           }
         });
         setMood(state.form.mood || "元气", false);
-        setRating(Number(state.form.rating || 4), false);
         setWeather(state.form.weather || "", false);
         renderBodyTags(unionBodyTagDefinitions());
         applyBodyTags(state.form.bodyTags || []);
+        renderBodyTagSummary();
         if (identityTitleEl) identityTitleEl.textContent = state.form.identityTitle || storedIdentityTitle();
         renderJournalImages();
         renderFrogDebt(state.form.frogDebt || []);
         renderTodos(state.form.todos || []);
         updateDerivedLabels();
+        autoSizeAll();
       }
 
       function readPageToForm() {
@@ -2594,7 +2704,6 @@
         });
         state.form.habitDefinitions = activeHabitDefinitions();
         state.form.mood = document.querySelector(".mood-btn.is-active")?.dataset.mood || state.form.mood || "元气";
-        state.form.rating = String(activeRating() || state.form.rating || 4);
         state.form.weather = document.querySelector("[data-weather].is-active")?.dataset.weather || "";
         state.form.bodyTags = activeBodyTags();
         state.form.identityTitle = identityTitleEl?.textContent.trim() || storedIdentityTitle();
@@ -2617,13 +2726,6 @@
         });
         document.getElementById("moodLabel").textContent = mood;
         if (updateForm) state.form.mood = mood;
-      }
-
-      function setRating(value, updateForm = true) {
-        ratingButtons.forEach((button) => {
-          button.classList.toggle("is-active", Number(button.dataset.rating) <= value);
-        });
-        if (updateForm) state.form.rating = String(value);
       }
 
       function setWeather(weather, updateForm = true) {
@@ -2684,6 +2786,160 @@
         });
       }
 
+      function renderBodyTagSummary() {
+        if (!bodyTagSummary) return;
+        const tags = activeBodyTags();
+        const noteInput = document.querySelector('[data-save="health-signal"]');
+        const note = (noteInput?.value || "").trim();
+        bodyTagSummary.innerHTML = "";
+        if (!tags.length && !note) {
+          const empty = document.createElement("span");
+          empty.className = "tag-summary-empty";
+          empty.textContent = "今天还没有标记，点「编辑」选择或新增";
+          bodyTagSummary.append(empty);
+          return;
+        }
+        tags.forEach((tag) => {
+          const chip = document.createElement("span");
+          chip.className = "tag-chip";
+          chip.textContent = tag;
+          bodyTagSummary.append(chip);
+        });
+        if (note) {
+          const noteChip = document.createElement("span");
+          noteChip.className = "tag-chip tag-chip-note";
+          noteChip.textContent = note;
+          bodyTagSummary.append(noteChip);
+        }
+      }
+
+      function storedMoodIcons() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(MOOD_ICONS_KEY) || "{}");
+          if (parsed && typeof parsed === "object") return parsed;
+        } catch {}
+        return {};
+      }
+
+      function applyMoodIcons() {
+        const icons = storedMoodIcons();
+        moodButtons.forEach((button) => {
+          const mood = button.dataset.mood;
+          const face = button.querySelector(".mood-face");
+          let logo = button.querySelector(".mood-logo");
+          if (icons[mood]) {
+            if (!logo) {
+              logo = document.createElement("img");
+              logo.className = "mood-logo";
+              logo.alt = "";
+              button.insertBefore(logo, button.firstChild);
+            }
+            logo.src = icons[mood];
+            logo.hidden = false;
+            if (face) face.style.display = "none";
+          } else {
+            if (logo) logo.remove();
+            if (face) face.style.display = "";
+          }
+        });
+      }
+
+      function readImageAsIcon(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("读取图片失败"));
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = () => reject(new Error("解析图片失败"));
+            img.onload = () => {
+              const size = 96;
+              const canvas = document.createElement("canvas");
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext("2d");
+              const scale = Math.max(size / img.width, size / img.height);
+              const w = img.width * scale;
+              const h = img.height * scale;
+              ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+              resolve(canvas.toDataURL("image/png"));
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function handleMoodIconUpload(mood, file) {
+        if (!file) return;
+        try {
+          const dataUrl = await readImageAsIcon(file);
+          const icons = storedMoodIcons();
+          icons[mood] = dataUrl;
+          localStorage.setItem(MOOD_ICONS_KEY, JSON.stringify(icons));
+          applyMoodIcons();
+          renderMoodIconEditor();
+        } catch (error) {
+          setStatus(`图标上传失败：${toErrorMessage(error)}`);
+        }
+      }
+
+      function removeMoodIcon(mood) {
+        const icons = storedMoodIcons();
+        delete icons[mood];
+        localStorage.setItem(MOOD_ICONS_KEY, JSON.stringify(icons));
+        applyMoodIcons();
+        renderMoodIconEditor();
+      }
+
+      function renderMoodIconEditor() {
+        if (!moodIconEditor) return;
+        const icons = storedMoodIcons();
+        moodIconEditor.innerHTML = "";
+        moodButtons.forEach((button) => {
+          const mood = button.dataset.mood;
+          const row = document.createElement("div");
+          row.className = "mood-icon-row";
+
+          const preview = document.createElement("img");
+          preview.className = "mood-icon-preview";
+          if (icons[mood]) preview.src = icons[mood];
+          row.append(preview);
+
+          const name = document.createElement("span");
+          name.className = "mood-icon-name";
+          name.textContent = mood;
+          row.append(name);
+
+          const actions = document.createElement("div");
+          actions.className = "mood-icon-actions";
+
+          const uploadBtn = document.createElement("button");
+          uploadBtn.type = "button";
+          uploadBtn.textContent = icons[mood] ? "更换" : "上传";
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.accept = "image/*";
+          fileInput.style.display = "none";
+          fileInput.addEventListener("change", () => {
+            handleMoodIconUpload(mood, fileInput.files?.[0]);
+            fileInput.value = "";
+          });
+          uploadBtn.addEventListener("click", () => fileInput.click());
+          actions.append(uploadBtn, fileInput);
+
+          if (icons[mood]) {
+            const clearBtn = document.createElement("button");
+            clearBtn.type = "button";
+            clearBtn.textContent = "清除";
+            clearBtn.addEventListener("click", () => removeMoodIcon(mood));
+            actions.append(clearBtn);
+          }
+
+          row.append(actions);
+          moodIconEditor.append(row);
+        });
+      }
+
       function imageExtensionFromType(type) {
         const map = {
           "image/png": "png",
@@ -2717,7 +2973,7 @@
             const buffer = await file.arrayBuffer();
             stored = await tauriInvoke("save_journal_image_bytes", {
               date: state.form.date || date,
-              file_name: fileName,
+              fileName,
               bytes: Array.from(new Uint8Array(buffer))
             });
           } else {
@@ -2789,10 +3045,6 @@
           figure.append(image, remove);
           journalImageList.append(figure);
         });
-      }
-
-      function activeRating() {
-        return ratingButtons.filter((button) => button.classList.contains("is-active")).length;
       }
 
       function renderHabitChecks(definitions) {
@@ -2922,11 +3174,7 @@
       }
 
       function updateDerivedLabels() {
-        const energy = document.querySelector('[data-save="energy"]');
-        const confidence = document.querySelector('[data-save="half-year-confidence"]');
         const message = document.querySelector('[data-save="self-message"]');
-        if (energyValue && energy) energyValue.textContent = energy.value;
-        if (goalConfidenceValue && confidence) goalConfidenceValue.textContent = confidence.value;
         if (messageCount && message) messageCount.textContent = String(message.value.trim().length);
         updateFrogDebtCount();
         updateTodoCount();
@@ -2952,7 +3200,6 @@
         const dayIndex = Number(state.form.dayIndex) || 1;
         const dayTitle = `第 ${dayIndex} 天`;
         document.querySelector(".day-title h1").textContent = dayTitle;
-        document.querySelector(".streak").textContent = `已记录 ${dayIndex} 天`;
         document.querySelector(".meta-line").textContent = `${state.form.date.replaceAll("-", ".")} · ${weekdayLabel(currentDate)} · LifeOS Daily`;
         document.querySelector(".weather-chip").textContent = `${weekdayLabel(currentDate)} · 早间记录`;
         const chipWeekday = document.getElementById("chipWeekday");
@@ -2990,11 +3237,8 @@
           `date: ${form.date}`,
           `day_index: ${form.dayIndex || ""}`,
           `mood: ${form.mood || ""}`,
-          `energy: ${form.energy || ""}`,
-          `rating: ${form.rating || ""}`,
           `weather: ${form.weather || ""}`,
           `identity_title: ${identityTitle}`,
-          `half_year_confidence: ${form["half-year-confidence"] || ""}`,
           "tags:",
           "  - daily",
           "  - morning",
@@ -3004,8 +3248,6 @@
           "",
           "## 规划今天",
           `- 心情：${form.mood || ""}`,
-          `- 能量：${form.energy || ""}`,
-          `- 星级：${form.rating || ""}`,
           `- 天气：${form.weather || ""}`,
           "",
           "## 碎碎念",
@@ -3036,10 +3278,9 @@
             return `- [${todo.done ? "x" : " "}] ${prefix}${todo.text}`;
           }).join("\n") : "- [ ] ",
           "",
-          "## 半年目标",
+          "## 年度目标",
           `1. ${form["half-year-identity"] || ""}`,
           `2. ${form["half-year-proof"] || ""}`,
-          `- 把握：${form["half-year-confidence"] || ""}`,
           ""
         ].join("\n");
       }
@@ -3049,8 +3290,6 @@
         const frontmatter = extractFrontmatter(markdown);
         form.dayIndex = frontmatter.day_index || frontmatter.day || form.dayIndex;
         form.mood = frontmatter.mood || form.mood;
-        form.energy = frontmatter.energy || form.energy;
-        form.rating = frontmatter.rating || form.rating;
         form.weather = frontmatter.weather || form.weather;
         form.identityTitle = frontmatter.identity_title || form.identityTitle;
         form["half-year-confidence"] = frontmatter.half_year_confidence || form["half-year-confidence"];
@@ -3058,8 +3297,6 @@
         const sections = splitSections(stripFrontmatter(markdown));
         parseStatusLines(findSection(sections, ["规划今天"])).forEach(([key, value]) => {
           if (key === "心情") form.mood = value || form.mood;
-          if (key === "能量") form.energy = value || form.energy;
-          if (key === "星级") form.rating = value || form.rating;
           if (key === "天气") form.weather = value || form.weather;
         });
 
@@ -3089,10 +3326,10 @@
           if (key === "备注" || key === "身体信号") form["health-signal"] = value;
         });
         form.todos = parseTodoLines(findSection(sections, ["看见未来"]));
-        const halfYear = parseNumberedList(findSection(sections, ["半年目标"]));
+        const halfYear = parseNumberedList(findSection(sections, ["年度目标", "半年目标"]));
         form["half-year-identity"] = halfYear[0] || "";
         form["half-year-proof"] = halfYear[1] || "";
-        parseStatusLines(findSection(sections, ["半年目标"])).forEach(([key, value]) => {
+        parseStatusLines(findSection(sections, ["年度目标", "半年目标"])).forEach(([key, value]) => {
           if (key === "把握") form["half-year-confidence"] = value;
         });
         const freeNotes = findSection(sections, ["碎碎念", "其他想记录的"]);
@@ -3116,8 +3353,6 @@
           date: valueDate,
           dayIndex: String(dayIndex || ""),
           mood: "元气",
-          rating: "4",
-          energy: "6",
           weather: "",
           identityTitle: storedIdentityTitle(),
           bodyTags: [],
