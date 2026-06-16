@@ -1846,8 +1846,7 @@
                 <span class="panel-action">FREE</span>
               </div>
               <textarea class="textarea" id="brainDump" data-save="brain-dump" placeholder="忽然冒出来的念头、担心、灵感，随手记两笔就好。也可以直接粘贴或拖入图片。"></textarea>
-              <div class="journal-image-list" id="journalImageList"></div>
-              <p class="image-hint" id="journalImageHint">粘贴（Ctrl+V）或把图片拖进这里，会自动保存并展示。</p>
+              <p class="image-hint" id="journalImageHint">粘贴（Ctrl+V）或拖入图片，会自动保存并在光标处插入 ![[文件名]]，可直接在 Obsidian 中查看。</p>
             </article>
 
             <article class="journal-panel path-card" data-od-id="top-three">
@@ -2017,7 +2016,6 @@
         defaultHabitDefinitions: habitDefinitions
       } = window.LifeOSShared;
       const tauriInvoke = window.__TAURI__?.core?.invoke;
-      const convertFileSrc = window.__TAURI__?.core?.convertFileSrc;
       const query = new URLSearchParams(window.location.search);
       const date = normaliseDate(query.get("date")) || formatDate(new Date());
       const dataSaveFields = () => Array.from(document.querySelectorAll("[data-save]"));
@@ -2040,7 +2038,6 @@
       const identityTitleEl = document.getElementById("identityTitleText");
       const freeNotesPanel = document.getElementById("freeNotesPanel");
       const brainDump = document.getElementById("brainDump");
-      const journalImageList = document.getElementById("journalImageList");
       const IDENTITY_TITLE_KEY = "lifeos-identity-card-title";
       const DEFAULT_IDENTITY_TITLE = "今日的剧本关键词是？";
       const LEGACY_IDENTITY_TITLE = "我想成为怎样的人";
@@ -2691,7 +2688,6 @@
         applyBodyTags(state.form.bodyTags || []);
         renderBodyTagSummary();
         if (identityTitleEl) identityTitleEl.textContent = state.form.identityTitle || storedIdentityTitle();
-        renderJournalImages();
         renderFrogDebt(state.form.frogDebt || []);
         renderTodos(state.form.todos || []);
         updateDerivedLabels();
@@ -2983,12 +2979,35 @@
             setStatus("图片保存失败");
             return;
           }
-          state.form.images = [...(state.form.images || []), stored];
-          renderJournalImages();
-          scheduleSave("图片已添加，正在保存…");
+          insertImageReference(stored);
+          setStatus("图片已插入，正在保存…");
         } catch (error) {
           setStatus(`添加图片失败：${toErrorMessage(error)}`);
         }
+      }
+
+      // 把保存好的图片以 Obsidian 可识别的形式插入碎碎念光标处：
+      // 本地文件用 ![[文件名]] 嵌入（Obsidian 会在库内按文件名自动定位），
+      // 没有文件名的 data URL 退回标准 Markdown 图片语法。
+      function insertImageReference(stored) {
+        if (!brainDump) return;
+        const value = String(stored || "");
+        const isDataUrl = value.startsWith("data:");
+        const fileName = value.split(/[\\/]/).pop() || value;
+        const snippet = isDataUrl ? `![](${value})` : `![[${fileName}]]`;
+        const current = brainDump.value || "";
+        const start = brainDump.selectionStart ?? current.length;
+        const end = brainDump.selectionEnd ?? current.length;
+        const before = current.slice(0, start);
+        const after = current.slice(end);
+        const leadingBreak = before && !before.endsWith("\n") ? "\n" : "";
+        const trailingBreak = after && !after.startsWith("\n") ? "\n" : "";
+        const insertText = `${leadingBreak}${snippet}${trailingBreak}`;
+        brainDump.value = `${before}${insertText}${after}`;
+        const caret = before.length + insertText.length;
+        brainDump.focus();
+        brainDump.setSelectionRange(caret, caret);
+        brainDump.dispatchEvent(new Event("input", { bubbles: true }));
       }
 
       async function loadHitokoto() {
@@ -3020,31 +3039,6 @@
 
       function storedIdentityTitle() {
         return (localStorage.getItem(IDENTITY_TITLE_KEY) || "").trim() || DEFAULT_IDENTITY_TITLE;
-      }
-
-      function renderJournalImages() {
-        if (!journalImageList) return;
-        journalImageList.innerHTML = "";
-        (state.form.images || []).forEach((path, index) => {
-          const figure = document.createElement("figure");
-          figure.className = "journal-image";
-          const image = document.createElement("img");
-          image.src = String(path).startsWith("data:") ? path : (convertFileSrc ? convertFileSrc(path) : path);
-          image.alt = "";
-          image.title = path;
-          const remove = document.createElement("button");
-          remove.type = "button";
-          remove.className = "journal-image-remove";
-          remove.setAttribute("aria-label", "移除这张图片");
-          remove.textContent = "×";
-          remove.addEventListener("click", () => {
-            state.form.images.splice(index, 1);
-            renderJournalImages();
-            scheduleSave("图片已移除，正在保存…");
-          });
-          figure.append(image, remove);
-          journalImageList.append(figure);
-        });
       }
 
       function renderHabitChecks(definitions) {
@@ -3229,8 +3223,7 @@
         const habits = activeHabitDefinitions(form).map((definition) => [definition.label, form[definition.id]]);
         const todos = form.todos || [];
         const identityTitle = String(form.identityTitle || "").trim() || DEFAULT_IDENTITY_TITLE;
-        const imageLines = (form.images || []).map((path) => `![图片](${path})`);
-        const freeNotes = [textOrBlank(form["brain-dump"]), imageLines.join("\n")].filter(Boolean).join("\n\n");
+        const freeNotes = textOrBlank(form["brain-dump"]);
         return [
           "---",
           "type: daily",
@@ -3333,18 +3326,7 @@
           if (key === "把握") form["half-year-confidence"] = value;
         });
         const freeNotes = findSection(sections, ["碎碎念", "其他想记录的"]);
-        const imagePattern = /^!\[[^\]]*\]\((.+)\)$/;
-        const noteLines = [];
-        form.images = [];
-        String(freeNotes || "").split(/\r?\n/).forEach((line) => {
-          const match = line.trim().match(imagePattern);
-          if (match) {
-            form.images.push(match[1]);
-          } else {
-            noteLines.push(line);
-          }
-        });
-        form["brain-dump"] = noteLines.join("\n").trim();
+        form["brain-dump"] = String(freeNotes || "").trim();
         return form;
       }
 
