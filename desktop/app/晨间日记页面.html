@@ -938,6 +938,31 @@
       border-bottom-color: var(--accent);
     }
 
+    .annual-goal-row {
+      grid-template-columns: 26px minmax(0, 1fr) 28px;
+    }
+
+    .annual-add {
+      margin-top: 12px;
+      width: 100%;
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: color-mix(in oklch, var(--surface) 70%, transparent);
+      color: var(--muted);
+      font-size: 13px;
+      transition: color 140ms ease, border-color 140ms ease;
+    }
+
+    .annual-add:hover {
+      color: var(--fg);
+      border-color: color-mix(in oklch, var(--border) 60%, var(--fg));
+    }
+
     .textarea {
       width: 100%;
       min-height: 118px;
@@ -1050,6 +1075,11 @@
       margin-left: 8px;
       font-size: 11px;
       padding: 2px 9px;
+    }
+
+    .mood-icon-editor[hidden],
+    .tag-editor[hidden] {
+      display: none;
     }
 
     .mood-icon-editor {
@@ -1986,16 +2016,13 @@
                 <h2><span class="flower-dot" aria-hidden="true"></span>年度目标</h2>
                 <span class="panel-action">1 YEAR</span>
               </div>
-              <div class="field-list">
-                <label class="line-field">
-                  <span class="line-number">1</span>
-                  <input class="write-line" data-save="half-year-identity" autocomplete="off" placeholder="一年后希望自己更像谁" />
-                </label>
-                <label class="line-field">
-                  <span class="line-number">2</span>
-                  <input class="write-line" data-save="half-year-proof" autocomplete="off" placeholder="今年最想拿到的一个证据" />
-                </label>
-              </div>
+              <div class="field-list" id="annualGoalList"></div>
+              <button class="annual-add" id="addAnnualGoal" type="button" aria-label="添加年度目标">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                <span>添加年度目标</span>
+              </button>
             </article>
 
           </div>
@@ -2044,6 +2071,9 @@
       const todoList = document.getElementById("todoList");
       const todoInput = document.getElementById("todoInput");
       const addTodo = document.getElementById("addTodo");
+      const annualGoalList = document.getElementById("annualGoalList");
+      const addAnnualGoal = document.getElementById("addAnnualGoal");
+      const ANNUAL_GOAL_PLACEHOLDERS = ["一年后希望自己更像谁", "今年最想拿到的一个证据"];
       const frogDebtList = document.getElementById("frogDebtList");
       const habitCheckList = document.getElementById("habitCheckList");
       const status = document.getElementById("saveStatus");
@@ -2244,6 +2274,12 @@
         scheduleSave("本月事项已更新，正在保存…");
       });
 
+      addAnnualGoal?.addEventListener("click", (event) => {
+        event.preventDefault();
+        addAnnualGoalRow(true);
+        scheduleSave("年度目标已更新，正在保存…");
+      });
+
       todoInput?.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -2301,7 +2337,8 @@
 
       function setFormDisabled(disabled) {
         dataSaveFields().forEach((field) => { field.disabled = disabled; });
-        [...moodButtons, addTodo, todoInput].forEach((node) => {
+        const annualInputs = annualGoalList ? Array.from(annualGoalList.querySelectorAll("input")) : [];
+        [...moodButtons, addTodo, todoInput, addAnnualGoal, ...annualInputs].forEach((node) => {
           if (node) node.disabled = disabled;
         });
       }
@@ -2690,6 +2727,7 @@
         if (identityTitleEl) identityTitleEl.textContent = state.form.identityTitle || storedIdentityTitle();
         renderFrogDebt(state.form.frogDebt || []);
         renderTodos(state.form.todos || []);
+        renderAnnualGoals(state.form.annualGoals || []);
         updateDerivedLabels();
         autoSizeAll();
       }
@@ -2712,6 +2750,7 @@
           updated_at: item.dataset.updatedAt ? Number(item.dataset.updatedAt) : null
         })).filter((todo) => todo.text);
         state.form.frogDebt = (state.form.frogDebt || []).filter((frog) => frog && frog.date && frog.slot && frog.text);
+        state.form.annualGoals = readAnnualGoalsFromDom();
       }
 
       function setMood(mood, updateForm = true) {
@@ -3167,6 +3206,61 @@
         return true;
       }
 
+      function readAnnualGoalsFromDom() {
+        if (!annualGoalList) return [];
+        return Array.from(annualGoalList.querySelectorAll("input.write-line")).map((input) => input.value);
+      }
+
+      function renderAnnualGoals(goals) {
+        if (!annualGoalList) return;
+        const list = Array.isArray(goals) ? goals.slice() : [];
+        while (list.length < 2) list.push("");
+        annualGoalList.innerHTML = "";
+        list.forEach((goal, index) => {
+          const row = document.createElement("label");
+          row.className = index >= 2 ? "line-field annual-goal-row" : "line-field";
+          const num = document.createElement("span");
+          num.className = "line-number";
+          num.textContent = String(index + 1);
+          const input = document.createElement("input");
+          input.className = "write-line";
+          input.type = "text";
+          input.autocomplete = "off";
+          input.value = goal || "";
+          input.placeholder = ANNUAL_GOAL_PLACEHOLDERS[index] || "再写一个今年想达成的目标";
+          input.addEventListener("input", () => {
+            updateDerivedLabels();
+            scheduleSave();
+          });
+          row.append(num, input);
+          if (index >= 2) {
+            const del = document.createElement("button");
+            del.type = "button";
+            del.className = "delete-todo";
+            del.setAttribute("aria-label", "删除年度目标");
+            del.textContent = "×";
+            del.addEventListener("click", () => {
+              const current = readAnnualGoalsFromDom();
+              current.splice(index, 1);
+              renderAnnualGoals(current);
+              scheduleSave("年度目标已更新，正在保存…");
+            });
+            row.append(del);
+          }
+          annualGoalList.append(row);
+        });
+      }
+
+      function addAnnualGoalRow(focus) {
+        const current = readAnnualGoalsFromDom();
+        current.push("");
+        renderAnnualGoals(current);
+        if (focus) {
+          const inputs = annualGoalList.querySelectorAll("input.write-line");
+          inputs[inputs.length - 1]?.focus();
+        }
+      }
+
       function updateDerivedLabels() {
         const message = document.querySelector('[data-save="self-message"]');
         if (messageCount && message) messageCount.textContent = String(message.value.trim().length);
@@ -3224,6 +3318,9 @@
         const todos = form.todos || [];
         const identityTitle = String(form.identityTitle || "").trim() || DEFAULT_IDENTITY_TITLE;
         const freeNotes = textOrBlank(form["brain-dump"]);
+        const annualGoals = (form.annualGoals || []).map((goal) => String(goal || "").trim());
+        while (annualGoals.length && !annualGoals[annualGoals.length - 1]) annualGoals.pop();
+        while (annualGoals.length < 2) annualGoals.push("");
         return [
           "---",
           "type: daily",
@@ -3272,8 +3369,7 @@
           }).join("\n") : "- [ ] ",
           "",
           "## 年度目标",
-          `1. ${form["half-year-identity"] || ""}`,
-          `2. ${form["half-year-proof"] || ""}`,
+          annualGoals.map((goal, index) => `${index + 1}. ${goal}`).join("\n"),
           ""
         ].join("\n");
       }
@@ -3319,9 +3415,7 @@
           if (key === "备注" || key === "身体信号") form["health-signal"] = value;
         });
         form.todos = parseTodoLines(findSection(sections, ["看见未来"]));
-        const halfYear = parseNumberedList(findSection(sections, ["年度目标", "半年目标"]));
-        form["half-year-identity"] = halfYear[0] || "";
-        form["half-year-proof"] = halfYear[1] || "";
+        form.annualGoals = parseNumberedList(findSection(sections, ["年度目标", "半年目标"]));
         parseStatusLines(findSection(sections, ["年度目标", "半年目标"])).forEach(([key, value]) => {
           if (key === "把握") form["half-year-confidence"] = value;
         });
@@ -3343,7 +3437,8 @@
           habitDefinitions: habitDefinitions(),
           habitChecklistByLabel: {},
           frogDebt: [],
-          todos: []
+          todos: [],
+          annualGoals: []
         };
       }
 
