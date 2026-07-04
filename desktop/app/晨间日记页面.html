@@ -4,9 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>晨间日记 | 时光手帐</title>
+  <link rel="stylesheet" href="assets/window-frame.css" />
   <link rel="stylesheet" href="assets/晨间日记页面.css" />
 </head>
 <body>
+  <div class="window-frame" data-tauri-drag-region>
+    <div class="window-title" data-tauri-drag-region>时光手帐 · 晨间日记</div>
+    <div class="window-controls">
+      <button class="window-control" type="button" data-window-control="minimize" aria-label="最小化">─</button>
+      <button class="window-control" type="button" data-window-control="maximize" aria-label="最大化">□</button>
+      <button class="window-control close" type="button" data-window-control="close" aria-label="关闭">×</button>
+    </div>
+  </div>
   <div class="wallpaper-layer" id="wallpaperLayer" aria-hidden="true"></div>
   <header class="topnav" data-od-id="topnav">
     <div class="container topnav-inner">
@@ -27,6 +36,35 @@
           <span>时光手帐</span>
         </a>
       </div>
+      <div class="nav-actions">
+        <div class="wallpaper-menu">
+          <button class="btn btn-secondary" type="button" id="wallpaperSettingsToggle" aria-expanded="false" aria-controls="wallpaperSettingsPanel">背景设置</button>
+          <div class="wallpaper-settings" id="wallpaperSettingsPanel" aria-label="晨间日记背景设置" hidden>
+            <div class="wallpaper-settings-head">
+              <strong>背景</strong>
+              <span class="wallpaper-status" id="wallpaperStatus">选择图片文件夹</span>
+            </div>
+            <div class="wallpaper-path-row">
+              <input id="wallpaperDirInput" type="text" spellcheck="false" readonly placeholder="选择一个包含背景图片的文件夹">
+              <button class="btn btn-secondary" type="button" id="chooseWallpaperDir">选择</button>
+              <button class="btn btn-secondary" type="button" id="resetWallpaperDir">关闭</button>
+            </div>
+            <div class="wallpaper-preferences">
+              <label class="wallpaper-range" for="wallpaperOverlayInput">
+                <span>遮罩强度</span>
+                <input id="wallpaperOverlayInput" type="range" min="0" max="100" step="1" value="16">
+              </label>
+              <label class="wallpaper-select" for="wallpaperFitSelect">
+                <span>适配方式</span>
+                <select id="wallpaperFitSelect">
+                  <option value="cover">铺满窗口</option>
+                  <option value="contain">完整显示</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -43,31 +81,6 @@
           <span class="weather-chip">早间记录</span>
         </div>
         <p class="meta-line">时光手帐 Daily</p>
-
-        <div class="wallpaper-settings" aria-label="晨间日记背景设置">
-          <div class="wallpaper-settings-head">
-            <strong>背景</strong>
-            <span class="wallpaper-status" id="wallpaperStatus">选择图片文件夹</span>
-          </div>
-          <div class="wallpaper-path-row">
-            <input id="wallpaperDirInput" type="text" spellcheck="false" readonly placeholder="选择一个包含背景图片的文件夹">
-            <button class="btn btn-secondary" type="button" id="chooseWallpaperDir">选择</button>
-            <button class="btn btn-secondary" type="button" id="resetWallpaperDir">关闭</button>
-          </div>
-          <div class="wallpaper-preferences">
-            <label class="wallpaper-range" for="wallpaperOverlayInput">
-              <span>遮罩强度</span>
-              <input id="wallpaperOverlayInput" type="range" min="0" max="70" step="2" value="28">
-            </label>
-            <label class="wallpaper-select" for="wallpaperFitSelect">
-              <span>适配方式</span>
-              <select id="wallpaperFitSelect">
-                <option value="cover">铺满窗口</option>
-                <option value="contain">完整显示</option>
-              </select>
-            </label>
-          </div>
-        </div>
 
         <div class="masthead-controls" aria-label="今日状态速记">
           <div class="control-group">
@@ -249,11 +262,11 @@
           </div>
         </div>
 
-        <div class="path-row future-row is-collapsed" data-od-id="see-future-row">
-          <button class="future-toggle" id="futureToggle" type="button" aria-expanded="false">
-            <span class="future-toggle-label"><strong>看见未来</strong><em>FUTURE</em></span>
-            <span class="future-toggle-hint" id="futureToggleHint">点击展开</span>
-          </button>
+        <div class="path-row future-row" data-od-id="see-future-row">
+          <div class="path-label">
+            <strong>看见未来</strong>
+            <span>FUTURE</span>
+          </div>
           <div class="future-content nine-grid duo">
             <article class="journal-panel path-card soft-green" data-od-id="month-important">
               <div class="panel-title">
@@ -298,6 +311,7 @@
   </main>
 
   <script src="assets/lifeos-shared.js"></script>
+  <script src="assets/window-controls.js"></script>
   <script src="assets/app-background.js"></script>
   <script src="assets/晨间日记页面.js"></script>
 </body>

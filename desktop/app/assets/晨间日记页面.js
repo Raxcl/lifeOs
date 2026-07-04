@@ -48,9 +48,6 @@
       const frogDebtCount = document.getElementById("frogDebtCount");
       const hitokotoText = document.getElementById("hitokotoText");
       const hitokotoRefresh = document.getElementById("hitokotoRefresh");
-      const futureRow = document.querySelector(".future-row");
-      const futureToggle = document.getElementById("futureToggle");
-      const futureToggleHint = document.getElementById("futureToggleHint");
       const HITOKOTO_FALLBACKS = [
         "把今天过好，就是对未来最好的负责。",
         "慢慢来，比较快。",
@@ -64,6 +61,8 @@
       const wallpaperOverlayInput = document.getElementById("wallpaperOverlayInput");
       const wallpaperFitSelect = document.getElementById("wallpaperFitSelect");
       const wallpaperStatus = document.getElementById("wallpaperStatus");
+      const wallpaperSettingsToggle = document.getElementById("wallpaperSettingsToggle");
+      const wallpaperSettingsPanel = document.getElementById("wallpaperSettingsPanel");
 
       const state = {
         file: null,
@@ -86,8 +85,20 @@
         }
       });
 
+      wallpaperSettingsToggle?.addEventListener("click", () => {
+        setWallpaperPanelOpen(wallpaperSettingsPanel?.hidden !== false);
+      });
       chooseWallpaperDirButton?.addEventListener("click", chooseWallpaperDir);
       resetWallpaperDirButton?.addEventListener("click", resetWallpaperDir);
+      document.addEventListener("click", (event) => {
+        if (wallpaperSettingsPanel?.hidden) return;
+        const target = event.target;
+        if (wallpaperSettingsPanel?.contains(target) || wallpaperSettingsToggle?.contains(target)) return;
+        setWallpaperPanelOpen(false);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") setWallpaperPanelOpen(false);
+      });
 
       backButton?.addEventListener("click", async () => {
         window.clearTimeout(state.timer);
@@ -95,6 +106,12 @@
         await saveNow(true);
         window.location.replace(new URL("index.html", window.location.href).href);
       });
+
+      function setWallpaperPanelOpen(open) {
+        if (!wallpaperSettingsPanel || !wallpaperSettingsToggle) return;
+        wallpaperSettingsPanel.hidden = !open;
+        wallpaperSettingsToggle.setAttribute("aria-expanded", String(open));
+      }
 
       fields.forEach((field) => {
         field.addEventListener("input", () => {
@@ -247,10 +264,6 @@
 
       hitokotoRefresh?.addEventListener("click", () => loadHitokoto());
       loadHitokoto();
-
-      futureToggle?.addEventListener("click", () => {
-        setFutureCollapsed(!futureRow?.classList.contains("is-collapsed"));
-      });
 
       addTodo?.addEventListener("click", (event) => {
         event.preventDefault();
@@ -1118,13 +1131,6 @@
 
       function randomHitokotoFallback() {
         return HITOKOTO_FALLBACKS[Math.floor(Math.random() * HITOKOTO_FALLBACKS.length)];
-      }
-
-      function setFutureCollapsed(collapsed) {
-        if (!futureRow) return;
-        futureRow.classList.toggle("is-collapsed", collapsed);
-        futureToggle?.setAttribute("aria-expanded", String(!collapsed));
-        if (futureToggleHint) futureToggleHint.textContent = collapsed ? "点击展开" : "点击收起";
       }
 
       function storedIdentityTitle() {
