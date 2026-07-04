@@ -53,6 +53,35 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    .wallpaper-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-position: center;
+      background-size: var(--wallpaper-size, cover);
+      background-repeat: no-repeat;
+      opacity: 0;
+      transition: opacity 360ms ease, background-image 360ms ease;
+      pointer-events: none;
+    }
+
+    .wallpaper-layer::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 253, 248, var(--wallpaper-wash, 0.28)), rgba(255, 253, 248, calc(var(--wallpaper-wash, 0.28) + 0.12))),
+        rgba(255, 253, 248, 0.04);
+    }
+
+    body.has-wallpaper {
+      background: #1d1f23;
+    }
+
+    body.has-wallpaper .wallpaper-layer {
+      opacity: 1;
+    }
+
     button,
     input,
     textarea {
@@ -117,6 +146,11 @@
       background: color-mix(in oklch, var(--bg) 82%, transparent);
       border-bottom: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
       backdrop-filter: blur(16px);
+    }
+
+    body.has-wallpaper .topnav {
+      background: color-mix(in oklch, var(--surface) 56%, transparent);
+      border-bottom-color: color-mix(in oklch, var(--border) 58%, transparent);
     }
 
     .topnav-inner {
@@ -238,6 +272,7 @@
 
     .page {
       position: relative;
+      z-index: 1;
       min-height: calc(100vh - var(--nav-h));
       display: grid;
       padding: var(--page-pad-y) 0 calc(var(--page-pad-y) + 28px);
@@ -278,6 +313,11 @@
       overflow: visible;
     }
 
+    body.has-wallpaper .journal-shell {
+      background: color-mix(in oklch, var(--surface) 58%, transparent);
+      box-shadow: 0 28px 80px rgba(10, 14, 18, 0.24);
+    }
+
     .journal-shell::before {
       content: "";
       position: absolute;
@@ -285,46 +325,6 @@
       border: 1px dashed color-mix(in oklch, var(--border) 72%, transparent);
       border-radius: 24px;
       pointer-events: none;
-    }
-
-    .sticker {
-      position: absolute;
-      z-index: 1;
-      pointer-events: none;
-      user-select: none;
-      filter: drop-shadow(0 10px 18px color-mix(in oklch, var(--fg) 8%, transparent));
-    }
-
-    .sticker-hero {
-      top: 18px;
-      right: clamp(26px, 3vw, 56px);
-      width: clamp(360px, 25vw, 460px);
-    }
-
-    .sticker-left {
-      left: -34px;
-      bottom: -30px;
-      width: clamp(190px, 13vw, 245px);
-    }
-
-    .sticker-right {
-      right: -34px;
-      bottom: -32px;
-      width: clamp(210px, 14vw, 270px);
-    }
-
-    .sticker-vine {
-      right: -18px;
-      top: -28px;
-      width: clamp(118px, 8vw, 156px);
-      opacity: 0.82;
-    }
-
-    .sticker-vine-left {
-      left: -18px;
-      top: -26px;
-      width: clamp(112px, 7.5vw, 148px);
-      opacity: 0.78;
     }
 
     .journal-content {
@@ -347,7 +347,7 @@
       column-gap: 24px;
       align-items: end;
       margin-bottom: clamp(18px, 2vw, 30px);
-      padding: 24px clamp(390px, 30vw, 560px) 16px 10px;
+      padding: 24px 10px 16px 10px;
     }
 
     .masthead .day-row {
@@ -373,6 +373,92 @@
       gap: 14px 28px;
       align-items: end;
       margin-top: 16px;
+    }
+
+    .wallpaper-settings {
+      grid-column: 2;
+      grid-row: 1 / 4;
+      align-self: center;
+      display: grid;
+      gap: 10px;
+      min-width: min(100%, 420px);
+      padding: 14px;
+      border: 1px solid color-mix(in oklch, var(--border) 84%, transparent);
+      border-radius: 18px;
+      background: color-mix(in oklch, var(--surface) 70%, transparent);
+      box-shadow: inset 0 1px 0 color-mix(in oklch, #fff 76%, transparent);
+      backdrop-filter: blur(10px);
+    }
+
+    .wallpaper-settings-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .wallpaper-settings-head strong {
+      color: var(--fg);
+      font-size: 14px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .wallpaper-status {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      text-align: right;
+    }
+
+    .wallpaper-path-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .wallpaper-path-row input,
+    .wallpaper-preferences select {
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--surface) 88%, transparent);
+      color: var(--fg);
+      font: inherit;
+      font-size: 13px;
+      outline: 0;
+    }
+
+    .wallpaper-path-row input {
+      min-width: 0;
+      padding: 0 12px;
+    }
+
+    .wallpaper-preferences {
+      display: grid;
+      grid-template-columns: minmax(170px, 1fr) minmax(120px, 148px);
+      gap: 10px;
+      align-items: end;
+    }
+
+    .wallpaper-range,
+    .wallpaper-select {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .wallpaper-range input {
+      margin: 0;
+    }
+
+    .wallpaper-preferences select {
+      width: 100%;
+      padding: 0 12px;
     }
 
     .control-group {
@@ -812,15 +898,6 @@
       margin-top: 12px;
       color: var(--muted);
       font-size: 13px;
-    }
-
-    .module-sticker {
-      position: absolute;
-      right: 12px;
-      bottom: 8px;
-      width: 62px;
-      opacity: 0.58;
-      pointer-events: none;
     }
 
     .journal-panel {
@@ -1365,24 +1442,6 @@
       gap: 16px;
     }
 
-    .plant-sticker {
-      position: absolute;
-      right: 16px;
-      bottom: 8px;
-      width: 70px;
-      opacity: 0.78;
-      pointer-events: none;
-    }
-
-    .book-sticker {
-      position: absolute;
-      right: 18px;
-      bottom: 10px;
-      width: 104px;
-      opacity: 0.52;
-      pointer-events: none;
-    }
-
     .status-bar {
       position: relative;
       z-index: 3;
@@ -1631,17 +1690,11 @@
 
       .masthead {
         display: block;
-        padding-right: 330px;
+        padding-right: 10px;
       }
 
-      .sticker-hero {
-        width: 350px;
-      }
-
-      .sticker-vine-left,
-      .sticker-vine {
-        top: -18px;
-        width: 118px;
+      .wallpaper-settings {
+        margin-top: 16px;
       }
 
       .journal-content,
@@ -1696,20 +1749,17 @@
       }
 
       .masthead {
-        min-height: 250px;
-        padding: 8px 6px 160px;
+        min-height: auto;
+        padding: 8px 6px 18px;
       }
 
-      .sticker-hero {
-        top: 120px;
-        right: 12px;
-        width: 310px;
+      .wallpaper-path-row,
+      .wallpaper-preferences {
+        grid-template-columns: 1fr;
       }
 
-      .sticker-vine-left,
-      .sticker-vine {
-        width: 92px;
-        opacity: 0.58;
+      .wallpaper-path-row .btn {
+        width: 100%;
       }
 
       .metric-grid,

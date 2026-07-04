@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>晨间日记页面 | LifeOS</title>
+  <title>晨间日记 | 时光手帐</title>
   <link rel="stylesheet" href="assets/晨间日记页面.css" />
 </head>
 <body>
+  <div class="wallpaper-layer" id="wallpaperLayer" aria-hidden="true"></div>
   <header class="topnav" data-od-id="topnav">
     <div class="container topnav-inner">
       <div class="nav-left">
@@ -16,14 +17,14 @@
           </svg>
           <span>返回日历</span>
         </button>
-        <a class="logo" href="#" aria-label="LifeOS 晨间日记">
+        <a class="logo" href="#" aria-label="时光手帐 晨间日记">
           <span class="logo-mark" aria-hidden="true">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M5 4.5h9.5a4.5 4.5 0 0 1 0 9H5z" />
               <path d="M5 13.5h10a4 4 0 0 1 0 8H5z" />
             </svg>
           </span>
-          <span>LifeOS 晨间日记</span>
+          <span>时光手帐</span>
         </a>
       </div>
     </div>
@@ -32,12 +33,6 @@
   <main class="page">
     <div class="cloud-line" aria-hidden="true"></div>
     <section class="container journal-shell" data-od-id="morning-journal-workspace" aria-label="晨间日记写作区">
-      <img class="sticker sticker-hero" src="assets/晨间日记/少女读书伙伴.png" alt="" aria-hidden="true" />
-      <img class="sticker sticker-left" src="assets/晨间日记/左下花束.png" alt="" aria-hidden="true" />
-      <img class="sticker sticker-right" src="assets/晨间日记/右下花束.png" alt="" aria-hidden="true" />
-      <img class="sticker sticker-vine" src="assets/晨间日记/右上花藤.png" alt="" aria-hidden="true" />
-      <img class="sticker sticker-vine-left" src="assets/晨间日记/左上花藤.png" alt="" aria-hidden="true" />
-
       <div class="masthead">
         <div class="day-row">
           <div class="day-title">
@@ -47,7 +42,32 @@
           <span class="sun-mark" aria-hidden="true"></span>
           <span class="weather-chip">早间记录</span>
         </div>
-        <p class="meta-line">LifeOS Daily</p>
+        <p class="meta-line">时光手帐 Daily</p>
+
+        <div class="wallpaper-settings" aria-label="晨间日记背景设置">
+          <div class="wallpaper-settings-head">
+            <strong>背景</strong>
+            <span class="wallpaper-status" id="wallpaperStatus">选择图片文件夹</span>
+          </div>
+          <div class="wallpaper-path-row">
+            <input id="wallpaperDirInput" type="text" spellcheck="false" readonly placeholder="选择一个包含背景图片的文件夹">
+            <button class="btn btn-secondary" type="button" id="chooseWallpaperDir">选择</button>
+            <button class="btn btn-secondary" type="button" id="resetWallpaperDir">关闭</button>
+          </div>
+          <div class="wallpaper-preferences">
+            <label class="wallpaper-range" for="wallpaperOverlayInput">
+              <span>遮罩强度</span>
+              <input id="wallpaperOverlayInput" type="range" min="0" max="70" step="2" value="28">
+            </label>
+            <label class="wallpaper-select" for="wallpaperFitSelect">
+              <span>适配方式</span>
+              <select id="wallpaperFitSelect">
+                <option value="cover">铺满窗口</option>
+                <option value="contain">完整显示</option>
+              </select>
+            </label>
+          </div>
+        </div>
 
         <div class="masthead-controls" aria-label="今日状态速记">
           <div class="control-group">
@@ -147,7 +167,6 @@
                   <input class="write-line" data-save="frog-3" autocomplete="off" placeholder="第三件让今天更稳的事" />
                 </label>
               </div>
-              <img class="module-sticker" src="assets/晨间日记/手帐本.png" alt="" aria-hidden="true" />
             </article>
 
             <article class="journal-panel path-card soft-rose" data-od-id="becoming-self">
@@ -189,7 +208,6 @@
                   <span>晚上做了简短回看</span>
                 </li>
               </ul>
-              <img class="module-sticker" src="assets/晨间日记/盆栽嫩芽.png" alt="" aria-hidden="true" />
             </article>
 
             <article class="journal-panel path-card compact" data-od-id="daily-progress">
@@ -257,7 +275,6 @@
                   </button>
                 </div>
               </div>
-              <img class="module-sticker" src="assets/晨间日记/浇水壶嫩芽.png" alt="" aria-hidden="true" />
             </article>
 
             <article class="journal-panel path-card soft-gold" data-od-id="annual-goal">
@@ -281,6 +298,7 @@
   </main>
 
   <script src="assets/lifeos-shared.js"></script>
+  <script src="assets/app-background.js"></script>
   <script src="assets/晨间日记页面.js"></script>
 </body>
 </html>

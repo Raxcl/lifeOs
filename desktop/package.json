@@ -2,7 +2,7 @@
   "name": "lifeos-morning-journal",
   "version": "0.1.0",
   "private": true,
-  "description": "Tauri desktop app for the LifeOS morning journal.",
+  "description": "Tauri desktop app for 时光手帐.",
   "scripts": {
     "pretauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\scripts\\apply-app-icon.ps1 -SkipWhenUnconfigured",
     "tauri:dev": "tauri dev --no-dev-server",

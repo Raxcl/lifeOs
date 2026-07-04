@@ -32,6 +32,8 @@ struct AppSettings {
     custom_templates: Vec<VisualTemplate>,
     #[serde(default)]
     journal_images_dir: Option<String>,
+    #[serde(default)]
+    wallpaper_dir: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -45,6 +47,14 @@ struct VaultSettings {
     visual_templates: Vec<VisualTemplate>,
     journal_images_dir: String,
     configured_journal_images_dir: Option<String>,
+    wallpaper_dir: Option<String>,
+    configured_wallpaper_dir: Option<String>,
+}
+
+#[derive(Serialize)]
+struct WallpaperImage {
+    path: String,
+    name: String,
 }
 
 #[derive(Serialize)]
@@ -415,6 +425,13 @@ fn configured_images_dir(settings: &AppSettings) -> Result<Option<PathBuf>, Stri
     }
 }
 
+fn configured_wallpaper_dir(settings: &AppSettings) -> Result<Option<PathBuf>, String> {
+    match settings.wallpaper_dir.as_deref() {
+        Some(value) => configured_vault_path(value),
+        None => Ok(None),
+    }
+}
+
 fn images_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let settings = read_app_settings(app)?;
     if let Some(path) = configured_images_dir(&settings)? {
@@ -438,6 +455,9 @@ fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
     let journal_images_dir = images_root(app)?.display().to_string();
     let configured_journal_images_dir =
         configured_images_dir(&settings)?.map(|path| path.display().to_string());
+    let configured_wallpaper_dir =
+        configured_wallpaper_dir(&settings)?.map(|path| path.display().to_string());
+    let wallpaper_dir = configured_wallpaper_dir.clone();
 
     if let Some(path) = env_vault_root() {
         return Ok(VaultSettings {
@@ -450,6 +470,8 @@ fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
             visual_templates,
             journal_images_dir,
             configured_journal_images_dir,
+            wallpaper_dir,
+            configured_wallpaper_dir,
         });
     }
 
@@ -464,6 +486,8 @@ fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
             visual_templates,
             journal_images_dir,
             configured_journal_images_dir,
+            wallpaper_dir,
+            configured_wallpaper_dir,
         });
     }
 
@@ -482,6 +506,8 @@ fn vault_settings(app: &tauri::AppHandle) -> Result<VaultSettings, String> {
         visual_templates,
         journal_images_dir,
         configured_journal_images_dir,
+        wallpaper_dir,
+        configured_wallpaper_dir,
     })
 }
 
@@ -1658,6 +1684,113 @@ fn reset_journal_images_dir(app: tauri::AppHandle) -> Result<VaultSettings, Stri
     vault_settings(&app)
 }
 
+fn is_wallpaper_image(path: &Path) -> bool {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase());
+
+    matches!(
+        extension.as_deref(),
+        Some("png") | Some("jpg") | Some("jpeg") | Some("webp") | Some("gif") | Some("bmp")
+    )
+}
+
+fn collect_wallpaper_images(root: &Path) -> Result<Vec<WallpaperImage>, String> {
+    if !root.is_dir() {
+        return Err("没有找到这个应用背景目录。".to_string());
+    }
+
+    let mut folders = vec![root.to_path_buf()];
+    let mut images = Vec::new();
+
+    while let Some(folder) = folders.pop() {
+        let entries =
+            fs::read_dir(&folder).map_err(|err| format!("读取应用背景目录失败：{err}"))?;
+        for entry in entries {
+            let entry = entry.map_err(|err| format!("读取应用背景目录失败：{err}"))?;
+            let path = entry.path();
+            if path.is_dir() {
+                folders.push(path);
+            } else if path.is_file() && is_wallpaper_image(&path) {
+                let name = path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("wallpaper")
+                    .to_string();
+                images.push(WallpaperImage {
+                    path: path.display().to_string(),
+                    name,
+                });
+            }
+        }
+
+        if images.len() >= 3000 {
+            break;
+        }
+    }
+
+    images.sort_by(|left, right| left.path.cmp(&right.path));
+    Ok(images)
+}
+
+#[tauri::command]
+async fn pick_wallpaper_dir(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let mut dialog = app.dialog().file().set_title("选择应用背景目录");
+    if let Ok(settings) = read_app_settings(&app) {
+        if let Some(path) = configured_wallpaper_dir(&settings)? {
+            if let Some(start_dir) = existing_dialog_dir(&path) {
+                dialog = dialog.set_directory(start_dir);
+            }
+        }
+    }
+
+    match dialog.blocking_pick_folder() {
+        Some(path) => dialog_path_to_string(path).map(Some),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+fn set_wallpaper_dir(app: tauri::AppHandle, path: String) -> Result<VaultSettings, String> {
+    let path = configured_vault_path(&path)?
+        .ok_or_else(|| "请填写应用背景目录的完整路径。".to_string())?;
+    if !path.is_dir() {
+        return Err("没有找到这个应用背景目录。".to_string());
+    }
+
+    let mut settings = read_app_settings(&app)?;
+    settings.wallpaper_dir = Some(path.display().to_string());
+    write_app_settings(&app, &settings)?;
+    log::info!("application background directory set to {}", path.display());
+    vault_settings(&app)
+}
+
+#[tauri::command]
+fn reset_wallpaper_dir(app: tauri::AppHandle) -> Result<VaultSettings, String> {
+    let mut settings = read_app_settings(&app)?;
+    settings.wallpaper_dir = None;
+    write_app_settings(&app, &settings)?;
+    vault_settings(&app)
+}
+
+#[tauri::command]
+fn list_wallpaper_images(app: tauri::AppHandle) -> Result<Vec<WallpaperImage>, String> {
+    let settings = read_app_settings(&app)?;
+    let Some(path) = configured_wallpaper_dir(&settings)? else {
+        log::info!("application background directory is not configured");
+        return Ok(Vec::new());
+    };
+
+    let images = collect_wallpaper_images(&path)?;
+    log::info!(
+        "application background scan found {} images in {}",
+        images.len(),
+        path.display()
+    );
+    Ok(images)
+}
+
 fn sanitize_image_file_name(name: &str) -> String {
     let trimmed = name.trim();
     let base = trimmed
@@ -1668,10 +1801,7 @@ fn sanitize_image_file_name(name: &str) -> String {
     let cleaned: String = base
         .chars()
         .filter(|&character| {
-            !matches!(
-                character,
-                '<' | '>' | ':' | '"' | '|' | '?' | '*' | '\u{0}'
-            )
+            !matches!(character, '<' | '>' | ':' | '"' | '|' | '?' | '*' | '\u{0}')
         })
         .collect();
     let cleaned = cleaned.trim().trim_matches('.').trim();
@@ -2298,13 +2428,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(log::LevelFilter::Info)
+                    .build(),
+            )?;
             let _ = ICON_STAMP;
             if let Some(window) = app.get_webview_window("main") {
                 if let Err(err) = window.set_icon(APP_ICON) {
@@ -2325,6 +2453,10 @@ pub fn run() {
             pick_journal_images_dir,
             set_journal_images_dir,
             reset_journal_images_dir,
+            pick_wallpaper_dir,
+            set_wallpaper_dir,
+            reset_wallpaper_dir,
+            list_wallpaper_images,
             pick_journal_image,
             save_journal_image_bytes,
             set_visual_template,

@@ -58,6 +58,12 @@
         "你只管努力，剩下的交给时间。",
         "保持热爱，奔赴山海。"
       ];
+      const wallpaperDirInput = document.getElementById("wallpaperDirInput");
+      const chooseWallpaperDirButton = document.getElementById("chooseWallpaperDir");
+      const resetWallpaperDirButton = document.getElementById("resetWallpaperDir");
+      const wallpaperOverlayInput = document.getElementById("wallpaperOverlayInput");
+      const wallpaperFitSelect = document.getElementById("wallpaperFitSelect");
+      const wallpaperStatus = document.getElementById("wallpaperStatus");
 
       const state = {
         file: null,
@@ -65,8 +71,23 @@
         form: defaultForm(date),
         timer: null,
         saveToken: 0,
-        lastSavedContent: ""
+        lastSavedContent: "",
+        background: null
       };
+
+      state.background = window.LifeOSBackground?.install({
+        invoke,
+        layer: document.getElementById("wallpaperLayer"),
+        statusEl: wallpaperStatus,
+        overlayInput: wallpaperOverlayInput,
+        fitSelect: wallpaperFitSelect,
+        onStatus: (message) => {
+          if (message) setStatus(message);
+        }
+      });
+
+      chooseWallpaperDirButton?.addEventListener("click", chooseWallpaperDir);
+      resetWallpaperDirButton?.addEventListener("click", resetWallpaperDir);
 
       backButton?.addEventListener("click", async () => {
         window.clearTimeout(state.timer);
@@ -293,10 +314,51 @@
           state.lastSavedContent = buildMarkdown(state.form);
           updateMasthead();
           setStatus(file.path ? `已连接：${file.path}` : "已连接当天 Markdown");
+          const settings = await invoke("get_vault_settings", {}).catch(() => null);
+          if (settings) {
+            updateWallpaperFields(settings);
+            await state.background?.refresh(settings, false);
+          }
           if (file.created) await saveNow(true);
         } catch (error) {
           setFormDisabled(true);
           setStatus(`连接失败，当前内容无法保存：${toErrorMessage(error)}`);
+        }
+      }
+
+      function updateWallpaperFields(settings) {
+        if (wallpaperDirInput) {
+          wallpaperDirInput.value = settings?.configured_wallpaper_dir || settings?.wallpaper_dir || "";
+        }
+      }
+
+      async function chooseWallpaperDir() {
+        setStatus("打开背景文件夹选择器…");
+        try {
+          const path = await invoke("pick_wallpaper_dir", {});
+          if (!path) {
+            setStatus("未更改背景文件夹。");
+            return;
+          }
+          const settings = await invoke("set_wallpaper_dir", { path });
+          updateWallpaperFields(settings);
+          await state.background?.refresh(settings, true);
+          setStatus("已保存背景文件夹，本次已随机选择一张。");
+        } catch (error) {
+          setStatus(toErrorMessage(error));
+        }
+      }
+
+      async function resetWallpaperDir() {
+        setStatus("正在关闭背景…");
+        try {
+          const settings = await invoke("reset_wallpaper_dir", {});
+          updateWallpaperFields(settings);
+          state.background?.clear();
+          state.background?.setStatus("选择一个图片文件夹后，晨间日记会在每次打开时随机使用一张背景。");
+          setStatus("已关闭晨间日记背景。");
+        } catch (error) {
+          setStatus(toErrorMessage(error));
         }
       }
 
@@ -315,8 +377,10 @@
 
       async function fallbackInvoke(command, args) {
         const prefix = "lifeos-journal:";
-        const key = prefix + args.date;
-        const path = fallbackPath(args.date);
+        const valueDate = args?.date || date;
+        const key = prefix + valueDate;
+        const path = fallbackPath(valueDate);
+        const wallpaperDirKey = "lifeos-settings:wallpaper-dir";
         if (command === "open_or_create_journal") {
           const created = localStorage.getItem(key) === null;
           if (created) localStorage.setItem(key, buildMarkdown(defaultForm(args.date, "1")));
@@ -340,6 +404,28 @@
         }
         if (command === "get_journal_databases") {
           return getFallbackDatabases(args.date);
+        }
+        if (command === "get_vault_settings") {
+          const wallpaperDir = localStorage.getItem(wallpaperDirKey);
+          return {
+            wallpaper_dir: wallpaperDir,
+            configured_wallpaper_dir: wallpaperDir
+          };
+        }
+        if (command === "pick_wallpaper_dir") {
+          const selected = window.prompt("请输入背景图片文件夹完整路径：", localStorage.getItem(wallpaperDirKey) || "");
+          return selected ? selected.trim() : null;
+        }
+        if (command === "set_wallpaper_dir") {
+          localStorage.setItem(wallpaperDirKey, args.path);
+          return fallbackInvoke("get_vault_settings", {});
+        }
+        if (command === "reset_wallpaper_dir") {
+          localStorage.removeItem(wallpaperDirKey);
+          return fallbackInvoke("get_vault_settings", {});
+        }
+        if (command === "list_wallpaper_images") {
+          return [];
         }
         if (command === "save_journal_databases") {
           return saveFallbackDatabases(
@@ -1253,7 +1339,7 @@
         const dayIndex = Number(state.form.dayIndex) || 1;
         const dayTitle = `第 ${dayIndex} 天`;
         document.querySelector(".day-title h1").textContent = dayTitle;
-        document.querySelector(".meta-line").textContent = `${state.form.date.replaceAll("-", ".")} · ${weekdayLabel(currentDate)} · LifeOS Daily`;
+        document.querySelector(".meta-line").textContent = `${state.form.date.replaceAll("-", ".")} · ${weekdayLabel(currentDate)} · 时光手帐 Daily`;
         document.querySelector(".weather-chip").textContent = `${weekdayLabel(currentDate)} · 早间记录`;
         const chipWeekday = document.getElementById("chipWeekday");
         const chipDayIndex = document.getElementById("chipDayIndex");

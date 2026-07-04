@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LifeOS 晨间日记</title>
+  <title>时光手帐</title>
   <style>
     :root {
       color-scheme: light;
@@ -166,6 +166,10 @@
       background: var(--page);
     }
 
+    body.settings-open {
+      overflow: hidden;
+    }
+
     @keyframes cardIn {
       from {
         opacity: 0;
@@ -320,6 +324,8 @@
     }
 
     .page {
+      position: relative;
+      z-index: 1;
       width: calc(100% - 16px);
       margin: 0 auto;
       padding: 8px 0 16px;
@@ -556,41 +562,6 @@
       font-size: 0.9rem;
       line-height: 1.55;
       font-weight: 800;
-    }
-
-    .anchor-art {
-      position: relative;
-      display: grid;
-      min-height: 112px;
-      place-items: end center;
-      margin: -10px -10px -16px 0;
-      align-self: stretch;
-    }
-
-    .anchor-art::before {
-      content: "";
-      position: absolute;
-      right: 4px;
-      bottom: 8px;
-      width: min(92%, 240px);
-      height: 58%;
-      border-radius: 999px;
-      background: rgba(246, 214, 132, 0.20);
-      filter: blur(16px);
-    }
-
-    .anchor-art img {
-      position: relative;
-      z-index: 1;
-      display: block;
-      max-width: min(100%, 268px);
-      max-height: 150px;
-      object-fit: contain;
-      filter: drop-shadow(0 16px 18px rgba(44, 50, 42, 0.10));
-    }
-
-    .anchor-art.is-missing {
-      display: none;
     }
 
     .database-preview-panel {
@@ -1059,6 +1030,7 @@
       display: grid;
       place-items: center;
       padding: 20px;
+      overflow: hidden;
       background: rgba(34, 38, 32, 0.24);
       backdrop-filter: blur(8px);
     }
@@ -1068,9 +1040,11 @@
     }
 
     .settings-dialog {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
       width: min(640px, 100%);
       max-height: calc(100vh - 40px);
-      overflow: auto;
+      overflow: hidden;
       border: 1px solid rgba(36, 40, 33, 0.16);
       border-radius: calc(var(--radius) + 8px);
       background: rgba(255, 253, 248, 0.96);
@@ -1104,6 +1078,9 @@
     .settings-body {
       display: grid;
       gap: 14px;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 16px 18px 18px;
     }
 
@@ -1143,18 +1120,44 @@
       align-items: center;
     }
 
-    .template-fields {
-      display: grid;
-      grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
-      gap: 10px;
-      align-items: end;
-    }
-
     .template-actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       align-items: center;
+    }
+
+    .settings-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+    }
+
+    .settings-check {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--ink);
+      font-size: 0.86rem;
+      font-weight: 850;
+    }
+
+    .settings-check input {
+      width: 16px;
+      height: 16px;
+      min-height: 0;
+      accent-color: var(--green);
+    }
+
+    .settings-range {
+      display: inline-grid;
+      grid-template-columns: auto minmax(120px, 1fr);
+      gap: 8px;
+      align-items: center;
+      color: var(--ink);
+      font-size: 0.86rem;
+      font-weight: 850;
     }
 
     .settings-actions {
@@ -1927,20 +1930,6 @@
         grid-template-columns: minmax(0, 1fr);
       }
 
-      .anchor-art {
-        min-height: 92px;
-        margin: -8px 0 -12px;
-        place-items: center;
-      }
-
-      .anchor-art img {
-        max-height: 118px;
-      }
-
-      .template-fields {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
       .settings-path-row {
         grid-template-columns: minmax(0, 1fr);
       }
@@ -1990,7 +1979,7 @@
         <div class="brand">
           <div class="brand-mark">L</div>
           <div>
-            <h1>LifeOS 晨间日记</h1>
+            <h1>时光手帐</h1>
             <p id="vaultLabel">本地日记本</p>
           </div>
         </div>
@@ -2019,9 +2008,6 @@
                 <button class="btn secondary" type="button" id="anchorEditorCancel">取消</button>
               </div>
             </div>
-            <figure class="anchor-art" id="anchorArt" aria-hidden="true">
-              <img id="anchorIllustration" src="assets/晨间日记/少女读书伙伴.png" alt="">
-            </figure>
           </section>
 
           <aside class="database-preview-panel" id="databasePreviewPanel" aria-label="数据库快速勾选">
@@ -2145,25 +2131,6 @@
             <button class="btn secondary" type="button" id="resetImagesDir">恢复默认位置</button>
           </div>
         </div>
-        <div class="settings-field">
-          <label for="visualTemplateSelect">视觉模板</label>
-          <select id="visualTemplateSelect"></select>
-          <p class="settings-help" id="templateSource">当前使用：模板 1：晨间花园。</p>
-          <div class="template-actions">
-            <button class="btn secondary" type="button" id="saveVisualTemplate">应用模板</button>
-          </div>
-        </div>
-        <div class="settings-field">
-          <label>新增模板</label>
-          <div class="template-fields">
-            <input id="templateNameInput" type="text" placeholder="例如：模板 2：极简绿">
-            <input id="templateIllustrationInput" type="text" spellcheck="false" placeholder="例如：assets/晨间日记/少女读书伙伴.png">
-          </div>
-          <p class="settings-help">新增后会保存为可选模板，并立即应用到首页心锚插画。</p>
-          <div class="template-actions">
-            <button class="btn secondary" type="button" id="addVisualTemplate">新增并使用</button>
-          </div>
-        </div>
         <div class="settings-actions">
           <p class="settings-status" id="settingsStatus"></p>
         </div>
@@ -2201,14 +2168,6 @@
     }
     if (rawSavedTheme !== savedTheme) localStorage.setItem("lifeos-ui-theme", savedTheme);
     document.documentElement.dataset.uiTheme = savedTheme;
-    const DEFAULT_VISUAL_TEMPLATE_ID = "template-1";
-    const DEFAULT_VISUAL_TEMPLATES = [
-      {
-        id: DEFAULT_VISUAL_TEMPLATE_ID,
-        name: "模板 1：晨间花园",
-        illustration: "assets/晨间日记/少女读书伙伴.png"
-      }
-    ];
     const state = {
       monthDate: new Date(today.getFullYear(), today.getMonth(), 1),
       selectedDate: formatDate(today),
@@ -2219,15 +2178,11 @@
       vaultSource: "",
       envOverride: false,
       appIconSource: "",
-      visualTemplateId: DEFAULT_VISUAL_TEMPLATE_ID,
-      visualTemplates: DEFAULT_VISUAL_TEMPLATES,
       databases: emptyDatabaseSnapshot()
     };
 
     const el = {
       vaultLabel: document.getElementById("vaultLabel"),
-      anchorArt: document.getElementById("anchorArt"),
-      anchorIllustration: document.getElementById("anchorIllustration"),
       anchorCopy: document.getElementById("anchorCopy"),
       anchorTitle: document.getElementById("anchorTitle"),
       anchorLines: document.getElementById("anchorLines"),
@@ -2249,12 +2204,6 @@
       chooseImagesDir: document.getElementById("chooseImagesDir"),
       resetImagesDir: document.getElementById("resetImagesDir"),
       appIconSourceHelp: document.getElementById("appIconSourceHelp"),
-      visualTemplateSelect: document.getElementById("visualTemplateSelect"),
-      templateSource: document.getElementById("templateSource"),
-      templateNameInput: document.getElementById("templateNameInput"),
-      templateIllustrationInput: document.getElementById("templateIllustrationInput"),
-      saveVisualTemplate: document.getElementById("saveVisualTemplate"),
-      addVisualTemplate: document.getElementById("addVisualTemplate"),
       settingsSource: document.getElementById("settingsSource"),
       settingsStatus: document.getElementById("settingsStatus"),
       resetVaultDir: document.getElementById("resetVaultDir"),
@@ -2355,14 +2304,6 @@
     el.resetAppIconSource?.addEventListener("click", resetAppIconSource);
     el.chooseImagesDir?.addEventListener("click", chooseImagesDir);
     el.resetImagesDir?.addEventListener("click", resetImagesDir);
-    el.saveVisualTemplate?.addEventListener("click", saveVisualTemplate);
-    el.addVisualTemplate?.addEventListener("click", addVisualTemplate);
-    el.anchorIllustration?.addEventListener("error", () => {
-      el.anchorArt?.classList.add("is-missing");
-    });
-    el.anchorIllustration?.addEventListener("load", () => {
-      el.anchorArt?.classList.remove("is-missing");
-    });
 
     const ANCHOR_COPY_KEY = "lifeos-anchor-copy";
 
@@ -2458,11 +2399,7 @@
       const prefix = "lifeos-journal:";
       const settingsKey = "lifeos-settings:vault-dir";
       const appIconSourceKey = "lifeos-settings:app-icon-source";
-      const templateIdKey = "lifeos-settings:visual-template-id";
-      const customTemplatesKey = "lifeos-settings:visual-templates";
       const vaultDir = localStorage.getItem(settingsKey) || "本机预览 / LifeOS-Vault";
-      const visualTemplates = normalizeVisualTemplates(readFallbackVisualTemplates(customTemplatesKey));
-      const visualTemplateId = normalizeVisualTemplateId(localStorage.getItem(templateIdKey), visualTemplates);
 
       const imagesDirKey = "lifeos-settings:images-dir";
 
@@ -2473,8 +2410,6 @@
           source: "本机预览",
           env_override: false,
           app_icon_source: localStorage.getItem(appIconSourceKey),
-          visual_template_id: visualTemplateId,
-          visual_templates: visualTemplates,
           journal_images_dir: localStorage.getItem(imagesDirKey) || `${vaultDir}/02-Images`,
           configured_journal_images_dir: localStorage.getItem(imagesDirKey)
         };
@@ -2512,9 +2447,7 @@
           configured_vault_dir: args.path,
           source: "本机预览",
           env_override: false,
-          app_icon_source: localStorage.getItem(appIconSourceKey),
-          visual_template_id: visualTemplateId,
-          visual_templates: visualTemplates
+          app_icon_source: localStorage.getItem(appIconSourceKey)
         };
       }
 
@@ -2525,9 +2458,7 @@
           configured_vault_dir: localStorage.getItem(settingsKey),
           source: "本机预览",
           env_override: false,
-          app_icon_source: args.path,
-          visual_template_id: visualTemplateId,
-          visual_templates: visualTemplates
+          app_icon_source: args.path
         };
       }
 
@@ -2538,9 +2469,7 @@
           configured_vault_dir: null,
           source: "本机预览",
           env_override: false,
-          app_icon_source: localStorage.getItem(appIconSourceKey),
-          visual_template_id: visualTemplateId,
-          visual_templates: visualTemplates
+          app_icon_source: localStorage.getItem(appIconSourceKey)
         };
       }
 
@@ -2551,48 +2480,7 @@
           configured_vault_dir: localStorage.getItem(settingsKey),
           source: "本机预览",
           env_override: false,
-          app_icon_source: null,
-          visual_template_id: visualTemplateId,
-          visual_templates: visualTemplates
-        };
-      }
-
-      if (command === "set_visual_template") {
-        const nextId = normalizeVisualTemplateId(args.templateId || args.template_id, visualTemplates);
-        localStorage.setItem(templateIdKey, nextId);
-        return {
-          vault_dir: vaultDir,
-          configured_vault_dir: localStorage.getItem(settingsKey),
-          source: "本机预览",
-          env_override: false,
-          app_icon_source: localStorage.getItem(appIconSourceKey),
-          visual_template_id: nextId,
-          visual_templates: visualTemplates
-        };
-      }
-
-      if (command === "add_visual_template") {
-        const customTemplates = readFallbackVisualTemplates(customTemplatesKey);
-        const name = String(args.name || "").trim();
-        const illustration = String(args.illustration || "").trim();
-        if (!name) throw new Error("请填写模板名称。");
-        if (!illustration) throw new Error("请填写插画图片路径。");
-        const template = {
-          id: `custom-${Date.now()}-${customTemplates.length + 1}`,
-          name,
-          illustration
-        };
-        customTemplates.push(template);
-        localStorage.setItem(customTemplatesKey, JSON.stringify(customTemplates));
-        localStorage.setItem(templateIdKey, template.id);
-        return {
-          vault_dir: vaultDir,
-          configured_vault_dir: localStorage.getItem(settingsKey),
-          source: "本机预览",
-          env_override: false,
-          app_icon_source: localStorage.getItem(appIconSourceKey),
-          visual_template_id: template.id,
-          visual_templates: normalizeVisualTemplates(customTemplates)
+          app_icon_source: null
         };
       }
 
@@ -3048,82 +2936,12 @@
       el.vaultLabel.textContent = `本地日记本${source}`;
     }
 
-    function readFallbackVisualTemplates(storageKey) {
-      try {
-        const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-
-    function normalizeVisualTemplates(templates) {
-      const result = DEFAULT_VISUAL_TEMPLATES.map((template) => ({ ...template }));
-      const seen = new Set(result.map((template) => template.id));
-
-      (Array.isArray(templates) ? templates : []).forEach((template) => {
-        const id = String(template?.id || "").trim();
-        const name = String(template?.name || "").trim();
-        const illustration = String(template?.illustration || "").trim();
-        if (!id || !name || !illustration || seen.has(id)) return;
-        seen.add(id);
-        result.push({ id, name, illustration });
-      });
-
-      return result;
-    }
-
-    function normalizeVisualTemplateId(templateId, templates) {
-      const id = String(templateId || DEFAULT_VISUAL_TEMPLATE_ID).trim();
-      return templates.some((template) => template.id === id) ? id : DEFAULT_VISUAL_TEMPLATE_ID;
-    }
-
-    function currentVisualTemplate() {
-      return state.visualTemplates.find((template) => template.id === state.visualTemplateId) || state.visualTemplates[0];
-    }
-
-    function applyVisualTemplate() {
-      const template = currentVisualTemplate();
-      if (!template || !el.anchorIllustration) return;
-
-      el.anchorArt?.classList.remove("is-missing");
-      el.anchorIllustration.src = template.illustration;
-    }
-
-    function renderVisualTemplateOptions() {
-      if (!el.visualTemplateSelect) return;
-      el.visualTemplateSelect.replaceChildren();
-      state.visualTemplates.forEach((template) => {
-        const option = document.createElement("option");
-        option.value = template.id;
-        option.textContent = template.name;
-        el.visualTemplateSelect.append(option);
-      });
-      el.visualTemplateSelect.value = state.visualTemplateId;
-    }
-
-    function updateVisualTemplateFields(settings) {
-      state.visualTemplates = normalizeVisualTemplates(settings?.visual_templates);
-      state.visualTemplateId = normalizeVisualTemplateId(settings?.visual_template_id, state.visualTemplates);
-      renderVisualTemplateOptions();
-      applyVisualTemplate();
-
-      const template = currentVisualTemplate();
-      if (el.templateSource && template) {
-        el.templateSource.textContent = `当前使用：${template.name}。`;
-      }
-      if (el.templateIllustrationInput && !el.templateIllustrationInput.value) {
-        el.templateIllustrationInput.placeholder = template?.illustration || "assets/...";
-      }
-    }
-
     function updateSettingsFields(settings) {
       state.vaultDir = settings?.vault_dir || state.vaultDir || "LifeOS-Vault";
       state.vaultSource = settings?.source || "";
       state.envOverride = Boolean(settings?.env_override);
       state.appIconSource = settings?.app_icon_source || "";
       updateVaultLabel();
-      updateVisualTemplateFields(settings);
 
       if (el.vaultDirInput) {
         el.vaultDirInput.value = settings?.configured_vault_dir || settings?.vault_dir || "";
@@ -3170,6 +2988,7 @@
     async function openSettings() {
       if (!el.settingsOverlay) return;
       el.settingsOverlay.hidden = false;
+      document.body.classList.add("settings-open");
       setSettingsStatus("", "");
       await refreshVaultSettings(true);
       window.setTimeout(() => {
@@ -3180,6 +2999,7 @@
     function closeSettings() {
       if (!el.settingsOverlay) return;
       el.settingsOverlay.hidden = true;
+      document.body.classList.remove("settings-open");
       setSettingsStatus("", "");
     }
 
@@ -3275,42 +3095,6 @@
         const settings = await invoke("reset_journal_images_dir", {});
         updateSettingsFields(settings);
         setSettingsStatus("", "已恢复默认图片目录。");
-      } catch (error) {
-        setSettingsStatus("error", toErrorMessage(error));
-      }
-    }
-
-    async function saveVisualTemplate() {
-      const templateId = el.visualTemplateSelect?.value || DEFAULT_VISUAL_TEMPLATE_ID;
-      setSettingsStatus("", "应用模板中...");
-      try {
-        const settings = await invoke("set_visual_template", { templateId });
-        updateSettingsFields(settings);
-        setSettingsStatus("", "模板已应用。");
-      } catch (error) {
-        setSettingsStatus("error", toErrorMessage(error));
-      }
-    }
-
-    async function addVisualTemplate() {
-      const name = el.templateNameInput?.value.trim() || "";
-      const illustration = el.templateIllustrationInput?.value.trim() || "";
-      if (!name) {
-        setSettingsStatus("error", "请填写模板名称。");
-        return;
-      }
-      if (!illustration) {
-        setSettingsStatus("error", "请填写插画图片路径。");
-        return;
-      }
-
-      setSettingsStatus("", "新增模板中...");
-      try {
-        const settings = await invoke("add_visual_template", { name, illustration });
-        updateSettingsFields(settings);
-        if (el.templateNameInput) el.templateNameInput.value = "";
-        if (el.templateIllustrationInput) el.templateIllustrationInput.value = "";
-        setSettingsStatus("", "模板已新增并应用。");
       } catch (error) {
         setSettingsStatus("error", toErrorMessage(error));
       }
@@ -3753,4 +3537,3 @@
   </script>
 </body>
 </html>
-
