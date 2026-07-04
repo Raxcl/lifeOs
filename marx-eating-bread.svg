@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#fffdf7"/>
+  <g fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="512" cy="315" r="138" stroke-width="16"/>
+    <path d="M392 286c32-118 202-129 246-18" stroke-width="18"/>
+    <path d="M383 265c-44 33-51 86-36 125" stroke-width="16"/>
+    <path d="M641 263c42 34 49 91 30 130" stroke-width="16"/>
+    <path d="M452 318c21-18 47-18 68 0" stroke-width="10"/>
+    <path d="M548 318c21-18 47-18 68 0" stroke-width="10"/>
+    <circle cx="486" cy="346" r="8" fill="#171717" stroke="none"/>
+    <circle cx="584" cy="346" r="8" fill="#171717" stroke="none"/>
+    <path d="M527 348c-8 31-19 51-35 61" stroke-width="9"/>
+    <path d="M468 441c42 36 96 37 141 0" stroke-width="11"/>
+    <path d="M418 416c36 83 132 121 207 12" stroke-width="20"/>
+    <path d="M385 448c68 82 199 104 282-9" stroke-width="18"/>
+    <path d="M431 210c46-61 138-81 213-19" stroke-width="18"/>
+    <path d="M381 236c-22 3-41 17-53 38" stroke-width="14"/>
+    <path d="M658 230c28 6 50 27 60 55" stroke-width="14"/>
+    <path d="M382 548c-64 34-101 103-110 205" stroke-width="16"/>
+    <path d="M642 548c65 34 102 103 111 205" stroke-width="16"/>
+    <path d="M350 620c88 62 235 62 324 0" stroke-width="14"/>
+    <path d="M396 585c34 52 70 84 116 123c45-39 83-75 117-123" stroke-width="12"/>
+    <path d="M312 706c-25 63-18 127 39 159" stroke-width="16"/>
+    <path d="M710 704c27 65 18 130-39 162" stroke-width="16"/>
+    <path d="M343 866c104 46 235 47 340 0" stroke-width="16"/>
+    <path d="M302 680c58-57 124-69 196-32" stroke-width="14"/>
+    <path d="M722 680c-58-57-124-69-196-32" stroke-width="14"/>
+    <path d="M414 586l-96-102" stroke-width="16"/>
+    <path d="M318 484c-33-14-62-3-77 27c-15 32-7 70 27 91c35 22 86 16 128-15" stroke-width="15"/>
+    <path d="M258 509c34-12 67-10 97 5" stroke-width="10"/>
+    <path d="M338 514c-15 34-39 57-73 70" stroke-width="10"/>
+    <path d="M616 592l114-64" stroke-width="16"/>
+    <path d="M733 526c20-10 47-4 61 15c12 18 10 42-3 58c-19 24-56 19-79-1" stroke-width="13"/>
+    <path d="M735 531c-16-48 5-89 55-104c62-17 123 13 143 66c21 55-14 117-77 134c-51 14-95-1-123-37" stroke-width="14"/>
+    <path d="M781 442c37 19 69 51 92 95" stroke-width="10"/>
+    <path d="M732 589c48-12 87-41 115-83" stroke-width="10"/>
+    <path d="M420 770h184" stroke-width="12"/>
+    <path d="M398 812h228" stroke-width="12"/>
+  </g>
+  <g fill="#171717" font-family="Georgia, 'Times New Roman', serif" font-size="44" text-anchor="middle">
+    <text x="512" y="952">Marx eating bread</text>
+  </g>
+</svg>

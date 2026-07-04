@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "LifeOS Morning Journal",
+  "productName": "时光手帐",
   "version": "0.1.0",
   "identifier": "com.lifeos.morning-journal",
   "build": {
@@ -11,7 +11,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "LifeOS 晨间日记",
+        "title": "时光手帐",
         "width": 1320,
         "height": 900,
         "minWidth": 980,
