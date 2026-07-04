@@ -63,6 +63,10 @@
       const wallpaperStatus = document.getElementById("wallpaperStatus");
       const wallpaperSettingsToggle = document.getElementById("wallpaperSettingsToggle");
       const wallpaperSettingsPanel = document.getElementById("wallpaperSettingsPanel");
+      const wallpaperModeSelect = document.getElementById("wallpaperModeSelect");
+      const wallpaperImageInput = document.getElementById("wallpaperImageInput");
+      const chooseWallpaperImageButton = document.getElementById("chooseWallpaperImage");
+      const shuffleWallpaperButton = document.getElementById("shuffleWallpaper");
 
       const state = {
         file: null,
@@ -80,6 +84,8 @@
         statusEl: wallpaperStatus,
         overlayInput: wallpaperOverlayInput,
         fitSelect: wallpaperFitSelect,
+        modeSelect: wallpaperModeSelect,
+        imageInput: wallpaperImageInput,
         onStatus: (message) => {
           if (message) setStatus(message);
         }
@@ -90,6 +96,26 @@
       });
       chooseWallpaperDirButton?.addEventListener("click", chooseWallpaperDir);
       resetWallpaperDirButton?.addEventListener("click", resetWallpaperDir);
+      chooseWallpaperImageButton?.addEventListener("click", chooseWallpaperImage);
+      shuffleWallpaperButton?.addEventListener("click", async () => {
+        if (!state.background?.state?.images?.length && wallpaperDirInput?.value) {
+          const settings = await invoke("get_vault_settings", {}).catch(() => null);
+          if (settings) {
+            updateWallpaperFields(settings);
+            await state.background?.refresh(settings, true);
+          }
+        }
+        if (state.background?.state?.prefs?.mode === "fixed" && !state.background?.state?.images?.length) {
+          await chooseWallpaperImage();
+          return;
+        }
+        if (!state.background?.state?.images?.length) {
+          setStatus("先选择一个包含图片的背景目录。");
+          return;
+        }
+        const changed = await state.background.shuffle();
+        setStatus(changed ? "已换一张背景。" : "暂时没有可用的背景图片。");
+      });
       document.addEventListener("click", (event) => {
         if (wallpaperSettingsPanel?.hidden) return;
         const target = event.target;
@@ -356,7 +382,23 @@
           const settings = await invoke("set_wallpaper_dir", { path });
           updateWallpaperFields(settings);
           await state.background?.refresh(settings, true);
+          setWallpaperPanelOpen(false);
           setStatus("已保存背景文件夹，本次已随机选择一张。");
+        } catch (error) {
+          setStatus(toErrorMessage(error));
+        }
+      }
+
+      async function chooseWallpaperImage() {
+        setStatus("打开背景图片选择器…");
+        try {
+          const image = await invoke("pick_wallpaper_image", {});
+          if (!image?.path) {
+            setStatus("未更改指定壁纸。");
+            return;
+          }
+          const changed = await state.background?.setFixedImage(image);
+          setStatus(changed ? `已固定使用：${image.name || "指定壁纸"}` : "这张图片暂时无法作为背景加载。");
         } catch (error) {
           setStatus(toErrorMessage(error));
         }
@@ -367,8 +409,9 @@
         try {
           const settings = await invoke("reset_wallpaper_dir", {});
           updateWallpaperFields(settings);
-          state.background?.clear();
+          state.background?.reset();
           state.background?.setStatus("选择一个图片文件夹后，晨间日记会在每次打开时随机使用一张背景。");
+          setWallpaperPanelOpen(false);
           setStatus("已关闭晨间日记背景。");
         } catch (error) {
           setStatus(toErrorMessage(error));
@@ -428,6 +471,15 @@
         if (command === "pick_wallpaper_dir") {
           const selected = window.prompt("请输入背景图片文件夹完整路径：", localStorage.getItem(wallpaperDirKey) || "");
           return selected ? selected.trim() : null;
+        }
+        if (command === "pick_wallpaper_image") {
+          const selected = window.prompt("请输入背景图片完整路径：", "");
+          if (!selected) return null;
+          const path = selected.trim();
+          return {
+            path,
+            name: path.split(/[\\/]/).filter(Boolean).pop() || path
+          };
         }
         if (command === "set_wallpaper_dir") {
           localStorage.setItem(wallpaperDirKey, args.path);
@@ -999,8 +1051,9 @@
           const row = document.createElement("div");
           row.className = "mood-icon-row";
 
-          const preview = document.createElement("img");
+          const preview = document.createElement(icons[mood] ? "img" : "span");
           preview.className = "mood-icon-preview";
+          preview.dataset.mood = mood;
           if (icons[mood]) preview.src = icons[mood];
           row.append(preview);
 
