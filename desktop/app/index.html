@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>时光手帐</title>
+  <link rel="stylesheet" href="assets/window-frame.css" />
   <style>
     :root {
       color-scheme: light;
@@ -159,15 +160,49 @@
       box-sizing: border-box;
     }
 
+    html {
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
     body {
-      min-height: 100vh;
+      height: 100%;
       margin: 0;
+      overflow: hidden;
       color: var(--ink);
       background: var(--page);
+      user-select: none;
     }
 
     body.settings-open {
       overflow: hidden;
+    }
+
+    * {
+      scrollbar-color: rgba(102, 112, 100, 0.36) transparent;
+      scrollbar-width: thin;
+    }
+
+    *::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    *::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      border: 3px solid transparent;
+      border-radius: 999px;
+      background: rgba(102, 112, 100, 0.36);
+      background-clip: padding-box;
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+      background: rgba(102, 112, 100, 0.52);
+      background-clip: padding-box;
     }
 
     @keyframes cardIn {
@@ -273,6 +308,13 @@
       font: inherit;
     }
 
+    input,
+    textarea,
+    select,
+    [contenteditable="true"] {
+      user-select: text;
+    }
+
     button {
       cursor: pointer;
     }
@@ -326,18 +368,23 @@
     .page {
       position: relative;
       z-index: 1;
-      width: calc(100% - 16px);
-      margin: 0 auto;
-      padding: 8px 0 16px;
+      width: 100%;
+      height: calc(100vh - var(--window-frame-h));
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
     }
 
     .app {
-      min-height: calc(100vh - 24px);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      height: 100%;
+      min-height: 0;
       overflow: hidden;
-      border: 1px solid rgba(36, 40, 33, 0.13);
-      border-radius: var(--radius);
+      border: 0;
+      border-radius: 0;
       background: var(--surface);
-      box-shadow: var(--shadow);
+      box-shadow: none;
     }
 
     .topbar {
@@ -410,6 +457,7 @@
       color: var(--ink);
       font-weight: 850;
       line-height: 1;
+      user-select: none;
       transition: transform 120ms ease, border-color 160ms ease, background 160ms ease;
     }
 
@@ -444,6 +492,7 @@
       color: #fffdf8;
       font-weight: 800;
       white-space: nowrap;
+      user-select: none;
     }
 
     .btn.secondary {
@@ -454,16 +503,23 @@
 
     .view {
       display: none;
+      min-height: 0;
+      overflow: hidden;
     }
 
     .view.active {
       display: block;
+      height: 100%;
     }
 
     .calendar-layout {
       display: grid;
       grid-template-columns: minmax(248px, 292px) minmax(0, 1fr) 320px;
+      grid-template-rows: auto minmax(0, 1fr);
       gap: 14px;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
       padding: 16px;
       background: var(--journal-bg);
     }
@@ -568,7 +624,9 @@
       display: grid;
       align-content: start;
       gap: 12px;
-      min-height: calc(100vh - 226px);
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
     }
 
     .calendar-main,
@@ -583,7 +641,7 @@
 
     .calendar-main,
     .day-panel {
-      min-height: calc(100vh - 226px);
+      min-height: 0;
     }
 
     .calendar-main {
@@ -591,7 +649,7 @@
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       gap: 16px;
-      overflow: visible;
+      overflow: hidden;
       padding: 18px;
     }
 
@@ -744,7 +802,8 @@
       grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 8px;
       min-height: 0;
-      overflow: visible;
+      overflow: auto;
+      overscroll-behavior: contain;
       border: 0;
       border-radius: 0;
       background: transparent;
@@ -908,7 +967,8 @@
       flex-direction: column;
       gap: 16px;
       position: relative;
-      overflow: hidden;
+      overflow: auto;
+      overscroll-behavior: contain;
       padding: 20px;
     }
 
@@ -1250,8 +1310,8 @@
 
     @media (min-width: 1680px) {
       .page {
-        width: calc(100% - 18px);
-        padding-top: 9px;
+        width: 100%;
+        padding-top: 0;
       }
 
       .card {
@@ -1282,16 +1342,14 @@
     }
 
     html[data-ui-theme="whimsy"] .page {
-      padding: 10px 0 18px;
+      padding: 0;
     }
 
     html[data-ui-theme="whimsy"] .app {
       position: relative;
-      border-color: rgba(95, 111, 72, 0.55);
+      border-color: transparent;
       background: #fff4df;
-      box-shadow:
-        0 24px 60px rgba(20, 30, 24, 0.34),
-        0 0 0 8px rgba(197, 215, 163, 0.28);
+      box-shadow: none;
     }
 
     html[data-ui-theme="whimsy"] .app::before,
@@ -1884,6 +1942,8 @@
       .calendar-layout,
       .journal-layout {
         grid-template-columns: minmax(0, 1fr);
+        overflow: auto;
+        overscroll-behavior: contain;
       }
 
       html[data-ui-theme="whimsy"] .card {
@@ -1905,8 +1965,8 @@
 
     @media (max-width: 780px) {
       .page {
-        width: calc(100% - 10px);
-        padding: 8px 0 22px;
+        width: 100%;
+        padding: 0;
       }
 
       .topbar,
@@ -1973,11 +2033,19 @@
   </style>
 </head>
 <body>
+  <div class="window-frame" data-tauri-drag-region>
+    <div class="window-title" data-tauri-drag-region>时光手帐</div>
+    <div class="window-controls">
+      <button class="window-control" type="button" data-window-control="minimize" aria-label="最小化">─</button>
+      <button class="window-control" type="button" data-window-control="maximize" aria-label="最大化">□</button>
+      <button class="window-control close" type="button" data-window-control="close" aria-label="关闭">×</button>
+    </div>
+  </div>
   <div class="page">
     <main class="app">
       <header class="topbar">
         <div class="brand">
-          <div class="brand-mark">L</div>
+          <div class="brand-mark">时</div>
           <div>
             <h1>时光手帐</h1>
             <p id="vaultLabel">本地日记本</p>
@@ -2139,6 +2207,7 @@
   </div>
 
   <script src="assets/lifeos-shared.js"></script>
+  <script src="assets/window-controls.js"></script>
   <script>
     const {
       formatDate,

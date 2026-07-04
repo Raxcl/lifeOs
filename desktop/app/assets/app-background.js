@@ -1,15 +1,16 @@
 (() => {
   const PREFS_KEY = "lifeos-wallpaper-prefs";
   const DEFAULT_PREFS = {
-    overlay: 28,
+    overlay: 16,
     fit: "cover"
   };
 
   function readPrefs() {
     try {
       const parsed = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
+      const overlay = Number(parsed.overlay);
       return {
-        overlay: Number.isFinite(Number(parsed.overlay)) ? Number(parsed.overlay) : DEFAULT_PREFS.overlay,
+        overlay: Number.isFinite(overlay) ? Math.min(100, Math.max(0, overlay)) : DEFAULT_PREFS.overlay,
         fit: ["cover", "contain"].includes(parsed.fit) ? parsed.fit : DEFAULT_PREFS.fit
       };
     } catch {
@@ -101,8 +102,9 @@
     }
 
     function applyPrefs() {
-      const overlay = Math.min(0.7, Math.max(0, Number(state.prefs.overlay) / 100));
+      const overlay = Math.min(1, Math.max(0, Number(state.prefs.overlay) / 100));
       document.documentElement.style.setProperty("--wallpaper-wash", String(overlay));
+      document.documentElement.style.setProperty("--wallpaper-wash-end", String(Math.min(1, overlay + 0.08)));
       document.documentElement.style.setProperty("--wallpaper-size", state.prefs.fit || DEFAULT_PREFS.fit);
     }
 

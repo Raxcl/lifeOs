@@ -18,6 +18,7 @@
         "minHeight": 720,
         "backgroundColor": "#f3f6f1",
         "resizable": true,
+        "decorations": false,
         "maximized": true,
         "dragDropEnabled": false,
         "fullscreen": false
