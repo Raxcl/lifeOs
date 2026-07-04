@@ -49,9 +49,24 @@
               <button class="btn btn-secondary" type="button" id="chooseWallpaperDir">选择</button>
               <button class="btn btn-secondary" type="button" id="resetWallpaperDir">关闭</button>
             </div>
+            <div class="wallpaper-pick-row">
+              <label class="wallpaper-select" for="wallpaperModeSelect">
+                <span>使用方式</span>
+                <select id="wallpaperModeSelect">
+                  <option value="random">每次随机</option>
+                  <option value="fixed">固定一张</option>
+                </select>
+              </label>
+              <label class="wallpaper-select wallpaper-image-select" for="wallpaperImageInput">
+                <span>指定壁纸</span>
+                <input id="wallpaperImageInput" type="text" spellcheck="false" readonly placeholder="未指定固定壁纸">
+              </label>
+              <button class="btn btn-secondary" type="button" id="chooseWallpaperImage">选择图片</button>
+              <button class="btn btn-secondary" type="button" id="shuffleWallpaper">换一张</button>
+            </div>
             <div class="wallpaper-preferences">
               <label class="wallpaper-range" for="wallpaperOverlayInput">
-                <span>遮罩强度</span>
+                <span>内容遮罩</span>
                 <input id="wallpaperOverlayInput" type="range" min="0" max="100" step="1" value="16">
               </label>
               <label class="wallpaper-select" for="wallpaperFitSelect">

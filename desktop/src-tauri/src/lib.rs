@@ -1752,6 +1752,44 @@ async fn pick_wallpaper_dir(app: tauri::AppHandle) -> Result<Option<String>, Str
 }
 
 #[tauri::command]
+async fn pick_wallpaper_image(app: tauri::AppHandle) -> Result<Option<WallpaperImage>, String> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title("选择应用背景图片")
+        .add_filter("图片", &["png", "jpg", "jpeg", "webp", "gif", "bmp"]);
+
+    if let Ok(settings) = read_app_settings(&app) {
+        if let Some(path) = configured_wallpaper_dir(&settings)? {
+            if let Some(start_dir) = existing_dialog_dir(&path) {
+                dialog = dialog.set_directory(start_dir);
+            }
+        }
+    }
+
+    let Some(picked) = dialog.blocking_pick_file() else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|err| format!("无法读取选择路径：{err}"))?;
+    if !path.is_file() || !is_wallpaper_image(&path) {
+        return Err("请选择 PNG、JPG、JPEG、WEBP、GIF 或 BMP 图片。".to_string());
+    }
+
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("wallpaper")
+        .to_string();
+
+    Ok(Some(WallpaperImage {
+        path: path.display().to_string(),
+        name,
+    }))
+}
+
+#[tauri::command]
 fn set_wallpaper_dir(app: tauri::AppHandle, path: String) -> Result<VaultSettings, String> {
     let path = configured_vault_path(&path)?
         .ok_or_else(|| "请填写应用背景目录的完整路径。".to_string())?;
@@ -2454,6 +2492,7 @@ pub fn run() {
             set_journal_images_dir,
             reset_journal_images_dir,
             pick_wallpaper_dir,
+            pick_wallpaper_image,
             set_wallpaper_dir,
             reset_wallpaper_dir,
             list_wallpaper_images,

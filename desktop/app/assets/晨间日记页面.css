@@ -9,9 +9,9 @@
       --glass: color-mix(in oklch, var(--surface) 48%, transparent);
       --glass-strong: color-mix(in oklch, var(--surface) 64%, transparent);
       --hairline: color-mix(in oklch, var(--border) 68%, transparent);
-      --glass-rgba: rgba(255, 253, 248, 0.28);
-      --glass-rgba-soft: rgba(255, 253, 248, 0.18);
-      --glass-rgba-strong: rgba(255, 253, 248, 0.42);
+      --glass-rgba: rgba(255, 246, 226, 0.24);
+      --glass-rgba-soft: rgba(255, 246, 226, 0.14);
+      --glass-rgba-strong: rgba(255, 246, 226, 0.30);
       --line-rgba: rgba(126, 112, 86, 0.22);
       --accent-soft: color-mix(in oklch, var(--accent) 17%, transparent);
       --leaf: color-mix(in oklch, var(--fg) 34%, var(--border));
@@ -107,11 +107,22 @@
       inset: 0;
       background:
         linear-gradient(180deg, rgba(255, 253, 248, var(--wallpaper-wash, 0.16)), rgba(255, 253, 248, var(--wallpaper-wash-end, 0.24))),
-        rgba(255, 253, 248, 0.02);
+        transparent;
     }
 
     body.has-wallpaper {
+      --fg: rgba(255, 247, 232, 0.99);
+      --muted: rgba(255, 247, 232, 0.82);
+      --border: rgba(255, 247, 232, 0.24);
+      --hairline: rgba(255, 247, 232, 0.21);
+      --accent: #ffc15a;
+      --accent-soft: rgba(255, 193, 90, 0.18);
+      --glass-rgba: rgba(8, 12, 22, var(--content-mask, 0.14));
+      --glass-rgba-soft: rgba(8, 12, 22, var(--content-mask-soft, 0.09));
+      --glass-rgba-strong: rgba(8, 12, 22, var(--content-mask-strong, 0.18));
+      --line-rgba: rgba(255, 247, 232, 0.28);
       background: #1d1f23;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72), 0 0 10px rgba(0, 0, 0, 0.34);
     }
 
     body.has-wallpaper .wallpaper-layer {
@@ -129,6 +140,11 @@
     select,
     [contenteditable="true"] {
       user-select: text;
+    }
+
+    body.has-wallpaper input::placeholder,
+    body.has-wallpaper textarea::placeholder {
+      color: rgba(246, 221, 183, 0.56);
     }
 
     button {
@@ -193,8 +209,70 @@
     }
 
     body.has-wallpaper .topnav {
-      background: rgba(255, 253, 248, 0.20);
+      background: linear-gradient(90deg, rgba(7, 14, 18, 0.56), rgba(7, 14, 18, 0.28));
       border-bottom-color: color-mix(in oklch, var(--border) 46%, transparent);
+      backdrop-filter: none;
+    }
+
+    body.has-wallpaper .topnav .btn-secondary {
+      border-color: rgba(255, 240, 214, 0.20);
+      background: rgba(8, 12, 22, 0.52);
+      color: rgba(255, 246, 226, 0.96);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    body.has-wallpaper .topnav .btn-secondary:hover {
+      border-color: rgba(255, 240, 214, 0.38);
+      background: rgba(8, 12, 22, 0.68);
+    }
+
+    body.has-wallpaper .journal-shell .btn-secondary,
+    body.has-wallpaper .journal-shell .btn-icon,
+    body.has-wallpaper .journal-shell .tag-edit-btn,
+    body.has-wallpaper .journal-shell .annual-add,
+    body.has-wallpaper .journal-shell .delete-todo,
+    body.has-wallpaper .journal-shell .mood-icon-row .mood-icon-actions button {
+      border: 1px solid rgba(255, 247, 232, 0.22);
+      background: rgba(8, 12, 22, var(--content-mask-chip, 0.22));
+      color: rgba(255, 247, 232, 0.86);
+      box-shadow: none;
+      text-shadow: none;
+    }
+
+    body.has-wallpaper .journal-shell .btn-secondary:hover,
+    body.has-wallpaper .journal-shell .btn-icon:hover,
+    body.has-wallpaper .journal-shell .tag-edit-btn:hover,
+    body.has-wallpaper .journal-shell .annual-add:hover,
+    body.has-wallpaper .journal-shell .delete-todo:hover,
+    body.has-wallpaper .journal-shell .mood-icon-row .mood-icon-actions button:hover {
+      border-color: rgba(255, 193, 90, 0.48);
+      background: rgba(255, 193, 90, 0.18);
+      color: rgba(255, 248, 234, 0.98);
+    }
+
+    body.has-wallpaper .journal-shell .btn-primary {
+      border-color: rgba(255, 205, 118, 0.76);
+      background: rgba(255, 193, 90, 0.88);
+      color: rgba(24, 18, 10, 0.94);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+      text-shadow: none;
+    }
+
+    body.has-wallpaper .journal-shell .btn-primary:hover {
+      background: rgba(255, 209, 127, 0.96);
+      border-color: rgba(255, 230, 170, 0.82);
+    }
+
+    body.has-wallpaper .journal-shell .tag-edit-btn {
+      min-height: 28px;
+      padding: 4px 12px;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    body.has-wallpaper .journal-shell .mood-icon-edit-btn {
+      margin-left: 10px;
     }
 
     .topnav-inner {
@@ -369,7 +447,7 @@
     }
 
     body.has-wallpaper .journal-shell {
-      background: rgba(255, 253, 248, 0.08);
+      background: transparent;
       box-shadow: none;
     }
 
@@ -394,6 +472,7 @@
     .masthead {
       position: relative;
       z-index: 2;
+      isolation: isolate;
       flex-shrink: 0;
       min-height: auto;
       display: grid;
@@ -403,6 +482,25 @@
       align-items: center;
       margin-bottom: clamp(12px, 1.4vw, 20px);
       padding: 12px 4px 8px;
+    }
+
+    body.has-wallpaper .masthead::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      left: -14px;
+      top: -4px;
+      bottom: 0;
+      width: min(860px, 68vw);
+      border-radius: var(--radius-lg);
+      background:
+        linear-gradient(90deg, rgba(6, 10, 18, var(--content-mask-hero-start, 0.58)), rgba(6, 10, 18, var(--content-mask-hero-mid, 0.30)) 52%, rgba(6, 10, 18, var(--content-mask-hero-end, 0.08)) 78%, transparent),
+        linear-gradient(180deg, rgba(6, 10, 18, 0.18), transparent 72%);
+      pointer-events: none;
+    }
+
+    body.wallpaper-covered .masthead::before {
+      content: none;
     }
 
     .masthead .day-row {
@@ -432,11 +530,12 @@
       border: 1px solid var(--hairline);
       border-radius: var(--radius);
       background: var(--glass-rgba);
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(3px);
     }
 
     body.has-wallpaper .masthead .masthead-controls {
-      background: var(--glass-rgba-soft);
+      background: var(--glass-rgba);
+      backdrop-filter: none;
     }
 
     .wallpaper-menu {
@@ -461,6 +560,21 @@
 
     .wallpaper-settings[hidden] {
       display: none;
+    }
+
+    body.has-wallpaper .wallpaper-settings {
+      border-color: rgba(255, 240, 214, 0.26);
+      background: rgba(9, 12, 22, 0.90);
+      color: rgba(255, 246, 226, 0.98);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.36);
+      text-shadow: none;
+      backdrop-filter: none;
+    }
+
+    body.has-wallpaper .wallpaper-status,
+    body.has-wallpaper .wallpaper-range,
+    body.has-wallpaper .wallpaper-select {
+      color: rgba(255, 240, 214, 0.76);
     }
 
     .wallpaper-settings-head {
@@ -509,9 +623,40 @@
       padding: 0 12px;
     }
 
+    body.has-wallpaper .wallpaper-path-row input,
+    body.has-wallpaper .wallpaper-pick-row input,
+    body.has-wallpaper .wallpaper-pick-row select,
+    body.has-wallpaper .wallpaper-preferences select {
+      border-color: rgba(255, 240, 214, 0.22);
+      background: rgba(255, 240, 214, 0.10);
+      color: rgba(255, 246, 226, 0.96);
+      text-shadow: none;
+    }
+
+    body.has-wallpaper .wallpaper-pick-row select option,
+    body.has-wallpaper .wallpaper-preferences select option {
+      background: #101421;
+      color: #fff1dc;
+    }
+
+    body.has-wallpaper .wallpaper-settings .btn-secondary {
+      border-color: rgba(255, 240, 214, 0.24);
+      background: rgba(255, 240, 214, 0.12);
+      color: rgba(255, 246, 226, 0.96);
+      box-shadow: none;
+      text-shadow: none;
+    }
+
     .wallpaper-preferences {
       display: grid;
       grid-template-columns: minmax(170px, 1fr) minmax(120px, 148px);
+      gap: 10px;
+      align-items: end;
+    }
+
+    .wallpaper-pick-row {
+      display: grid;
+      grid-template-columns: minmax(112px, 136px) minmax(0, 1fr) auto auto;
       gap: 10px;
       align-items: end;
     }
@@ -532,6 +677,20 @@
     .wallpaper-preferences select {
       width: 100%;
       padding: 0 12px;
+    }
+
+    .wallpaper-pick-row input,
+    .wallpaper-pick-row select {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--surface) 88%, transparent);
+      color: var(--fg);
+      padding: 0 12px;
+      font: inherit;
+      font-size: 13px;
+      outline: 0;
     }
 
     .control-group {
@@ -574,6 +733,26 @@
       background: color-mix(in oklch, var(--accent) 18%, transparent);
       border-color: color-mix(in oklch, var(--accent) 62%, transparent);
       color: var(--fg);
+    }
+
+    body.has-wallpaper .weather-chip,
+    body.has-wallpaper .soft-chip,
+    body.has-wallpaper .tag-btn,
+    body.has-wallpaper .hitokoto-refresh,
+    body.has-wallpaper .database-view,
+    body.has-wallpaper .tag-summary .tag-chip,
+    body.has-wallpaper .tag-summary .tag-chip-note {
+      border-color: rgba(255, 240, 214, 0.18);
+      background: rgba(8, 12, 22, var(--content-mask-chip, 0.22));
+      color: rgba(255, 247, 232, 0.86);
+    }
+
+    body.has-wallpaper .tag-btn:hover,
+    body.has-wallpaper .tag-btn.is-active,
+    body.has-wallpaper .hitokoto-refresh:hover {
+      border-color: rgba(255, 193, 90, 0.42);
+      background: rgba(255, 193, 90, 0.18);
+      color: rgba(255, 246, 226, 0.98);
     }
 
     .journal-image-list {
@@ -781,8 +960,15 @@
     }
 
     body.has-wallpaper .metric {
-      background: var(--glass-rgba-soft);
-      box-shadow: none;
+      background: var(--glass-rgba-strong);
+      box-shadow: 0 1px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    body.has-wallpaper .day-title,
+    body.has-wallpaper .meta-line,
+    body.has-wallpaper .metric,
+    body.has-wallpaper .masthead .masthead-controls {
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.78), 0 0 10px rgba(0, 0, 0, 0.36);
     }
 
     .metric-label {
@@ -880,11 +1066,13 @@
       border-radius: var(--radius);
       background: var(--glass-rgba-soft);
       color: var(--fg);
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(3px);
     }
 
     body.has-wallpaper .path-label {
-      background: rgba(255, 253, 248, 0.14);
+      background: transparent;
+      border-color: transparent;
+      backdrop-filter: none;
     }
 
     .path-label::after {
@@ -1002,7 +1190,7 @@
       border-radius: var(--radius);
       background: var(--glass-rgba-strong);
       box-shadow: none;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(3px);
       overflow: auto;
       scrollbar-width: thin;
     }
@@ -1011,8 +1199,9 @@
     body.has-wallpaper .journal-panel.soft-green,
     body.has-wallpaper .journal-panel.soft-rose,
     body.has-wallpaper .journal-panel.soft-gold {
-      background: rgba(255, 253, 248, 0.26);
-      box-shadow: none;
+      background: linear-gradient(180deg, rgba(8, 12, 22, var(--content-mask-panel-top, 0.22)), rgba(8, 12, 22, var(--content-mask-panel-bottom, 0.15)));
+      box-shadow: 0 1px 16px rgba(0, 0, 0, 0.12);
+      backdrop-filter: none;
     }
 
     .journal-panel.tall {
@@ -1088,7 +1277,7 @@
       width: 100%;
       min-height: 36px;
       border: 0;
-      border-bottom: 1px dashed var(--border);
+      border-bottom: 1px dashed var(--line-rgba);
       background: transparent;
       color: var(--fg);
       outline: 0;
@@ -1132,7 +1321,7 @@
       width: 100%;
       min-height: 104px;
       padding: 11px 12px;
-      border: 1px solid color-mix(in oklch, var(--border) 54%, transparent);
+      border: 1px solid var(--line-rgba);
       border-radius: 10px;
       background: rgba(255, 253, 248, 0.30);
       color: var(--fg);
@@ -1145,7 +1334,14 @@
     body.has-wallpaper .textarea,
     body.has-wallpaper .mini-input,
     body.has-wallpaper .write-line {
-      background: rgba(255, 253, 248, 0.20);
+      background: rgba(8, 12, 22, var(--content-mask-input, 0.12));
+      color: rgba(255, 247, 232, 0.98);
+    }
+
+    body.has-wallpaper .todo-list,
+    body.has-wallpaper .debt-list,
+    body.has-wallpaper .annual-add {
+      background: rgba(8, 12, 22, var(--content-mask-input, 0.12));
     }
 
     .textarea:focus {
@@ -1160,15 +1356,16 @@
     }
 
     .mood-btn {
-      min-height: 46px;
+      min-height: 66px;
       display: grid;
       place-items: center;
-      gap: 7px;
+      gap: 5px;
       border: 1px solid transparent;
       border-radius: 12px;
       background: transparent;
       color: var(--muted);
-      padding: 8px 4px;
+      padding: 7px 4px 6px;
+      transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
     }
 
     .mood-btn:hover,
@@ -1176,70 +1373,69 @@
       border-color: var(--hairline);
       background: rgba(255, 253, 248, 0.18);
       color: var(--fg);
+      transform: translateY(-1px);
+    }
+
+    body.has-wallpaper .mood-btn:hover,
+    body.has-wallpaper .mood-btn.is-active {
+      border-color: rgba(255, 193, 90, 0.36);
+      background: rgba(8, 12, 22, 0.20);
+      color: rgba(255, 246, 226, 0.98);
     }
 
     .mood-face {
       position: relative;
-      width: 28px;
-      height: 25px;
-      border-radius: 48% 48% 52% 52%;
-      background: var(--surface);
-      border: 2px solid var(--border);
+      width: 42px;
+      height: 42px;
+      border-radius: 16px;
+      background-image: url("./晨间日记/情绪头像排.png");
+      background-repeat: no-repeat;
+      background-size: 500% 100%;
+      background-position: var(--mood-sticker-x, 0%) center;
+      filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.18));
     }
 
     .mood-face::before,
     .mood-face::after {
-      content: "";
-      position: absolute;
-      top: 9px;
-      width: 4px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--fg);
-    }
-
-    .mood-face::before {
-      left: 11px;
-    }
-
-    .mood-face::after {
-      right: 11px;
+      display: none;
     }
 
     .mood-face .mouth {
-      position: absolute;
-      left: 50%;
-      bottom: 6px;
-      width: 14px;
-      height: 7px;
-      transform: translateX(-50%);
-      border-bottom: 2px solid var(--fg);
-      border-radius: 0 0 18px 18px;
+      display: none;
     }
 
-    .mood-btn[data-mood="平静"] .mood-face {
-      background: color-mix(in oklch, var(--leaf) 12%, var(--surface));
+    .mood-btn[data-mood="超棒"] .mood-face,
+    .mood-icon-preview[data-mood="超棒"] {
+      --mood-sticker-x: 0%;
+    }
+
+    .mood-btn[data-mood="平静"] .mood-face,
+    .mood-icon-preview[data-mood="平静"] {
+      --mood-sticker-x: 25%;
     }
 
     .mood-btn[data-mood="元气"] .mood-face,
-    .mood-btn[data-mood="开心"] .mood-face {
-      background: color-mix(in oklch, var(--accent) 18%, var(--surface));
+    .mood-icon-preview[data-mood="元气"] {
+      --mood-sticker-x: 50%;
     }
 
-    .mood-btn[data-mood="专注"] .mood-face {
-      background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+    .mood-btn[data-mood="专注"] .mood-face,
+    .mood-icon-preview[data-mood="专注"] {
+      --mood-sticker-x: 75%;
     }
 
-    .mood-btn[data-mood="超棒"] .mood-face {
-      background: color-mix(in oklch, var(--leaf) 22%, var(--surface));
+    .mood-btn[data-mood="开心"] .mood-face,
+    .mood-icon-preview[data-mood="开心"] {
+      --mood-sticker-x: 100%;
     }
 
     .mood-logo {
-      width: 28px;
-      height: 28px;
-      border-radius: 9px;
+      width: 42px;
+      height: 42px;
+      border-radius: 16px;
       object-fit: cover;
       display: block;
+      filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.18));
     }
 
     .mood-icon-edit-btn {
@@ -1263,20 +1459,30 @@
       background: color-mix(in oklch, var(--surface) 70%, transparent);
     }
 
+    body.has-wallpaper .mood-icon-editor {
+      border-color: rgba(255, 247, 232, 0.20);
+      background: rgba(8, 12, 22, var(--content-mask-input, 0.12));
+    }
+
     .mood-icon-row {
       display: grid;
-      grid-template-columns: 26px 1fr auto;
+      grid-template-columns: 32px 1fr auto;
       align-items: center;
       gap: 10px;
     }
 
     .mood-icon-row .mood-icon-preview {
-      width: 26px;
-      height: 26px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
+      width: 32px;
+      height: 32px;
+      display: block;
+      border-radius: 11px;
+      border: 0;
       object-fit: cover;
-      background: color-mix(in oklch, var(--surface) 80%, transparent);
+      background-image: url("./晨间日记/情绪头像排.png");
+      background-repeat: no-repeat;
+      background-size: 500% 100%;
+      background-position: var(--mood-sticker-x, 0%) center;
+      filter: drop-shadow(0 5px 9px rgba(0, 0, 0, 0.16));
     }
 
     .mood-icon-row .mood-icon-name {
@@ -1408,7 +1614,7 @@
       overflow: hidden;
       border: 1px solid var(--hairline);
       border-radius: 10px;
-      background: var(--glass-rgba-soft);
+      background: rgba(8, 12, 22, 0.06);
       list-style: none;
     }
 
@@ -1435,7 +1641,7 @@
 
     .todo-item:hover,
     .debt-item:hover {
-      background: color-mix(in oklch, var(--leaf) 7%, transparent);
+      background: rgba(255, 238, 206, 0.06);
     }
 
     .todo-item input,
@@ -1517,7 +1723,7 @@
       min-height: 38px;
       border: 1px solid var(--border);
       border-radius: 999px;
-      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      background: rgba(255, 253, 248, 0.36);
       color: var(--fg);
       outline: 0;
       padding: 0 13px;
@@ -1584,35 +1790,64 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      width: min(960px, 72vw);
       margin-bottom: clamp(10px, 1vw, 16px);
       padding: 8px 12px;
       border: 1px solid var(--hairline);
       border-radius: var(--radius);
       background: var(--glass-rgba-soft);
       box-shadow: none;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(3px);
     }
 
     body.has-wallpaper .hitokoto-banner {
-      background: rgba(255, 253, 248, 0.14);
+      background: var(--glass-rgba-soft);
       box-shadow: none;
+      backdrop-filter: none;
     }
 
     .hitokoto-quote {
       flex: 0 0 auto;
       color: var(--accent);
+      background: linear-gradient(135deg, #d99a35, #f0c56f 46%, #d98268);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
       font-family: var(--font-display);
       font-size: 20px;
       line-height: 1;
     }
 
     .hitokoto-text {
-      flex: 1 1 auto;
+      flex: 0 1 auto;
       min-width: 0;
+      max-width: 100%;
       color: var(--fg);
+      background: linear-gradient(90deg, #a87023, #d89825 34%, #d66f73 68%, #7c8b45);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-fill-color: transparent;
       font-family: var(--font-display);
       font-size: 14px;
       line-height: 1.5;
+    }
+
+    body.has-wallpaper .hitokoto-quote {
+      background: linear-gradient(135deg, #ffe3a3, #ffb85f 44%, #ff8f9c);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.62));
+    }
+
+    body.has-wallpaper .hitokoto-text {
+      background: linear-gradient(90deg, #fff8d8, #ffd15e 30%, #ff7f9d 66%, #87dcff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-fill-color: transparent;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.62));
     }
 
     .hitokoto-refresh {
@@ -1657,6 +1892,13 @@
       display: grid;
       gap: 10px;
       margin-top: 12px;
+    }
+
+    body.has-wallpaper .tag-editor {
+      padding: 10px;
+      border: 1px solid rgba(255, 247, 232, 0.18);
+      border-radius: 12px;
+      background: rgba(8, 12, 22, var(--content-mask-input, 0.12));
     }
 
     .tag-editor .textarea {
@@ -1712,6 +1954,93 @@
       margin-top: 12px;
     }
 
+    body.wallpaper-covered {
+      --fg: oklch(44.3% 0.074 68.1);
+      --muted: oklch(60.4% 0.076 71.8);
+      --border: oklch(86.7% 0.052 74.7);
+      --hairline: color-mix(in oklch, var(--border) 68%, transparent);
+      --accent: oklch(75.9% 0.119 74.7);
+      --accent-soft: color-mix(in oklch, var(--accent) 17%, transparent);
+      --glass-rgba: rgba(255, 246, 226, 0.24);
+      --glass-rgba-soft: rgba(255, 246, 226, 0.14);
+      --glass-rgba-strong: rgba(255, 246, 226, 0.34);
+      --line-rgba: rgba(126, 112, 86, 0.22);
+      background: linear-gradient(135deg, color-mix(in oklch, var(--bg) 94%, var(--leaf) 6%), var(--bg));
+      text-shadow: none;
+    }
+
+    body.wallpaper-covered .topnav {
+      background: color-mix(in oklch, var(--bg) 78%, transparent);
+      border-bottom-color: var(--hairline);
+    }
+
+    body.wallpaper-covered .topnav .btn-secondary {
+      border-color: var(--border);
+      background: var(--surface);
+      color: var(--fg);
+      box-shadow: none;
+    }
+
+    body.wallpaper-covered .wallpaper-settings {
+      border-color: color-mix(in oklch, var(--border) 84%, transparent);
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      color: var(--fg);
+      box-shadow: 0 18px 42px color-mix(in oklch, var(--fg) 16%, transparent);
+      backdrop-filter: blur(16px);
+    }
+
+    body.wallpaper-covered .wallpaper-status,
+    body.wallpaper-covered .wallpaper-range,
+    body.wallpaper-covered .wallpaper-select {
+      color: var(--muted);
+    }
+
+    body.wallpaper-covered .wallpaper-path-row input,
+    body.wallpaper-covered .wallpaper-pick-row input,
+    body.wallpaper-covered .wallpaper-pick-row select,
+    body.wallpaper-covered .wallpaper-preferences select {
+      border-color: var(--border);
+      background: color-mix(in oklch, var(--surface) 88%, transparent);
+      color: var(--fg);
+    }
+
+    body.wallpaper-covered .wallpaper-pick-row select option,
+    body.wallpaper-covered .wallpaper-preferences select option {
+      background: #fff6e2;
+      color: #6a5435;
+    }
+
+    body.wallpaper-covered .journal-shell {
+      background: linear-gradient(135deg, color-mix(in oklch, var(--surface) 44%, transparent), color-mix(in oklch, var(--bg) 30%, transparent));
+    }
+
+    body.wallpaper-covered .masthead .masthead-controls,
+    body.wallpaper-covered .metric,
+    body.wallpaper-covered .path-label,
+    body.wallpaper-covered .hitokoto-banner {
+      background: var(--glass-rgba);
+    }
+
+    body.wallpaper-covered .journal-panel,
+    body.wallpaper-covered .journal-panel.soft-green,
+    body.wallpaper-covered .journal-panel.soft-rose,
+    body.wallpaper-covered .journal-panel.soft-gold {
+      background: var(--glass-rgba-strong);
+    }
+
+    body.wallpaper-covered .textarea,
+    body.wallpaper-covered .mini-input,
+    body.wallpaper-covered .write-line,
+    body.wallpaper-covered .todo-list,
+    body.wallpaper-covered .debt-list {
+      background: rgba(255, 253, 248, 0.30);
+    }
+
+    body.wallpaper-covered input::placeholder,
+    body.wallpaper-covered textarea::placeholder {
+      color: color-mix(in oklch, var(--muted) 78%, transparent);
+    }
+
     @media (max-width: 1180px) {
       :root {
         --fs-h1: 48px;
@@ -1725,6 +2054,10 @@
       .masthead {
         display: block;
         padding-right: 10px;
+      }
+
+      .hitokoto-banner {
+        width: 100%;
       }
 
       .wallpaper-settings {
@@ -1789,11 +2122,13 @@
       }
 
       .wallpaper-path-row,
+      .wallpaper-pick-row,
       .wallpaper-preferences {
         grid-template-columns: 1fr;
       }
 
-      .wallpaper-path-row .btn {
+      .wallpaper-path-row .btn,
+      .wallpaper-pick-row .btn {
         width: 100%;
       }
 
