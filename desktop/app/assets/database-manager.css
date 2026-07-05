@@ -449,6 +449,10 @@ a {
   background: var(--cell-hover);
 }
 
+.action-sidebar-item[hidden] {
+  display: none;
+}
+
 .data-table td:first-child,
 .data-table th:first-child {
   width: 72px;

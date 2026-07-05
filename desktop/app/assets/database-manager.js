@@ -231,6 +231,7 @@
     ` : emptyState("还没有三只青蛙记录。可以先新增一只青蛙，再选择关联日期。");
     applyCurrentFilters();
     if (tasks.length) initActionSidebar(tasks.length);
+    applyCurrentFilters();
   }
 
   function renderFrogTask(task) {
@@ -459,6 +460,7 @@
     ` : emptyState("还没有月度事项。可以先新增一件事项，再选择归属月份。");
     applyCurrentFilters();
     if (items.length) initActionSidebar(items.length);
+    applyCurrentFilters();
   }
 
   function renderAnnualGoals() {
@@ -528,6 +530,7 @@
     ` : emptyState("还没有年度目标。可以先新增一个目标，再选择归属年份。");
     applyCurrentFilters();
     if (items.length) initActionSidebar(items.length);
+    applyCurrentFilters();
   }
 
   function renderAnnualGoalItemRow(item) {
@@ -1289,8 +1292,12 @@
     const sidebarItems = el.list.querySelectorAll(".action-sidebar-item");
     const rows = el.list.querySelectorAll(".data-table tbody .data-row");
     sidebarItems.forEach((item, i) => {
-      if (rows[i]) {
-        item.style.height = rows[i].getBoundingClientRect().height + "px";
+      const row = rows[i];
+      if (!row || row.hidden) {
+        item.style.height = "";
+        item.style.minHeight = "";
+      } else {
+        item.style.height = row.getBoundingClientRect().height + "px";
         item.style.minHeight = "0";
       }
     });
