@@ -117,8 +117,9 @@
     function applyPrefs() {
       const overlay = Math.min(1, Math.max(0, Number(state.prefs.overlay) / 100));
       const alpha = (min, max) => String((min + (max - min) * overlay).toFixed(3));
-      document.documentElement.style.setProperty("--wallpaper-wash", "0");
-      document.documentElement.style.setProperty("--wallpaper-wash-end", "0");
+      const wash = Math.pow(overlay, 8).toFixed(3);
+      document.documentElement.style.setProperty("--wallpaper-wash", wash);
+      document.documentElement.style.setProperty("--wallpaper-wash-end", wash);
       document.documentElement.style.setProperty("--content-mask", alpha(0.14, 0.76));
       document.documentElement.style.setProperty("--content-mask-soft", alpha(0.09, 0.58));
       document.documentElement.style.setProperty("--content-mask-strong", alpha(0.18, 0.84));
@@ -129,9 +130,12 @@
       document.documentElement.style.setProperty("--content-mask-hero-start", alpha(0.58, 0.86));
       document.documentElement.style.setProperty("--content-mask-hero-mid", alpha(0.30, 0.66));
       document.documentElement.style.setProperty("--content-mask-hero-end", alpha(0.08, 0.26));
+      document.documentElement.style.setProperty("--glass-warm", alpha(0.18, 0.78));
+      document.documentElement.style.setProperty("--glass-warm-soft", alpha(0.10, 0.52));
+      document.documentElement.style.setProperty("--glass-warm-strong", alpha(0.26, 0.86));
       document.documentElement.style.setProperty("--wallpaper-size", state.prefs.fit || DEFAULT_PREFS.fit);
-      const isCovered = state.prefs.overlay >= 90 && document.body?.classList.contains("has-wallpaper");
-      if (isCovered) {
+      const hasWallpaper = !!layer?.style.backgroundImage;
+      if (hasWallpaper) {
         document.body?.classList.add("wallpaper-covered");
       } else {
         document.body?.classList.remove("wallpaper-covered");
@@ -180,7 +184,7 @@
         const url = await firstLoadableUrl(image.path);
         state.index = index;
         layer.style.backgroundImage = `url(${JSON.stringify(url)})`;
-        document.body.classList.add("has-wallpaper");
+        document.body.classList.add("wallpaper-covered");
         applyPrefs();
         syncImageInput();
         return true;
