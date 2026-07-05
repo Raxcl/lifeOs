@@ -1425,63 +1425,78 @@
       function buildMarkdown(form) {
         const frogs = [form["frog-1"], form["frog-2"], form["frog-3"]].map((value) => String(value || "").trim());
         const habits = activeHabitDefinitions(form).map((definition) => [definition.label, form[definition.id]]);
-        const todos = form.todos || [];
+        const todos = (form.todos || []).filter((todo) => String(todo.text || "").trim());
         const identityTitle = String(form.identityTitle || "").trim() || DEFAULT_IDENTITY_TITLE;
         const freeNotes = textOrBlank(form["brain-dump"]);
-        const annualGoals = (form.annualGoals || []).map((goal) => String(goal || "").trim());
-        while (annualGoals.length && !annualGoals[annualGoals.length - 1]) annualGoals.pop();
-        while (annualGoals.length < 2) annualGoals.push("");
-        return [
+        const annualGoals = (form.annualGoals || []).map((goal) => String(goal || "").trim()).filter(Boolean);
+        const progress = String(form["yesterday-progress"] || "").trim();
+        const learn = String(form["yesterday-learn"] || "").trim();
+        const bodyTags = (form.bodyTags || []).filter(Boolean).join("、");
+        const healthSignal = String(form["health-signal"] || "").trim();
+        const selfMessage = textOrBlank(form["self-message"]);
+        const confidence = String(form["half-year-confidence"] || "").trim();
+        const mood = String(form.mood || "").trim();
+        const weather = String(form.weather || "").trim();
+
+        const frontmatter = [
           "---",
           "type: daily",
           `date: ${form.date}`,
           `day_index: ${form.dayIndex || ""}`,
-          `mood: ${form.mood || ""}`,
-          `weather: ${form.weather || ""}`,
-          `identity_title: ${identityTitle}`,
-          "tags:",
-          "  - daily",
-          "  - morning",
-          "---",
+        ];
+        if (mood) frontmatter.push(`mood: ${mood}`);
+        if (weather) frontmatter.push(`weather: ${weather}`);
+        if (confidence) frontmatter.push(`half_year_confidence: ${confidence}`);
+        frontmatter.push("tags:", "  - daily", "  - morning", "---");
+
+        const parts = [
+          ...frontmatter,
           "",
           `# 第 ${Number(form.dayIndex) || 1} 天`,
           "",
-          "## 规划今天",
-          `- 心情：${form.mood || ""}`,
-          `- 天气：${form.weather || ""}`,
-          "",
           "## 碎碎念",
-          freeNotes,
+          freeNotes || "——",
           "",
           "## 三只青蛙",
-          `1. ${frogs[0] || ""}`,
-          `2. ${frogs[1] || ""}`,
-          `3. ${frogs[2] || ""}`,
+          `1. ${frogs[0] || "——"}`,
+          `2. ${frogs[1] || "——"}`,
+          `3. ${frogs[2] || "——"}`,
           "",
           `## ${identityTitle}`,
-          textOrBlank(form["self-message"]),
+          selfMessage || "——",
           "",
           "## 理解昨天",
           habits.map(([label, checked]) => `- [${checked ? "x" : " "}] ${label}`).join("\n"),
-          "",
-          "## 昨日有没有日拱一卒",
-          `- 进：${form["yesterday-progress"] || ""}`,
-          `- 学：${form["yesterday-learn"] || ""}`,
-          "",
-          "## 今天身体有没有提醒我什么",
-          `- 标签：${(form.bodyTags || []).join("、")}`,
-          `- 备注：${form["health-signal"] || ""}`,
+        ];
+
+        if (progress || learn) {
+          parts.push("", "## 昨日有没有日拱一卒");
+          if (progress) parts.push(`- 进：${progress}`);
+          if (learn) parts.push(`- 学：${learn}`);
+        }
+
+        if (bodyTags || healthSignal) {
+          parts.push("", "## 今天身体有没有提醒我什么");
+          if (bodyTags) parts.push(`- 标签：${bodyTags}`);
+          if (healthSignal) parts.push(`- 备注：${healthSignal}`);
+        }
+
+        parts.push(
           "",
           "## 看见未来",
           todos.length ? todos.map((todo) => {
             const prefix = todo.month && todo.month !== form.date.slice(0, 7) ? `${todo.month} · ` : "";
             return `- [${todo.done ? "x" : " "}] ${prefix}${todo.text}`;
-          }).join("\n") : "- [ ] ",
-          "",
-          "## 年度目标",
-          annualGoals.map((goal, index) => `${index + 1}. ${goal}`).join("\n"),
-          ""
-        ].join("\n");
+          }).join("\n") : "——",
+        );
+
+        if (annualGoals.length) {
+          parts.push("", "## 年度目标");
+          parts.push(annualGoals.map((goal, index) => `${index + 1}. ${goal}`).join("\n"));
+        }
+
+        parts.push("");
+        return parts.join("\n");
       }
 
       function parseMarkdown(markdown, valueDate) {
@@ -1499,16 +1514,17 @@
           if (key === "天气") form.weather = value || form.weather;
         });
 
-        const frogs = parseNumberedList(findSection(sections, ["三只青蛙"]));
+        const frogs = parseNumberedList(findSection(sections, ["三只青蛙"])).map((text) => (text === "_(待定)_" || text === "——") ? "" : text);
         form["frog-1"] = frogs[0] || "";
         form["frog-2"] = frogs[1] || "";
         form["frog-3"] = frogs[2] || "";
-        form["self-message"] = findSection(sections, [
+        const selfMsg = findSection(sections, [
           form.identityTitle,
           storedIdentityTitle(),
           DEFAULT_IDENTITY_TITLE,
           LEGACY_IDENTITY_TITLE
         ].filter(Boolean));
+        form["self-message"] = (selfMsg === "_暂无_" || selfMsg === "——") ? "" : selfMsg;
         const habitChecklist = parseChecklistLines(findSection(sections, ["理解昨天"]));
         form.habitChecklistByLabel = Object.fromEntries(habitChecklist.map((item) => [item.label, item.checked]));
         applyChecklistEntries(form, habitChecklist, {
@@ -1530,7 +1546,7 @@
           if (key === "把握") form["half-year-confidence"] = value;
         });
         const freeNotes = findSection(sections, ["碎碎念", "其他想记录的"]);
-        form["brain-dump"] = String(freeNotes || "").trim();
+        form["brain-dump"] = String(freeNotes || "").trim().replace(/^(?:_暂无_|——)$/, "");
         return form;
       }
 
