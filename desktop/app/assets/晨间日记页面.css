@@ -125,7 +125,8 @@
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72), 0 0 10px rgba(0, 0, 0, 0.34);
     }
 
-    body.has-wallpaper .wallpaper-layer {
+    body.has-wallpaper .wallpaper-layer,
+    body.wallpaper-covered .wallpaper-layer {
       opacity: 1;
     }
 
@@ -1811,7 +1812,7 @@
     .hitokoto-quote {
       flex: 0 0 auto;
       color: var(--accent);
-      background: linear-gradient(135deg, #c07e1e, #e6a832 46%, #c46a4e);
+      background: linear-gradient(135deg, #b06e18, #e6a832 22%, #c46a4e 46%, #b8467a 70%, #7a5cb0);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -1826,7 +1827,7 @@
       min-width: 0;
       max-width: 100%;
       color: var(--fg);
-      background: linear-gradient(90deg, #8a5a14, #c48518 34%, #c05a5e 68%, #5e7230);
+      background: linear-gradient(90deg, #7a4e12, #c48518 18%, #d45a3a 36%, #b84a7a 54%, #5e8a6e 72%, #3a7068 90%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -1838,7 +1839,7 @@
     }
 
     body.has-wallpaper .hitokoto-quote {
-      background: linear-gradient(135deg, #ffd97a, #ffa94d 44%, #ff7a8a);
+      background: linear-gradient(135deg, #ffe17a, #ffb34d 22%, #ff7a8a 44%, #e06aff 68%, #7aafff);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -1846,7 +1847,7 @@
     }
 
     body.has-wallpaper .hitokoto-text {
-      background: linear-gradient(90deg, #ffe9a0, #ffc94d 30%, #ff6f8a 66%, #5ec8f0);
+      background: linear-gradient(90deg, #ffe9a0, #ffc94d 16%, #ff8a5c 32%, #ff6f8a 48%, #c77dff 64%, #5ec8f0 82%, #7affb8);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -1965,9 +1966,9 @@
       --hairline: color-mix(in oklch, var(--border) 68%, transparent);
       --accent: oklch(75.9% 0.119 74.7);
       --accent-soft: color-mix(in oklch, var(--accent) 17%, transparent);
-      --glass-rgba: rgba(255, 246, 226, 0.24);
-      --glass-rgba-soft: rgba(255, 246, 226, 0.14);
-      --glass-rgba-strong: rgba(255, 246, 226, 0.34);
+      --glass-rgba: rgba(255, 246, 226, var(--glass-warm, 0.24));
+      --glass-rgba-soft: rgba(255, 246, 226, var(--glass-warm-soft, 0.14));
+      --glass-rgba-strong: rgba(255, 246, 226, var(--glass-warm-strong, 0.34));
       --line-rgba: rgba(126, 112, 86, 0.22);
       background: linear-gradient(135deg, color-mix(in oklch, var(--bg) 94%, var(--leaf) 6%), var(--bg));
       text-shadow: none;
@@ -2030,7 +2031,7 @@
     }
 
     body.has-wallpaper.wallpaper-covered .hitokoto-quote {
-      background: linear-gradient(135deg, #c07e1e, #e6a832 46%, #c46a4e);
+      background: linear-gradient(135deg, #b06e18, #e6a832 22%, #c46a4e 46%, #b8467a 70%, #7a5cb0);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -2038,7 +2039,7 @@
     }
 
     body.has-wallpaper.wallpaper-covered .hitokoto-text {
-      background: linear-gradient(90deg, #8a5a14, #c48518 34%, #c05a5e 68%, #5e7230);
+      background: linear-gradient(90deg, #7a4e12, #c48518 18%, #d45a3a 36%, #b84a7a 54%, #5e8a6e 72%, #3a7068 90%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -2058,7 +2059,7 @@
     body.wallpaper-covered .write-line,
     body.wallpaper-covered .todo-list,
     body.wallpaper-covered .debt-list {
-      background: rgba(255, 253, 248, 0.30);
+      background: rgba(255, 253, 248, var(--glass-warm, 0.24));
     }
 
     body.wallpaper-covered input::placeholder,

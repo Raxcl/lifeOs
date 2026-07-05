@@ -2477,6 +2477,7 @@ pub fn run() {
                 if let Err(err) = window.set_icon(APP_ICON) {
                     log::warn!("failed to set main window icon: {err}");
                 }
+                let _ = window.show();
             }
             Ok(())
         })
