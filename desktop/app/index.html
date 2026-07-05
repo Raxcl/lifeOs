@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
@@ -2110,6 +2110,17 @@
                 <a class="preview-manage" href="本月重要几件事管理.html">管理</a>
               </div>
               <div class="preview-list" id="monthlyPreviewList"></div>
+            </article>
+
+            <article class="database-preview-card" data-preview-card="annual-goals">
+              <div class="preview-head">
+                <div class="preview-title">
+                  <h3>年度目标</h3>
+                  <span id="annualGoalsPreviewMeta">未完成优先</span>
+                </div>
+                <a class="preview-manage" href="年度目标管理.html">管理</a>
+              </div>
+              <div class="preview-list" id="annualGoalsPreviewList"></div>
               <p class="preview-status" id="databasePreviewStatus"></p>
             </article>
           </aside>
@@ -2294,6 +2305,8 @@
       habitPreviewMeta: document.getElementById("habitPreviewMeta"),
       monthlyPreviewList: document.getElementById("monthlyPreviewList"),
       monthlyPreviewMeta: document.getElementById("monthlyPreviewMeta"),
+      annualGoalsPreviewList: document.getElementById("annualGoalsPreviewList"),
+      annualGoalsPreviewMeta: document.getElementById("annualGoalsPreviewMeta"),
       databasePreviewStatus: document.getElementById("databasePreviewStatus"),
       calendarNotice: document.getElementById("calendarNotice")
     };
@@ -2303,7 +2316,8 @@
     const databaseFallbackKeys = {
       frogs: "lifeos-db:frogs",
       habits: "lifeos-db:habits",
-      monthly: "lifeos-db:monthly-important"
+      monthly: "lifeos-db:monthly-important",
+      annualGoals: "lifeos-db:annual-goals"
     };
     // 法定节假日与调休表，按年份维护；新一年的安排公布后在此追加即可。
     // 未收录年份的日期会按普通周末/工作日处理。
@@ -2572,7 +2586,8 @@
           paths: {
             frogs: `${vaultDir}/00-Databases/frogs.csv`,
             habits: `${vaultDir}/00-Databases/habits.csv`,
-            monthly: `${vaultDir}/00-Databases/monthly-important.csv`
+            monthly: `${vaultDir}/00-Databases/monthly-important.csv`,
+            annual_goals: `${vaultDir}/00-Databases/annual-goals.csv`
           }
         };
       }
@@ -2596,6 +2611,12 @@
       if (command === "save_monthly_database") {
         const database = { schema_version: 1, months: normalizeMonthlyRecords(args.months || []) };
         localStorage.setItem(databaseFallbackKeys.monthly, JSON.stringify(database));
+        return database;
+      }
+
+      if (command === "save_annual_goal_database") {
+        const database = { schema_version: 1, years: normalizeAnnualGoalYears(args.years || []) };
+        localStorage.setItem(databaseFallbackKeys.annualGoals, JSON.stringify(database));
         return database;
       }
 
@@ -2647,6 +2668,7 @@
         frogs: defaultFrogDatabase(),
         habits: defaultHabitDatabase(),
         monthly: defaultMonthlyDatabase(),
+        annual_goals: defaultAnnualGoalDatabase(),
         paths: {}
       };
     }
@@ -2663,11 +2685,16 @@
       return { schema_version: 1, months: [] };
     }
 
+    function defaultAnnualGoalDatabase() {
+      return { schema_version: 1, years: [] };
+    }
+
     function readFallbackDatabases() {
       return normalizeDatabaseSnapshot({
         frogs: readFallbackDatabase(databaseFallbackKeys.frogs, defaultFrogDatabase()),
         habits: readFallbackDatabase(databaseFallbackKeys.habits, defaultHabitDatabase()),
-        monthly: readFallbackDatabase(databaseFallbackKeys.monthly, defaultMonthlyDatabase())
+        monthly: readFallbackDatabase(databaseFallbackKeys.monthly, defaultMonthlyDatabase()),
+        annual_goals: readFallbackDatabase(databaseFallbackKeys.annualGoals, defaultAnnualGoalDatabase())
       });
     }
 
@@ -2694,6 +2721,10 @@
         monthly: {
           schema_version: 1,
           months: normalizeMonthlyRecords(snapshot?.monthly?.months || [])
+        },
+        annual_goals: {
+          schema_version: 1,
+          years: normalizeAnnualGoalYears(snapshot?.annual_goals?.years || [])
         },
         paths: snapshot?.paths || {}
       };
@@ -2776,6 +2807,25 @@
       return Array.from(byMonth.values()).sort((left, right) => left.month.localeCompare(right.month));
     }
 
+    function normalizeAnnualGoalYears(years) {
+      const byYear = new Map();
+      (years || []).forEach((record) => {
+        const year = String(record?.year || "").padStart(4, "0");
+        if (!/^\d{4}$/.test(year) || byYear.has(year)) return;
+        const items = (record.items || [])
+          .map((item, index) => ({
+            id: String(item.id || `${year}-${index + 1}-${nowSeconds()}`),
+            text: String(item.text || "").trim(),
+            done: Boolean(item.done),
+            created_at: item.created_at || nowSeconds(),
+            updated_at: item.updated_at || null
+          }))
+          .filter((item) => item.text);
+        if (items.length) byYear.set(year, { year, items, updated_at: record.updated_at || null });
+      });
+      return Array.from(byYear.values()).sort((left, right) => left.year.localeCompare(right.year));
+    }
+
     async function loadDatabasePreview() {
       if (!el.databasePreviewPanel) return;
       setDatabasePreviewStatus("", "读取数据库...");
@@ -2792,21 +2842,26 @@
     function renderDatabasePreview() {
       const snapshot = normalizeDatabaseSnapshot(state.databases);
       state.databases = snapshot;
-      const frogItems = flattenFrogPreview(snapshot.frogs.days).filter((item) => !item.done);
+      const frogItems = flattenFrogPreview(snapshot.frogs.days);
       const habitItems = todayHabitPreview(snapshot.habits);
-      const monthItems = flattenMonthlyPreview(snapshot.monthly.months).filter((item) => !item.done);
+      const monthItems = flattenMonthlyPreview(snapshot.monthly.months);
+      const goalItems = flattenAnnualGoalsPreview(snapshot.annual_goals.years);
+      const frogOpen = frogItems.filter((item) => !item.done).length;
+      const monthOpen = monthItems.filter((item) => !item.done).length;
+      const goalOpen = goalItems.filter((item) => !item.done).length;
 
-      if (el.frogPreviewMeta) el.frogPreviewMeta.textContent = frogItems.length ? `${frogItems.length} 条未完成` : "没有未完成";
+      if (el.frogPreviewMeta) el.frogPreviewMeta.textContent = frogItems.length ? `${frogOpen}/${frogItems.length} 未完成` : "没有青蛙";
       if (el.habitPreviewMeta) {
         const checked = habitItems.filter((item) => item.checked).length;
         el.habitPreviewMeta.textContent = `今日 ${checked}/${habitItems.length}`;
       }
-      if (el.monthlyPreviewMeta) el.monthlyPreviewMeta.textContent = monthItems.length ? `${monthItems.length} 条未完成` : "没有未完成";
+      if (el.monthlyPreviewMeta) el.monthlyPreviewMeta.textContent = monthItems.length ? `${monthOpen}/${monthItems.length} 未完成` : "没有月度事项";
+      if (el.annualGoalsPreviewMeta) el.annualGoalsPreviewMeta.textContent = goalItems.length ? `${goalOpen}/${goalItems.length} 未完成` : "没有年度目标";
 
       if (el.frogPreviewList) {
         el.frogPreviewList.innerHTML = frogItems.length
           ? [...frogItems.slice(0, 5).map(renderFrogPreviewRow), renderMorePreview(frogItems.length, "三只青蛙管理.html")].join("")
-          : renderPreviewEmpty("没有未完成青蛙。");
+          : renderPreviewEmpty("还没有青蛙记录。");
       }
 
       if (el.habitPreviewList) {
@@ -2818,7 +2873,13 @@
       if (el.monthlyPreviewList) {
         el.monthlyPreviewList.innerHTML = monthItems.length
           ? [...monthItems.slice(0, 5).map(renderMonthlyPreviewRow), renderMorePreview(monthItems.length, "本月重要几件事管理.html")].join("")
-          : renderPreviewEmpty("没有未完成月度事项。");
+          : renderPreviewEmpty("还没有月度事项。");
+      }
+
+      if (el.annualGoalsPreviewList) {
+        el.annualGoalsPreviewList.innerHTML = goalItems.length
+          ? [...goalItems.slice(0, 5).map(renderAnnualGoalPreviewRow), renderMorePreview(goalItems.length, "年度目标管理.html")].join("")
+          : renderPreviewEmpty("还没有年度目标。");
       }
     }
 
@@ -2826,7 +2887,7 @@
       return (days || []).flatMap((day) => normalizeFrogItems(day.items || [])
         .filter((item) => item.text)
         .map((item) => ({ ...item, date: day.date })))
-        .sort((left, right) => left.date.localeCompare(right.date) || left.slot - right.slot);
+        .sort((left, right) => Number(left.done) - Number(right.done) || left.date.localeCompare(right.date) || left.slot - right.slot);
     }
 
     function todayHabitPreview(habits) {
@@ -2843,7 +2904,15 @@
       return (months || []).flatMap((record) => (record.items || [])
         .filter((item) => item.text)
         .map((item) => ({ ...item, month: record.month })))
-        .sort((left, right) => left.month.localeCompare(right.month) || String(left.text).localeCompare(String(right.text), "zh-Hans-CN"));
+        .sort((left, right) => Number(left.done) - Number(right.done) || left.month.localeCompare(right.month) || String(left.text).localeCompare(String(right.text), "zh-Hans-CN"));
+    }
+
+    function flattenAnnualGoalsPreview(years) {
+      const currentYear = String(today.getFullYear()).padStart(4, "0");
+      return (years || []).flatMap((record) => (record.items || [])
+        .filter((item) => item.text)
+        .map((item) => ({ ...item, year: record.year })))
+        .sort((left, right) => Number(left.done) - Number(right.done) || (right.year === currentYear ? 1 : 0) - (left.year === currentYear ? 1 : 0) || right.year.localeCompare(left.year) || String(left.text).localeCompare(String(right.text), "zh-Hans-CN"));
     }
 
     function renderFrogPreviewRow(item) {
@@ -2873,6 +2942,16 @@
         text: item.text,
         meta: `${formatMonthLabel(item.month)} · 月度事项`,
         attrs: `data-month="${escapeHtml(item.month)}" data-item-id="${escapeHtml(item.id)}"`
+      });
+    }
+
+    function renderAnnualGoalPreviewRow(item) {
+      return renderPreviewRow({
+        kind: "annual-goal",
+        checked: item.done,
+        text: item.text,
+        meta: `${item.year} 年 · 年度目标`,
+        attrs: `data-year="${escapeHtml(item.year)}" data-item-id="${escapeHtml(item.id)}"`
       });
     }
 
@@ -2930,6 +3009,8 @@
         setHabitPreviewDone(field.dataset.habitId, field.checked);
       } else if (kind === "monthly") {
         setMonthlyPreviewDone(field.dataset.month, field.dataset.itemId, field.checked);
+      } else if (kind === "annual-goal") {
+        setAnnualGoalPreviewDone(field.dataset.year, field.dataset.itemId, field.checked);
       }
     }
 
@@ -2962,6 +3043,15 @@
       record.updated_at = nowSeconds();
     }
 
+    function setAnnualGoalPreviewDone(year, itemId, done) {
+      const record = state.databases.annual_goals.years.find((item) => item.year === year);
+      const item = record?.items?.find((entry) => entry.id === itemId);
+      if (!record || !item) throw new Error("没有找到这条年度目标。");
+      item.done = done;
+      item.updated_at = nowSeconds();
+      record.updated_at = nowSeconds();
+    }
+
     async function saveDatabasePreviewKind(kind) {
       if (kind === "frog") {
         const saved = await invoke("save_frog_database", { days: state.databases.frogs.days });
@@ -2985,6 +3075,12 @@
       if (kind === "monthly") {
         const saved = await invoke("save_monthly_database", { months: state.databases.monthly.months });
         state.databases.monthly = { schema_version: 1, months: normalizeMonthlyRecords(saved.months || []) };
+        return;
+      }
+
+      if (kind === "annual-goal") {
+        const saved = await invoke("save_annual_goal_database", { years: state.databases.annual_goals.years });
+        state.databases.annual_goals = { schema_version: 1, years: normalizeAnnualGoalYears(saved.years || []) };
       }
     }
 

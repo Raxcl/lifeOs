@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>习惯坚持管理 | LifeOS</title>
+  <title>年度目标管理 | LifeOS</title>
   <link rel="stylesheet" href="assets/database-manager.css" />
 </head>
-<body data-manager="habits">
+<body data-manager="annual-goals">
   <div class="page">
     <main class="shell">
       <header class="topbar">
@@ -19,10 +19,10 @@
           </a>
         </div>
         <div class="brand">
-          <div class="brand-mark" id="managerMark">习</div>
+          <div class="brand-mark" id="managerMark">年</div>
           <div>
-            <h1 id="managerTitle">习惯坚持管理</h1>
-            <p id="managerSubtitle">维护习惯定义，并通过统计图查看坚持情况。</p>
+            <h1 id="managerTitle">年度目标管理</h1>
+            <p id="managerSubtitle">按年度管理目标；未完成优先，年份只是归属字段。</p>
           </div>
         </div>
       </header>
@@ -32,7 +32,7 @@
           <div id="summaryGrid"></div>
           <div>
             <p class="notice">数据库文件</p>
-            <div class="path" id="databasePath">habits.csv</div>
+            <div class="path" id="databasePath">annual-goals.csv</div>
           </div>
           <div class="notice" id="notice"></div>
         </aside>
@@ -40,8 +40,8 @@
         <section class="workspace">
           <div class="section-head">
             <div>
-              <h2 id="workspaceTitle">习惯坚持</h2>
-              <p id="workspaceSubtitle">先管理习惯对象，再看每月坚持统计。</p>
+              <h2 id="workspaceTitle">年度目标</h2>
+              <p id="workspaceSubtitle">年度目标跨日记同步；修改会写回独立 CSV，并同步影响晨间日记。</p>
             </div>
             <div class="toolbar" id="toolbar"></div>
           </div>
