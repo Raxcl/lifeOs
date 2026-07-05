@@ -1430,6 +1430,10 @@
       --mood-sticker-x: 100%;
     }
 
+    .mood-face-neutral {
+      --mood-sticker-x: 25%;
+    }
+
     .mood-logo {
       width: 42px;
       height: 42px;

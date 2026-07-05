@@ -835,7 +835,7 @@
             field.value = value;
           }
         });
-        setMood(state.form.mood || "元气", false);
+        setMood(state.form.mood || "平静", false);
         setWeather(state.form.weather || "", false);
         renderBodyTags(unionBodyTagDefinitions());
         applyBodyTags(state.form.bodyTags || []);
@@ -853,7 +853,7 @@
           state.form[field.dataset.save] = field.type === "checkbox" ? field.checked : field.value;
         });
         state.form.habitDefinitions = activeHabitDefinitions();
-        state.form.mood = document.querySelector(".mood-btn.is-active")?.dataset.mood || state.form.mood || "元气";
+        state.form.mood = document.querySelector(".mood-btn.is-active")?.dataset.mood || state.form.mood || "平静";
         state.form.weather = document.querySelector("[data-weather].is-active")?.dataset.weather || "";
         state.form.bodyTags = activeBodyTags();
         state.form.identityTitle = identityTitleEl?.textContent.trim() || storedIdentityTitle();
@@ -1554,7 +1554,7 @@
         return {
           date: valueDate,
           dayIndex: String(dayIndex || ""),
-          mood: "元气",
+          mood: "平静",
           weather: "",
           identityTitle: storedIdentityTitle(),
           bodyTags: [],
