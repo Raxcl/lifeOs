@@ -1787,34 +1787,37 @@
     .hitokoto-banner {
       position: relative;
       z-index: 2;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 12px;
-      width: min(960px, 72vw);
+      width: fit-content;
+      max-width: min(960px, 72vw);
       margin-bottom: clamp(10px, 1vw, 16px);
-      padding: 8px 12px;
+      padding: 10px 16px;
       border: 1px solid var(--hairline);
       border-radius: var(--radius);
-      background: var(--glass-rgba-soft);
-      box-shadow: none;
-      backdrop-filter: blur(3px);
+      background: #fff8ed;
+      box-shadow: 0 1px 4px color-mix(in oklch, var(--fg) 6%, transparent);
+      backdrop-filter: none;
     }
 
     body.has-wallpaper .hitokoto-banner {
-      background: var(--glass-rgba-soft);
-      box-shadow: none;
+      background: #26221e;
+      border-color: rgba(255, 200, 120, 0.14);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
       backdrop-filter: none;
     }
 
     .hitokoto-quote {
       flex: 0 0 auto;
       color: var(--accent);
-      background: linear-gradient(135deg, #d99a35, #f0c56f 46%, #d98268);
+      background: linear-gradient(135deg, #c07e1e, #e6a832 46%, #c46a4e);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
       font-family: var(--font-display);
-      font-size: 20px;
+      font-size: 22px;
+      font-weight: 700;
       line-height: 1;
     }
 
@@ -1823,31 +1826,32 @@
       min-width: 0;
       max-width: 100%;
       color: var(--fg);
-      background: linear-gradient(90deg, #a87023, #d89825 34%, #d66f73 68%, #7c8b45);
+      background: linear-gradient(90deg, #8a5a14, #c48518 34%, #c05a5e 68%, #5e7230);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
       text-fill-color: transparent;
       font-family: var(--font-display);
-      font-size: 14px;
+      font-size: 15px;
+      font-weight: 600;
       line-height: 1.5;
     }
 
     body.has-wallpaper .hitokoto-quote {
-      background: linear-gradient(135deg, #ffe3a3, #ffb85f 44%, #ff8f9c);
+      background: linear-gradient(135deg, #ffd97a, #ffa94d 44%, #ff7a8a);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.62));
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 6px rgba(0, 0, 0, 0.4));
     }
 
     body.has-wallpaper .hitokoto-text {
-      background: linear-gradient(90deg, #fff8d8, #ffd15e 30%, #ff7f9d 66%, #87dcff);
+      background: linear-gradient(90deg, #ffe9a0, #ffc94d 30%, #ff6f8a 66%, #5ec8f0);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
       text-fill-color: transparent;
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.62));
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 6px rgba(0, 0, 0, 0.4));
     }
 
     .hitokoto-refresh {
@@ -2016,9 +2020,30 @@
 
     body.wallpaper-covered .masthead .masthead-controls,
     body.wallpaper-covered .metric,
-    body.wallpaper-covered .path-label,
-    body.wallpaper-covered .hitokoto-banner {
+    body.wallpaper-covered .path-label {
       background: var(--glass-rgba);
+    }
+
+    body.wallpaper-covered .hitokoto-banner {
+      background: #fff8ed;
+      box-shadow: 0 1px 4px color-mix(in oklch, var(--fg) 6%, transparent);
+    }
+
+    body.has-wallpaper.wallpaper-covered .hitokoto-quote {
+      background: linear-gradient(135deg, #c07e1e, #e6a832 46%, #c46a4e);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: none;
+    }
+
+    body.has-wallpaper.wallpaper-covered .hitokoto-text {
+      background: linear-gradient(90deg, #8a5a14, #c48518 34%, #c05a5e 68%, #5e7230);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-fill-color: transparent;
+      filter: none;
     }
 
     body.wallpaper-covered .journal-panel,
@@ -2057,7 +2082,8 @@
       }
 
       .hitokoto-banner {
-        width: 100%;
+        width: fit-content;
+        max-width: 100%;
       }
 
       .wallpaper-settings {

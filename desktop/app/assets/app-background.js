@@ -130,7 +130,12 @@
       document.documentElement.style.setProperty("--content-mask-hero-mid", alpha(0.30, 0.66));
       document.documentElement.style.setProperty("--content-mask-hero-end", alpha(0.08, 0.26));
       document.documentElement.style.setProperty("--wallpaper-size", state.prefs.fit || DEFAULT_PREFS.fit);
-      document.body?.classList.remove("wallpaper-covered");
+      const isCovered = state.prefs.overlay >= 90 && document.body?.classList.contains("has-wallpaper");
+      if (isCovered) {
+        document.body?.classList.add("wallpaper-covered");
+      } else {
+        document.body?.classList.remove("wallpaper-covered");
+      }
     }
 
     function syncControls() {
@@ -176,6 +181,7 @@
         state.index = index;
         layer.style.backgroundImage = `url(${JSON.stringify(url)})`;
         document.body.classList.add("has-wallpaper");
+        applyPrefs();
         syncImageInput();
         return true;
       } catch {
