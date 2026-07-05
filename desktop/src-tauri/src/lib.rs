@@ -90,6 +90,8 @@ struct FrogItem {
     done: bool,
     #[serde(default)]
     note: String,
+    #[serde(default)]
+    created_at: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -108,6 +110,8 @@ struct FrogBacklogItem {
     updated_at: Option<u64>,
     #[serde(default)]
     note: String,
+    #[serde(default)]
+    created_at: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -120,6 +124,8 @@ struct FrogDatabase {
 struct HabitDefinition {
     id: String,
     label: String,
+    #[serde(default)]
+    created_at: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -141,6 +147,8 @@ struct MonthlyItem {
     id: String,
     text: String,
     done: bool,
+    #[serde(default)]
+    note: String,
     created_at: Option<u64>,
     updated_at: Option<u64>,
 }
@@ -158,6 +166,8 @@ struct MonthlyBacklogItem {
     id: String,
     text: String,
     done: bool,
+    #[serde(default)]
+    note: String,
     created_at: Option<u64>,
     updated_at: Option<u64>,
 }
@@ -829,14 +839,17 @@ fn default_habit_definitions() -> Vec<HabitDefinition> {
         HabitDefinition {
             id: "habit-journal".to_string(),
             label: "写了晨间日记".to_string(),
+            created_at: None,
         },
         HabitDefinition {
             id: "habit-focus".to_string(),
             label: "推进了核心任务".to_string(),
+            created_at: None,
         },
         HabitDefinition {
             id: "habit-review".to_string(),
             label: "晚上做了简短回看".to_string(),
+            created_at: None,
         },
     ]
 }
@@ -852,6 +865,7 @@ fn normalize_frog_items(items: Vec<FrogItem>) -> Vec<FrogItem> {
                     text: item.text.trim().to_string(),
                     done: item.done,
                     note: item.note.trim().to_string(),
+                    created_at: item.created_at,
                 },
             );
         }
@@ -864,6 +878,7 @@ fn normalize_frog_items(items: Vec<FrogItem>) -> Vec<FrogItem> {
                 text: String::new(),
                 done: false,
                 note: String::new(),
+                created_at: None,
             })
         })
         .collect()
@@ -912,7 +927,7 @@ fn normalize_habit_definitions(
             seen.insert(id.clone());
         }
 
-        normalized.push(HabitDefinition { id, label });
+        normalized.push(HabitDefinition { id, label, created_at: definition.created_at.or(Some(now)) });
     }
 
     if normalized.is_empty() {
@@ -1006,6 +1021,7 @@ fn normalize_monthly_items(month: &str, items: Vec<MonthlyItem>, now: u64) -> Ve
                 id,
                 text,
                 done: item.done,
+                note: item.note,
                 created_at: item.created_at.or(Some(now)),
                 updated_at: Some(now),
             })
@@ -1029,6 +1045,7 @@ fn collect_frog_backlog(days: &[FrogDay]) -> Vec<FrogBacklogItem> {
                 done: false,
                 updated_at: day.updated_at,
                 note: item.note.clone(),
+                created_at: item.created_at,
             });
         }
     }
@@ -1066,6 +1083,9 @@ fn apply_frog_backlog(
                 frog.text = text;
                 frog.done = item.done;
                 frog.note = item.note.trim().to_string();
+                if frog.created_at.is_none() {
+                    frog.created_at = item.created_at;
+                }
             }
             day.updated_at = Some(now);
         }
@@ -1089,6 +1109,7 @@ fn collect_monthly_backlog(records: &[MonthlyRecord]) -> Vec<MonthlyBacklogItem>
                 id: item.id.clone(),
                 text: text.to_string(),
                 done: false,
+                note: item.note.clone(),
                 created_at: item.created_at,
                 updated_at: item.updated_at.or(record.updated_at),
             });
@@ -1134,12 +1155,14 @@ fn apply_monthly_backlog(
             if let Some(existing) = record.items.iter_mut().find(|existing| existing.id == id) {
                 existing.text = text;
                 existing.done = item.done;
+                existing.note = item.note.trim().to_string();
                 existing.updated_at = Some(now);
             } else {
                 record.items.push(MonthlyItem {
                     id,
                     text,
                     done: item.done,
+                    note: item.note.trim().to_string(),
                     created_at: item.created_at.or(Some(now)),
                     updated_at: Some(now),
                 });
@@ -1152,13 +1175,14 @@ fn apply_monthly_backlog(
     Ok(())
 }
 
-const FROG_CSV_HEADERS: &[&str] = &["date", "slot", "text", "done", "note", "updated_at"];
-const HABIT_CSV_HEADERS: &[&str] = &["date", "habit_id", "habit_name", "checked", "updated_at"];
+const FROG_CSV_HEADERS: &[&str] = &["date", "slot", "text", "done", "note", "created_at", "updated_at"];
+const HABIT_CSV_HEADERS: &[&str] = &["date", "habit_id", "habit_name", "checked", "created_at", "updated_at"];
 const MONTHLY_CSV_HEADERS: &[&str] = &[
     "month",
     "item_id",
     "text",
     "done",
+    "note",
     "created_at",
     "updated_at",
 ];
@@ -1196,6 +1220,7 @@ fn read_frog_database(path: &Path) -> Result<FrogDatabase, String> {
             text: csv_cell(&row, "text"),
             done: parse_csv_bool(&csv_cell(&row, "done")),
             note: csv_cell(&row, "note"),
+            created_at: parse_optional_u64(&csv_cell(&row, "created_at")),
         });
     }
 
@@ -1225,6 +1250,7 @@ fn write_frog_database(path: &Path, database: &FrogDatabase) -> Result<(), Strin
                 item.text,
                 bool_csv(item.done),
                 item.note,
+                timestamp_csv(item.created_at),
                 timestamp_csv(day.updated_at),
             ]);
         }
@@ -1250,6 +1276,7 @@ fn read_habit_database(path: &Path) -> Result<HabitDatabase, String> {
             definitions.push(HabitDefinition {
                 id: habit_id.clone(),
                 label: habit_name,
+                created_at: parse_optional_u64(&csv_cell(&row, "created_at")),
             });
         }
 
@@ -1303,6 +1330,7 @@ fn write_habit_database(path: &Path, database: &HabitDatabase) -> Result<(), Str
             definition.id.clone(),
             definition.label.clone(),
             String::new(),
+            timestamp_csv(definition.created_at),
             String::new(),
         ]);
     }
@@ -1314,6 +1342,7 @@ fn write_habit_database(path: &Path, database: &HabitDatabase) -> Result<(), Str
                 definition.id.clone(),
                 definition.label.clone(),
                 bool_csv(day.checks.get(&definition.id).copied().unwrap_or(false)),
+                timestamp_csv(definition.created_at),
                 timestamp_csv(day.updated_at),
             ]);
         }
@@ -1358,6 +1387,7 @@ fn read_monthly_database(path: &Path) -> Result<MonthlyDatabase, String> {
                 },
                 text,
                 done: parse_csv_bool(&csv_cell(&row, "done")),
+                note: csv_cell(&row, "note"),
                 created_at: parse_optional_u64(&csv_cell(&row, "created_at")).or(Some(now)),
                 updated_at: updated.or(Some(now)),
             });
@@ -1388,6 +1418,7 @@ fn write_monthly_database(path: &Path, database: &MonthlyDatabase) -> Result<(),
                 item.id.clone(),
                 item.text.clone(),
                 bool_csv(item.done),
+                item.note.clone(),
                 timestamp_csv(item.created_at),
                 timestamp_csv(item.updated_at.or(record.updated_at)),
             ]);

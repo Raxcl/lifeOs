@@ -4,6 +4,7 @@
     nowSeconds,
     escapeHtml,
     toErrorMessage,
+    formatTimestamp,
     defaultHabitDefinitions
   } = window.LifeOSShared;
   const isDate = window.LifeOSShared.isDateKey;
@@ -161,6 +162,7 @@
     } else {
       renderFrogs();
     }
+    initColumnResize();
   }
 
   function renderFrogs() {
@@ -201,32 +203,39 @@
       </div>
     `;
     el.list.innerHTML = tasks.length ? `
-      <div class="table-scroll">
-        <table class="data-table" aria-label="三只青蛙任务表">
-          <thead>
-            <tr>
-              <th>完成</th>
-              <th>青蛙任务</th>
-              <th>描述</th>
-              <th>关联日期</th>
-              <th>序号</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tasks.map(renderFrogTask).join("")}
-          </tbody>
-        </table>
+      <div class="table-area">
+        <div class="table-scroll">
+          <table class="data-table" aria-label="三只青蛙任务表">
+            <thead>
+              <tr>
+                <th>完成</th>
+                <th>青蛙任务</th>
+                <th>描述</th>
+                <th>关联日期</th>
+                <th>序号</th>
+                <th>创建时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tasks.map(renderFrogTask).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div class="action-sidebar">
+          <div class="action-sidebar-head">操作</div>
+          <div class="action-sidebar-list"></div>
+        </div>
       </div>
       <p class="table-note">共关联 ${dateCount} 个日记日期；筛选只影响显示，不会删掉隐藏记录。</p>
     ` : emptyState("还没有三只青蛙记录。可以先新增一只青蛙，再选择关联日期。");
     applyCurrentFilters();
+    if (tasks.length) initActionSidebar(tasks.length);
   }
 
   function renderFrogTask(task) {
     return `
-      <tr class="data-row" data-kind="frog-item" data-row data-done="${task.done ? "true" : "false"}" data-date="${escapeAttr(task.date)}" data-slot="${escapeAttr(task.slot)}" data-search="${escapeAttr(task.text)}">
+      <tr class="data-row" data-kind="frog-item" data-row data-done="${task.done ? "true" : "false"}" data-date="${escapeAttr(task.date)}" data-slot="${escapeAttr(task.slot)}" data-search="${escapeAttr(task.text)}" data-created-at="${task.created_at || ""}">
         <td><input type="checkbox" data-field="frog-done" ${task.done ? "checked" : ""} aria-label="完成状态"></td>
         <td><input type="text" data-field="frog-text" value="${escapeAttr(task.text)}" placeholder="青蛙任务"></td>
         <td><input type="text" data-field="frog-note" value="${escapeAttr(task.note)}"></td>
@@ -235,8 +244,8 @@
           <input type="hidden" data-field="frog-slot" value="${escapeAttr(task.slot)}">
           <span class="readonly-token" data-slot-display>#${escapeHtml(task.slot)}</span>
         </td>
+        <td class="readonly-cell">${formatTimestamp(task.created_at) || '<span class="muted">—</span>'}</td>
         <td>${statusPill(task.done)}</td>
-        <td><button class="btn danger compact" type="button" data-action="delete-row">删除</button></td>
       </tr>
     `;
   }
@@ -278,30 +287,37 @@
             <span class="muted">晨间日记会按这里的定义动态显示打卡项</span>
           </div>
         </div>
-        <div class="table-scroll">
-          <table class="data-table compact-table habit-definition-table" aria-label="习惯定义表">
-            <thead>
-              <tr>
-                <th>习惯名称</th>
-                <th class="action-col">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${definitions.map((definition) => `
-                <tr class="definition-row">
-                  <td>
-                    <input type="hidden" data-field="habit-id" value="${escapeAttr(definition.id)}">
-                    <input type="text" data-field="habit-label" value="${escapeAttr(definition.label)}" aria-label="习惯名称">
-                  </td>
-                  <td class="actions-cell"><button class="btn danger compact" type="button" data-action="delete-definition">删除</button></td>
+        <div class="table-area">
+          <div class="table-scroll">
+            <table class="data-table compact-table habit-definition-table" aria-label="习惯定义表">
+              <thead>
+                <tr>
+                  <th>习惯名称</th>
+                  <th>创建时间</th>
                 </tr>
-              `).join("")}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${definitions.map((definition) => `
+                  <tr class="definition-row" data-created-at="${definition.created_at || ""}">
+                    <td>
+                      <input type="hidden" data-field="habit-id" value="${escapeAttr(definition.id)}">
+                      <input type="text" data-field="habit-label" value="${escapeAttr(definition.label)}" aria-label="习惯名称">
+                    </td>
+                    <td class="readonly-cell">${formatTimestamp(definition.created_at) || '<span class="muted">—</span>'}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="action-sidebar">
+            <div class="action-sidebar-head">操作</div>
+            <div class="action-sidebar-list"></div>
+          </div>
         </div>
       </section>
       ${renderHabitStats(definitions, days, monthDates)}
     `;
+    if (definitions.length) initActionSidebar(definitions.length, "delete-definition");
   }
 
   function renderHabitStats(definitions, days, monthDates) {
@@ -412,33 +428,37 @@
         </label>
       </div>
       <div class="toolbar-group create-group" aria-label="新增记录">
-        <label class="toolbar-field">
-          <span>新增月份</span>
-          <input type="month" id="newMonth" aria-label="新增事项归属月份">
-        </label>
         <button class="btn secondary" type="button" data-action="add-month-item-row">新增事项</button>
       </div>
     `;
     el.list.innerHTML = items.length ? `
-      <div class="table-scroll">
-        <table class="data-table" aria-label="月度事项表">
-          <thead>
-            <tr>
-              <th>完成</th>
-              <th>事项</th>
-              <th>月份</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${items.map(renderMonthItemRow).join("")}
-          </tbody>
-        </table>
+      <div class="table-area">
+        <div class="table-scroll">
+          <table class="data-table" aria-label="月度事项表">
+            <thead>
+              <tr>
+                <th>完成</th>
+                <th>事项</th>
+                <th>描述</th>
+                <th>月份</th>
+                <th>创建时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(renderMonthItemRow).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div class="action-sidebar">
+          <div class="action-sidebar-head">操作</div>
+          <div class="action-sidebar-list"></div>
+        </div>
       </div>
       <p class="table-note">事项按对象维护；月份只是归属字段，历史未完成项会排在前面。</p>
     ` : emptyState("还没有月度事项。可以先新增一件事项，再选择归属月份。");
     applyCurrentFilters();
+    if (items.length) initActionSidebar(items.length);
   }
 
   function renderAnnualGoals() {
@@ -482,25 +502,32 @@
       </div>
     `;
     el.list.innerHTML = items.length ? `
-      <div class="table-scroll">
-        <table class="data-table" aria-label="年度目标表">
-          <thead>
-            <tr>
-              <th>完成</th>
-              <th>目标</th>
-              <th>年份</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${items.map(renderAnnualGoalItemRow).join("")}
-          </tbody>
-        </table>
+      <div class="table-area">
+        <div class="table-scroll">
+          <table class="data-table" aria-label="年度目标表">
+            <thead>
+              <tr>
+                <th>完成</th>
+                <th>目标</th>
+                <th>年份</th>
+                <th>创建时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(renderAnnualGoalItemRow).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div class="action-sidebar">
+          <div class="action-sidebar-head">操作</div>
+          <div class="action-sidebar-list"></div>
+        </div>
       </div>
       <p class="table-note">目标按对象维护；年份只是归属字段，历史未完成项会排在前面。</p>
     ` : emptyState("还没有年度目标。可以先新增一个目标，再选择归属年份。");
     applyCurrentFilters();
+    if (items.length) initActionSidebar(items.length);
   }
 
   function renderAnnualGoalItemRow(item) {
@@ -509,8 +536,8 @@
         <td><input type="checkbox" data-field="goal-done" ${item.done ? "checked" : ""} aria-label="完成状态"></td>
         <td><input type="text" data-field="goal-text" value="${escapeAttr(item.text)}" placeholder="年度目标"></td>
         <td><input type="number" data-field="goal-year" value="${escapeAttr(item.year)}" min="2000" max="2099" aria-label="归属年份"></td>
+        <td class="readonly-cell">${formatTimestamp(item.created_at) || '<span class="muted">—</span>'}</td>
         <td>${statusPill(item.done)}</td>
-        <td><button class="btn danger compact" type="button" data-action="delete-row">删除</button></td>
       </tr>
     `;
   }
@@ -520,9 +547,10 @@
       <tr class="data-row" data-kind="month-item" data-row data-done="${item.done ? "true" : "false"}" data-month="${escapeAttr(item.month)}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}">
         <td><input type="checkbox" data-field="month-done" ${item.done ? "checked" : ""} aria-label="完成状态"></td>
         <td><input type="text" data-field="month-text" value="${escapeAttr(item.text)}" placeholder="月度重要事项"></td>
+        <td><input type="text" data-field="month-note" value="${escapeAttr(item.note || "")}"></td>
         <td><input type="month" data-field="month-value" value="${escapeAttr(item.month)}" aria-label="归属月份"></td>
+        <td class="readonly-cell">${formatTimestamp(item.created_at) || '<span class="muted">—</span>'}</td>
         <td>${statusPill(item.done)}</td>
-        <td><button class="btn danger compact" type="button" data-action="delete-row">删除</button></td>
       </tr>
     `;
   }
@@ -551,12 +579,80 @@
 
     const action = button.dataset.action;
     if (action === "delete-row") {
-      button.closest("[data-row]")?.remove();
+      const sidebarItem = button.closest(".action-sidebar-item");
+      const tbody = el.list.querySelector(".data-table tbody");
+      if (sidebarItem && tbody) {
+        const list = sidebarItem.parentElement;
+        const index = [...list.children].indexOf(sidebarItem);
+        const rows = [...tbody.querySelectorAll(".data-row")];
+        const row = rows[index];
+        if (row) {
+          undoStack.push({ rowHTML: row.outerHTML, sidebarHTML: sidebarItem.outerHTML, index, kind: "row" });
+          row.remove();
+        }
+        sidebarItem.remove();
+      } else {
+        const row = button.closest("[data-row]");
+        if (row) { row.remove(); }
+      }
       requestSave();
     }
     if (action === "delete-definition") {
-      button.closest(".definition-row")?.remove();
+      const sidebarItem = button.closest(".action-sidebar-item");
+      const defRow = button.closest(".definition-row");
+      if (sidebarItem && defRow) {
+        const list = sidebarItem.parentElement;
+        const index = [...list.children].indexOf(sidebarItem);
+        undoStack.push({ rowHTML: defRow.outerHTML, sidebarHTML: sidebarItem.outerHTML, index, kind: "definition" });
+        defRow.remove();
+        sidebarItem.remove();
+      } else {
+        if (defRow) defRow.remove();
+        if (sidebarItem) sidebarItem.remove();
+      }
       requestSave({ rerenderAfterSave: true });
+    }
+  });
+
+  /* ── Undo delete ── */
+
+  const undoStack = [];
+
+  function undoDelete() {
+    const entry = undoStack.pop();
+    if (!entry) return;
+    clearTimeout(state.saveTimer);
+    const tbody = el.list.querySelector(".data-table tbody");
+    const sidebarList = el.list.querySelector(".action-sidebar-list");
+    if (entry.kind === "row" && tbody) {
+      const rows = [...tbody.querySelectorAll(".data-row")];
+      const ref = rows[entry.index] || null;
+      if (ref) ref.insertAdjacentHTML("beforebegin", entry.rowHTML);
+      else tbody.insertAdjacentHTML("beforeend", entry.rowHTML);
+    } else if (entry.kind === "definition") {
+      const defRows = el.list.querySelectorAll(".definition-row");
+      const ref = defRows[entry.index] || null;
+      if (ref) ref.insertAdjacentHTML("beforebegin", entry.rowHTML);
+      else {
+        const tbody2 = el.list.querySelector("tbody");
+        if (tbody2) tbody2.insertAdjacentHTML("beforeend", entry.rowHTML);
+      }
+    }
+    if (sidebarList) {
+      const items = [...sidebarList.children];
+      const ref = items[entry.index] || null;
+      if (ref) ref.insertAdjacentHTML("beforebegin", entry.sidebarHTML);
+      else sidebarList.insertAdjacentHTML("beforeend", entry.sidebarHTML);
+    }
+    applyCurrentFilters();
+    requestSave();
+    setNotice("已撤销删除。", "saved");
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      undoDelete();
     }
   });
 
@@ -585,16 +681,20 @@
           date,
           slot,
           text: "",
-          done: false
+          done: false,
+          created_at: nowSeconds()
         }));
         tbody.querySelector('[data-field="frog-text"]')?.focus();
         applyCurrentFilters();
+        const sidebarList = el.list.querySelector(".action-sidebar-list");
+        if (sidebarList) sidebarList.insertAdjacentHTML("afterbegin", '<div class="action-sidebar-item"><button class="btn danger compact" type="button" data-action="delete-row">删除</button></div>');
+        initColumnResize();
       }
     }
 
     if (action === "add-habit-definition") {
       state.snapshot.habits = collectHabits();
-      state.snapshot.habits.definitions.push({ id: uid("habit"), label: "新的习惯" });
+      state.snapshot.habits.definitions.push({ id: uid("habit"), label: "新的习惯", created_at: nowSeconds() });
       renderHabits();
       requestSave();
     }
@@ -624,11 +724,13 @@
         }));
         tbody.querySelector('[data-field="goal-text"]')?.focus();
         applyCurrentFilters();
+        const sidebarList = el.list.querySelector(".action-sidebar-list");
+        if (sidebarList) sidebarList.insertAdjacentHTML("afterbegin", '<div class="action-sidebar-item"><button class="btn danger compact" type="button" data-action="delete-row">删除</button></div>');
       }
     }
 
     if (action === "add-month-item-row") {
-      const month = document.getElementById("newMonth")?.value || currentMonth;
+      const month = currentMonth;
       resetObjectFilters();
       const tbody = ensureMonthlyTbody();
       if (tbody) {
@@ -637,11 +739,14 @@
           id: uid("month"),
           text: "",
           done: false,
+          note: "",
           created_at: nowSeconds(),
           updated_at: null
         }));
         tbody.querySelector('[data-field="month-text"]')?.focus();
         applyCurrentFilters();
+        const sidebarList = el.list.querySelector(".action-sidebar-list");
+        if (sidebarList) sidebarList.insertAdjacentHTML("afterbegin", '<div class="action-sidebar-item"><button class="btn danger compact" type="button" data-action="delete-row">删除</button></div>');
       }
     }
   });
@@ -695,7 +800,8 @@
       const note = row.querySelector('[data-field="frog-note"]')?.value || "";
       if (!text.trim()) return;
       if (!grouped.has(date)) grouped.set(date, normalizeFrogItems([]));
-      grouped.get(date)[Math.max(1, Math.min(3, slot)) - 1] = { slot: Math.max(1, Math.min(3, slot)), text, done, note };
+      const createdAt = Number(row.dataset.createdAt) || null;
+      grouped.get(date)[Math.max(1, Math.min(3, slot)) - 1] = { slot: Math.max(1, Math.min(3, slot)), text, done, note, created_at: createdAt };
     });
     const days = [...grouped.entries()].map(([date, items]) => ({ date, items, updated_at: null }));
     return { schema_version: 1, days };
@@ -704,7 +810,8 @@
   function collectHabits() {
     const definitions = [...el.list.querySelectorAll(".definition-row")].map((row) => ({
       id: row.querySelector('[data-field="habit-id"]')?.value || "",
-      label: row.querySelector('[data-field="habit-label"]')?.value || ""
+      label: row.querySelector('[data-field="habit-label"]')?.value || "",
+      created_at: Number(row.dataset.createdAt) || null
     }));
     const validDefinitions = normalizeDefinitions(definitions);
     const validIds = new Set(validDefinitions.map((definition) => definition.id));
@@ -725,11 +832,13 @@
       if (!isMonth(month)) return;
       const text = row.querySelector('[data-field="month-text"]')?.value || "";
       if (!text.trim()) return;
+      const note = row.querySelector('[data-field="month-note"]')?.value || "";
       if (!grouped.has(month)) grouped.set(month, []);
       grouped.get(month).push({
         id: row.dataset.itemId || uid("month"),
         text,
         done: Boolean(row.querySelector('[data-field="month-done"]')?.checked),
+        note,
         created_at: Number(row.dataset.createdAt) || nowSeconds(),
         updated_at: null
       });
@@ -771,15 +880,20 @@
     const date = document.getElementById("dateFilter")?.value || "";
     const month = document.getElementById("monthFilter")?.value || "";
     const year = document.getElementById("yearFilter")?.value || "";
-    el.list.querySelectorAll("[data-row]").forEach((row) => {
+    const rows = [...el.list.querySelectorAll("[data-row]")];
+    const sidebarItems = [...(el.list.querySelectorAll(".action-sidebar-item") || [])];
+    rows.forEach((row, index) => {
       const text = `${row.dataset.search || ""} ${row.querySelector("input[type='text']")?.value || ""}`.toLowerCase();
       const done = row.dataset.done === "true";
       const statusMatch = status === "all" || (status === "done" && done) || (status === "open" && !done);
       const dateMatch = !date || row.dataset.date === date;
       const monthMatch = !month || row.dataset.month === month;
       const yearMatch = !year || row.dataset.year === year;
-      row.hidden = Boolean(query && !text.includes(query)) || !statusMatch || !dateMatch || !monthMatch || !yearMatch;
+      const hidden = Boolean(query && !text.includes(query)) || !statusMatch || !dateMatch || !monthMatch || !yearMatch;
+      row.hidden = hidden;
+      if (sidebarItems[index]) sidebarItems[index].hidden = hidden;
     });
+    syncSidebarRowHeights();
   }
 
   function nextFrogSlot(date, excludeRow = null) {
@@ -826,21 +940,27 @@
     let tbody = el.list.querySelector("tbody");
     if (tbody) return tbody;
     el.list.innerHTML = `
-      <div class="table-scroll">
-        <table class="data-table" aria-label="三只青蛙任务表">
-          <thead>
-            <tr>
-              <th>完成</th>
-              <th>青蛙任务</th>
-              <th>描述</th>
-              <th>关联日期</th>
-              <th>序号</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="table-area">
+        <div class="table-scroll">
+          <table class="data-table" aria-label="三只青蛙任务表">
+            <thead>
+              <tr>
+                <th>完成</th>
+                <th>青蛙任务</th>
+                <th>描述</th>
+                <th>关联日期</th>
+                <th>序号</th>
+                <th>创建时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="action-sidebar">
+          <div class="action-sidebar-head">操作</div>
+          <div class="action-sidebar-list"></div>
+        </div>
       </div>
       <p class="table-note">筛选只影响显示，不会删掉隐藏记录。</p>
     `;
@@ -851,19 +971,26 @@
     let tbody = el.list.querySelector("tbody");
     if (tbody) return tbody;
     el.list.innerHTML = `
-      <div class="table-scroll">
-        <table class="data-table" aria-label="月度事项表">
-          <thead>
-            <tr>
-              <th>完成</th>
-              <th>事项</th>
-              <th>月份</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="table-area">
+        <div class="table-scroll">
+          <table class="data-table" aria-label="月度事项表">
+            <thead>
+              <tr>
+                <th>完成</th>
+                <th>事项</th>
+                <th>描述</th>
+                <th>月份</th>
+                <th>创建时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="action-sidebar">
+          <div class="action-sidebar-head">操作</div>
+          <div class="action-sidebar-list"></div>
+        </div>
       </div>
       <p class="table-note">事项按对象维护；月份只是归属字段，历史未完成项会排在前面。</p>
     `;
@@ -874,19 +1001,25 @@
     let tbody = el.list.querySelector("tbody");
     if (tbody) return tbody;
     el.list.innerHTML = `
-      <div class="table-scroll">
-        <table class="data-table" aria-label="年度目标表">
-          <thead>
-            <tr>
-              <th>完成</th>
-              <th>目标</th>
-              <th>年份</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="table-area">
+        <div class="table-scroll">
+          <table class="data-table" aria-label="年度目标表">
+            <thead>
+              <tr>
+                <th>完成</th>
+                <th>目标</th>
+                <th>年份</th>
+                <th>创建时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="action-sidebar">
+          <div class="action-sidebar-head">操作</div>
+          <div class="action-sidebar-list"></div>
+        </div>
       </div>
       <p class="table-note">目标按对象维护；年份只是归属字段，历史未完成项会排在前面。</p>
     `;
@@ -923,12 +1056,13 @@
         text: item.text,
         done: item.done,
         note: item.note,
+        created_at: item.created_at || null,
         updated_at: day.updated_at || null
       })));
   }
 
   function sortFrogTasks(tasks) {
-    return [...tasks].sort((a, b) => Number(a.done) - Number(b.done) || b.date.localeCompare(a.date) || a.slot - b.slot);
+    return [...tasks].sort((a, b) => Number(a.done) - Number(b.done) || b.date.localeCompare(a.date) || a.slot - b.slot || (Number(b.created_at) || 0) - (Number(a.created_at) || 0));
   }
 
   function flattenAnnualGoalItems(years) {
@@ -943,7 +1077,7 @@
   }
 
   function sortAnnualGoalItems(items) {
-    return [...items].sort((a, b) => Number(a.done) - Number(b.done) || b.year.localeCompare(a.year) || String(a.text).localeCompare(String(b.text), "zh-CN"));
+    return [...items].sort((a, b) => Number(a.done) - Number(b.done) || b.year.localeCompare(a.year) || (Number(b.created_at) || 0) - (Number(a.created_at) || 0));
   }
 
   function collectAnnualGoals() {
@@ -972,13 +1106,14 @@
       id: item.id || uid("month"),
       text: item.text || "",
       done: Boolean(item.done),
+      note: item.note || "",
       created_at: item.created_at || nowSeconds(),
       updated_at: item.updated_at || null
     })));
   }
 
   function sortMonthItems(items) {
-    return [...items].sort((a, b) => Number(a.done) - Number(b.done) || b.month.localeCompare(a.month) || String(a.text).localeCompare(String(b.text), "zh-CN"));
+    return [...items].sort((a, b) => Number(a.done) - Number(b.done) || b.month.localeCompare(a.month) || (Number(b.created_at) || 0) - (Number(a.created_at) || 0));
   }
 
   function setSummary(items) {
@@ -1050,7 +1185,8 @@
         slot,
         text: String(item.text || ""),
         done: Boolean(item.done),
-        note: String(item.note || "")
+        note: String(item.note || ""),
+        created_at: item.created_at || null
       };
     });
   }
@@ -1064,7 +1200,7 @@
       let id = String(definition.id || "").trim() || `habit-${index + 1}`;
       if (seen.has(id)) id = `${id}-${index + 1}`;
       seen.add(id);
-      rows.push({ id, label });
+      rows.push({ id, label, created_at: definition.created_at || null });
     });
     return rows.length ? rows : defaultHabitDefinitions();
   }
@@ -1087,6 +1223,7 @@
         id: item.id || uid("month"),
         text: String(item.text || "").trim(),
         done: Boolean(item.done),
+        note: String(item.note || ""),
         created_at: item.created_at || nowSeconds(),
         updated_at: item.updated_at || null
       })),
@@ -1131,6 +1268,125 @@
   function uid(prefix) {
     if (crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
     return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  /* ── Action sidebar ── */
+
+  function initActionSidebar(count, actionType = "delete-row") {
+    const sidebar = el.list.querySelector(".action-sidebar");
+    if (!sidebar) return;
+    sidebar.dataset.actionType = actionType;
+    const scrollEl = el.list.querySelector(".table-scroll");
+    if (!scrollEl) return;
+    const headHeight = scrollEl.querySelector(".data-table thead")?.getBoundingClientRect().height || 0;
+    sidebar.querySelector(".action-sidebar-head").style.minHeight = headHeight + "px";
+    scrollEl.addEventListener("scroll", () => { sidebar.scrollTop = scrollEl.scrollTop; });
+    syncActionSidebar(count, actionType);
+    syncSidebarRowHeights();
+  }
+
+  function syncSidebarRowHeights() {
+    const sidebarItems = el.list.querySelectorAll(".action-sidebar-item");
+    const rows = el.list.querySelectorAll(".data-table tbody .data-row");
+    sidebarItems.forEach((item, i) => {
+      if (rows[i]) {
+        item.style.height = rows[i].getBoundingClientRect().height + "px";
+        item.style.minHeight = "0";
+      }
+    });
+  }
+
+  function syncActionSidebar(count, actionType) {
+    const list = el.list.querySelector(".action-sidebar-list");
+    if (!list) return;
+    const at = actionType || el.list.querySelector(".action-sidebar")?.dataset.actionType || "delete-row";
+    const items = Array.from({ length: count }, () =>
+      `<div class="action-sidebar-item"><button class="btn danger compact" type="button" data-action="${at}">删除</button></div>`
+    ).join("");
+    list.innerHTML = items;
+  }
+
+  /* ── Column resize ── */
+
+  const colResizeState = {};
+
+  function getColKey(table) {
+    return table.getAttribute("aria-label") || "default";
+  }
+
+  function getResizeInfo() {
+    const saved = colResizeState[managerType];
+    if (saved) return saved;
+    const table = el.list.querySelector(".data-table");
+    if (!table) return null;
+    const ths = [...table.tHead.rows[0].cells];
+    colResizeState[managerType] = { table, ths };
+    return colResizeState[managerType];
+  }
+
+  function initColumnResize() {
+    colResizeState[managerType] = null;
+    const table = el.list.querySelector(".data-table");
+    if (!table || !table.tHead) return;
+    const ths = [...table.tHead.rows[0].cells];
+    if (ths.length < 2) return;
+    colResizeState[managerType] = { table, ths };
+    ths.forEach((th) => { th.style.position = "relative"; });
+    restoreColumnWidths(table, ths);
+    ths.slice(0, -1).forEach((th, index) => {
+      const handle = document.createElement("div");
+      handle.className = "col-resize-handle";
+      th.appendChild(handle);
+      handle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const info = getResizeInfo();
+        if (!info) return;
+        const colIndex = info.ths.indexOf(th);
+        const startX = e.clientX;
+        const widths = info.ths.map((h) => Math.round(h.getBoundingClientRect().width));
+        info.ths.forEach((h, i) => { h.style.width = widths[i] + "px"; });
+        const startWidth = widths[colIndex];
+        info.table.style.width = widths.reduce((a, b) => a + b, 0) + "px";
+        handle.classList.add("active");
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;cursor:col-resize;z-index:99999";
+        document.body.appendChild(overlay);
+        function onMove(me) {
+          const newWidth = Math.max(40, startWidth + (me.clientX - startX));
+          widths[colIndex] = Math.round(newWidth);
+          info.ths[colIndex].style.width = widths[colIndex] + "px";
+          info.table.style.width = widths.reduce((a, b) => a + b, 0) + "px";
+        }
+        function onUp() {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+          handle.classList.remove("active");
+          overlay.remove();
+          saveColumnWidths(managerType, info.ths);
+        }
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      });
+    });
+  }
+
+  function saveColumnWidths(type, ths) {
+    const widths = ths.map((th) => Math.round(th.getBoundingClientRect().width));
+    try {
+      localStorage.setItem(`lifeos-colwidths:${type}`, JSON.stringify(widths));
+    } catch {}
+  }
+
+  function restoreColumnWidths(table, ths) {
+    let widths;
+    try {
+      widths = JSON.parse(localStorage.getItem(`lifeos-colwidths:${managerType}`));
+    } catch {}
+    if (Array.isArray(widths) && widths.length === ths.length) {
+      ths.forEach((th, i) => { th.style.width = widths[i] + "px"; });
+      table.style.width = widths.reduce((a, b) => a + b, 0) + "px";
+    }
   }
 
   function escapeAttr(value) {

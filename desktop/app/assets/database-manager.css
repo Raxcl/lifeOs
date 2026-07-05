@@ -26,8 +26,9 @@ html {
 }
 
 body {
-  min-height: 100vh;
+  height: 100vh;
   margin: 0;
+  overflow: hidden;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
@@ -50,13 +51,14 @@ a {
 }
 
 .page {
-  width: min(1460px, calc(100% - 28px));
-  margin: 0 auto;
-  padding: 14px 0 36px;
+  width: 100%;
+  height: calc(100vh - var(--window-frame-h, 0px));
+  padding: 14px;
+  overflow: hidden;
 }
 
 .shell {
-  min-height: calc(100vh - 28px);
+  height: 100%;
   border: 1px solid color-mix(in oklch, var(--line) 72%, var(--paper));
   border-radius: 22px;
   background: color-mix(in oklch, var(--paper) 94%, white);
@@ -67,7 +69,7 @@ a {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 16px;
   padding: 16px 20px;
   border-bottom: 1px solid color-mix(in oklch, var(--line) 86%, transparent);
@@ -142,6 +144,8 @@ a {
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 14px;
   padding: 14px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar,
@@ -156,6 +160,7 @@ a {
   align-content: start;
   gap: 14px;
   padding: 16px;
+  overflow: auto;
 }
 
 .summary-card {
@@ -198,6 +203,9 @@ a {
   display: grid;
   gap: 12px;
   padding: 16px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
 }
 
 .section-head {
@@ -233,7 +241,7 @@ a {
 
 .toolbar-group {
   display: flex;
-  flex: 1 1 520px;
+  flex: 1 1 320px;
   flex-wrap: wrap;
   align-items: end;
   gap: 8px;
@@ -246,7 +254,9 @@ a {
 
 .create-group {
   flex: 0 1 auto;
-  background: color-mix(in oklch, var(--leaf) 5%, var(--paper));
+  border-color: transparent;
+  background: none;
+  padding: 0;
 }
 
 .toolbar-field {
@@ -290,6 +300,7 @@ a {
 .record-list {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .record {
@@ -343,17 +354,30 @@ a {
 
 .data-table {
   width: 100%;
-  min-width: 820px;
+  table-layout: fixed;
+  min-width: 960px;
   border-collapse: collapse;
   background: white;
 }
 
 .data-table th,
 .data-table td {
+  position: relative;
   padding: 9px 10px;
   border-bottom: 1px solid color-mix(in oklch, var(--line) 68%, transparent);
   text-align: left;
   vertical-align: middle;
+}
+
+.data-table th::after,
+.data-table td::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: color-mix(in oklch, var(--line) 68%, transparent);
 }
 
 .data-table th {
@@ -366,6 +390,63 @@ a {
   font-weight: 900;
   letter-spacing: 0;
   white-space: nowrap;
+}
+
+.table-area {
+  display: flex;
+  gap: 0;
+  min-width: 0;
+}
+
+.table-area .table-scroll {
+  flex: 1;
+  min-width: 0;
+}
+
+.action-sidebar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in oklch, var(--line) 76%, transparent);
+  border-left: 0;
+  border-radius: 0 14px 14px 0;
+  background: white;
+  overflow: hidden auto;
+}
+
+.action-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 9px 14px;
+  background: color-mix(in oklch, var(--surface) 54%, white);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  white-space: nowrap;
+  border-bottom: 1px solid color-mix(in oklch, var(--line) 68%, transparent);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.action-sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 9px 14px;
+  border-bottom: 1px solid color-mix(in oklch, var(--line) 68%, transparent);
+}
+
+.action-sidebar-item:last-child {
+  border-bottom: 0;
+}
+
+.action-sidebar-item:hover {
+  background: var(--cell-hover);
 }
 
 .data-table td:first-child,
@@ -429,7 +510,7 @@ a {
 }
 
 .habit-definition-table {
-  min-width: 520px;
+  min-width: 700px;
 }
 
 .habit-definition-table td:first-child,
@@ -452,6 +533,21 @@ a {
 
 .readonly-cell {
   white-space: nowrap;
+}
+
+.col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+}
+
+.col-resize-handle:hover,
+.col-resize-handle.active {
+  background: color-mix(in oklch, var(--leaf) 45%, transparent);
 }
 
 .readonly-token {
