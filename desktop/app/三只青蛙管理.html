@@ -4,9 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>三只青蛙管理 | LifeOS</title>
+  <link rel="stylesheet" href="assets/window-frame.css" />
   <link rel="stylesheet" href="assets/database-manager.css" />
 </head>
 <body data-manager="frogs">
+  <div class="window-frame" data-tauri-drag-region>
+    <div class="window-title" data-tauri-drag-region>三只青蛙管理 | LifeOS</div>
+    <div class="window-controls">
+      <button class="window-control" type="button" data-window-control="minimize" aria-label="最小化">─</button>
+      <button class="window-control" type="button" data-window-control="maximize" aria-label="最大化">□</button>
+      <button class="window-control close" type="button" data-window-control="close" aria-label="关闭">×</button>
+    </div>
+  </div>
   <div class="page">
     <main class="shell">
       <header class="topbar">
@@ -52,5 +61,6 @@
   </div>
   <script src="assets/lifeos-shared.js"></script>
   <script src="assets/database-manager.js"></script>
+  <script src="assets/window-controls.js"></script>
 </body>
 </html>

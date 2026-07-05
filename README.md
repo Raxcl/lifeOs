@@ -1,6 +1,40 @@
 ### 注：想要一起讨论或共建，欢迎联系 Q：2407414779
 
 
+## 快速开始
+
+需要先安装：
+
+- Node.js
+- Rust
+- Windows 上还需要 Visual Studio Build Tools，并勾选 C++ 桌面开发相关组件
+
+安装依赖并启动开发模式：
+
+```powershell
+cd desktop
+npm install
+npm run tauri:dev
+```
+
+开发模式使用 `--no-dev-server` 直接加载本地静态资源。
+
+打包桌面应用：
+
+```powershell
+cd desktop
+npm run tauri:build
+```
+
+Tauri 环境检查：
+
+```powershell
+cd desktop
+rustc --version
+cargo --version
+npx tauri info
+```
+
 # LifeOS
 
 LifeOS 是一个本地优先的人生管理系统。它把晨间日记、三只青蛙、习惯坚持、本月重要事项、长期领域和阶段复盘放到同一套 Markdown + CSV 工作流里，方便用桌面应用记录，也方便用 Obsidian、编辑器或 AI 工具做回顾。
@@ -59,39 +93,6 @@ LifeOS 是一个本地优先的人生管理系统。它把晨间日记、三只�
 - HTML / CSS / JavaScript
 - Markdown + CSV 本地数据
 
-## 快速开始
-
-需要先安装：
-
-- Node.js
-- Rust
-- Windows 上还需要 Visual Studio Build Tools，并勾选 C++ 桌面开发相关组件
-
-安装依赖并启动开发模式：
-
-```powershell
-cd desktop
-npm install
-npm run tauri:dev
-```
-
-开发模式使用 `--no-dev-server` 直接加载本地静态资源。
-
-打包桌面应用：
-
-```powershell
-cd desktop
-npm run tauri:build
-```
-
-Tauri 环境检查：
-
-```powershell
-cd desktop
-rustc --version
-cargo --version
-npx tauri info
-```
 
 ## 数据目录
 
