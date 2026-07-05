@@ -88,6 +88,8 @@ struct FrogItem {
     slot: u8,
     text: String,
     done: bool,
+    #[serde(default)]
+    note: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -104,6 +106,8 @@ struct FrogBacklogItem {
     text: String,
     done: bool,
     updated_at: Option<u64>,
+    #[serde(default)]
+    note: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -164,11 +168,34 @@ struct MonthlyDatabase {
     months: Vec<MonthlyRecord>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct AnnualGoalItem {
+    id: String,
+    text: String,
+    done: bool,
+    created_at: Option<u64>,
+    updated_at: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct AnnualGoalRecord {
+    year: String,
+    items: Vec<AnnualGoalItem>,
+    updated_at: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct AnnualGoalDatabase {
+    schema_version: u8,
+    years: Vec<AnnualGoalRecord>,
+}
+
 #[derive(Serialize)]
 struct DatabasePaths {
     frogs: String,
     habits: String,
     monthly: String,
+    annual_goals: String,
 }
 
 #[derive(Serialize)]
@@ -179,6 +206,7 @@ struct JournalDatabases {
     habit_definitions: Vec<HabitDefinition>,
     monthly: MonthlyRecord,
     monthly_backlog: Vec<MonthlyBacklogItem>,
+    annual_goals: AnnualGoalRecord,
     paths: DatabasePaths,
 }
 
@@ -187,6 +215,7 @@ struct JournalDatabaseManager {
     frogs: FrogDatabase,
     habits: HabitDatabase,
     monthly: MonthlyDatabase,
+    annual_goals: AnnualGoalDatabase,
     paths: DatabasePaths,
 }
 
@@ -221,6 +250,15 @@ impl Default for MonthlyDatabase {
         Self {
             schema_version: 1,
             months: Vec::new(),
+        }
+    }
+}
+
+impl Default for AnnualGoalDatabase {
+    fn default() -> Self {
+        Self {
+            schema_version: 1,
+            years: Vec::new(),
         }
     }
 }
@@ -515,20 +553,22 @@ fn databases_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(vault_root(app)?.join("00-Databases"))
 }
 
-fn database_paths(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf, PathBuf), String> {
+fn database_paths(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf, PathBuf, PathBuf), String> {
     let dir = databases_dir(app)?;
     Ok((
         dir.join("frogs.csv"),
         dir.join("habits.csv"),
         dir.join("monthly-important.csv"),
+        dir.join("annual-goals.csv"),
     ))
 }
 
-fn database_path_labels(frogs: &Path, habits: &Path, monthly: &Path) -> DatabasePaths {
+fn database_path_labels(frogs: &Path, habits: &Path, monthly: &Path, annual_goals: &Path) -> DatabasePaths {
     DatabasePaths {
         frogs: frogs.display().to_string(),
         habits: habits.display().to_string(),
         monthly: monthly.display().to_string(),
+        annual_goals: annual_goals.display().to_string(),
     }
 }
 
@@ -811,6 +851,7 @@ fn normalize_frog_items(items: Vec<FrogItem>) -> Vec<FrogItem> {
                     slot: item.slot,
                     text: item.text.trim().to_string(),
                     done: item.done,
+                    note: item.note.trim().to_string(),
                 },
             );
         }
@@ -822,6 +863,7 @@ fn normalize_frog_items(items: Vec<FrogItem>) -> Vec<FrogItem> {
                 slot,
                 text: String::new(),
                 done: false,
+                note: String::new(),
             })
         })
         .collect()
@@ -986,6 +1028,7 @@ fn collect_frog_backlog(days: &[FrogDay]) -> Vec<FrogBacklogItem> {
                 text: text.to_string(),
                 done: false,
                 updated_at: day.updated_at,
+                note: item.note.clone(),
             });
         }
     }
@@ -1022,6 +1065,7 @@ fn apply_frog_backlog(
             if let Some(frog) = day.items.iter_mut().find(|frog| frog.slot == item.slot) {
                 frog.text = text;
                 frog.done = item.done;
+                frog.note = item.note.trim().to_string();
             }
             day.updated_at = Some(now);
         }
@@ -1108,10 +1152,18 @@ fn apply_monthly_backlog(
     Ok(())
 }
 
-const FROG_CSV_HEADERS: &[&str] = &["date", "slot", "text", "done", "updated_at"];
+const FROG_CSV_HEADERS: &[&str] = &["date", "slot", "text", "done", "note", "updated_at"];
 const HABIT_CSV_HEADERS: &[&str] = &["date", "habit_id", "habit_name", "checked", "updated_at"];
 const MONTHLY_CSV_HEADERS: &[&str] = &[
     "month",
+    "item_id",
+    "text",
+    "done",
+    "created_at",
+    "updated_at",
+];
+const ANNUAL_GOAL_CSV_HEADERS: &[&str] = &[
+    "year",
     "item_id",
     "text",
     "done",
@@ -1143,6 +1195,7 @@ fn read_frog_database(path: &Path) -> Result<FrogDatabase, String> {
             slot,
             text: csv_cell(&row, "text"),
             done: parse_csv_bool(&csv_cell(&row, "done")),
+            note: csv_cell(&row, "note"),
         });
     }
 
@@ -1171,6 +1224,7 @@ fn write_frog_database(path: &Path, database: &FrogDatabase) -> Result<(), Strin
                 item.slot.to_string(),
                 item.text,
                 bool_csv(item.done),
+                item.note,
                 timestamp_csv(day.updated_at),
             ]);
         }
@@ -1340,6 +1394,115 @@ fn write_monthly_database(path: &Path, database: &MonthlyDatabase) -> Result<(),
         }
     }
     write_csv(path, MONTHLY_CSV_HEADERS, rows)
+}
+
+fn year_key(date: &str) -> Result<String, String> {
+    let (year, _, _) = parse_date(date)?;
+    Ok(year)
+}
+
+fn parse_year(year: &str) -> Result<(), String> {
+    if year.len() != 4 || !year.chars().all(|char| char.is_ascii_digit()) {
+        return Err("年份格式应为 YYYY".to_string());
+    }
+    Ok(())
+}
+
+fn read_annual_goal_database(path: &Path) -> Result<AnnualGoalDatabase, String> {
+    let rows = read_csv(path, ANNUAL_GOAL_CSV_HEADERS)?;
+    let now = now_seconds();
+    let mut by_year: HashMap<String, Vec<AnnualGoalItem>> = HashMap::new();
+    let mut updated_at: HashMap<String, u64> = HashMap::new();
+
+    for (index, row) in rows.into_iter().enumerate() {
+        let year = csv_cell(&row, "year");
+        parse_year(&year)?;
+        let item_id = csv_cell(&row, "item_id");
+
+        // Year metadata row — preserves updated_at for years with 0 items
+        if item_id == "__YEAR__" {
+            let updated = parse_optional_u64(&csv_cell(&row, "updated_at"));
+            if let Some(timestamp) = updated {
+                updated_at
+                    .entry(year.clone())
+                    .and_modify(|value| *value = (*value).max(timestamp))
+                    .or_insert(timestamp);
+            }
+            by_year.entry(year.clone()).or_default();
+            continue;
+        }
+
+        let text = csv_cell(&row, "text");
+        if text.is_empty() {
+            continue;
+        }
+
+        let updated = parse_optional_u64(&csv_cell(&row, "updated_at"));
+        if let Some(timestamp) = updated {
+            updated_at
+                .entry(year.clone())
+                .and_modify(|value| *value = (*value).max(timestamp))
+                .or_insert(timestamp);
+        }
+
+        by_year
+            .entry(year.clone())
+            .or_default()
+            .push(AnnualGoalItem {
+                id: {
+                    if item_id.is_empty() {
+                        format!("{year}-{}-{now}", index + 1)
+                    } else {
+                        item_id
+                    }
+                },
+                text,
+                done: parse_csv_bool(&csv_cell(&row, "done")),
+                created_at: parse_optional_u64(&csv_cell(&row, "created_at")).or(Some(now)),
+                updated_at: updated.or(Some(now)),
+            });
+    }
+
+    let mut years = by_year
+        .into_iter()
+        .map(|(year, items)| AnnualGoalRecord {
+            updated_at: updated_at.get(&year).copied(),
+            year,
+            items,
+        })
+        .collect::<Vec<_>>();
+    years.sort_by(|left, right| left.year.cmp(&right.year));
+
+    Ok(AnnualGoalDatabase {
+        schema_version: 1,
+        years,
+    })
+}
+
+fn write_annual_goal_database(path: &Path, database: &AnnualGoalDatabase) -> Result<(), String> {
+    let mut rows = Vec::new();
+    for record in &database.years {
+        // Always write a year metadata row to preserve updated_at through CSV round-trips
+        rows.push(vec![
+            record.year.clone(),
+            "__YEAR__".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
+            timestamp_csv(record.updated_at),
+        ]);
+        for item in &record.items {
+            rows.push(vec![
+                record.year.clone(),
+                item.id.clone(),
+                item.text.clone(),
+                bool_csv(item.done),
+                timestamp_csv(item.created_at),
+                timestamp_csv(item.updated_at.or(record.updated_at)),
+            ]);
+        }
+    }
+    write_csv(path, ANNUAL_GOAL_CSV_HEADERS, rows)
 }
 
 fn parse_date(date: &str) -> Result<(String, String, String), String> {
@@ -1950,7 +2113,7 @@ fn add_visual_template(
 
 #[tauri::command]
 async fn get_database_manager(app: tauri::AppHandle) -> Result<JournalDatabaseManager, String> {
-    let (frogs_path, habits_path, monthly_path) = database_paths(&app)?;
+    let (frogs_path, habits_path, monthly_path, annual_goals_path) = database_paths(&app)?;
     let mut habits = read_habit_database(&habits_path)?;
     if habits.definitions.is_empty() {
         habits.definitions = default_habit_definitions();
@@ -1961,7 +2124,8 @@ async fn get_database_manager(app: tauri::AppHandle) -> Result<JournalDatabaseMa
         frogs: read_frog_database(&frogs_path)?,
         habits,
         monthly: read_monthly_database(&monthly_path)?,
-        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path),
+        annual_goals: read_annual_goal_database(&annual_goals_path)?,
+        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path, &annual_goals_path),
     })
 }
 
@@ -1970,7 +2134,7 @@ async fn save_frog_database(
     app: tauri::AppHandle,
     days: Vec<FrogDay>,
 ) -> Result<FrogDatabase, String> {
-    let (frogs_path, _, _) = database_paths(&app)?;
+    let (frogs_path, _, _, _) = database_paths(&app)?;
     let database = FrogDatabase {
         schema_version: 1,
         days: normalize_frog_days(days, now_seconds())?,
@@ -1985,7 +2149,7 @@ async fn save_habit_database(
     definitions: Vec<HabitDefinition>,
     days: Vec<HabitDay>,
 ) -> Result<HabitDatabase, String> {
-    let (_, habits_path, _) = database_paths(&app)?;
+    let (_, habits_path, _, _) = database_paths(&app)?;
     let now = now_seconds();
     let definitions = normalize_habit_definitions(definitions, now);
     let database = HabitDatabase {
@@ -2002,7 +2166,7 @@ async fn save_monthly_database(
     app: tauri::AppHandle,
     months: Vec<MonthlyRecord>,
 ) -> Result<MonthlyDatabase, String> {
-    let (_, _, monthly_path) = database_paths(&app)?;
+    let (_, _, monthly_path, _) = database_paths(&app)?;
     let database = MonthlyDatabase {
         schema_version: 1,
         months: normalize_monthly_records(months, now_seconds())?,
@@ -2018,7 +2182,8 @@ async fn get_journal_databases(
 ) -> Result<JournalDatabases, String> {
     parse_date(&date)?;
     let month = month_key(&date)?;
-    let (frogs_path, habits_path, monthly_path) = database_paths(&app)?;
+    let year = year_key(&date)?;
+    let (frogs_path, habits_path, monthly_path, annual_goals_path) = database_paths(&app)?;
 
     let frogs_db = read_frog_database(&frogs_path)?;
     let habits_db = read_habit_database(&habits_path)?;
@@ -2041,7 +2206,7 @@ async fn get_journal_databases(
         .find(|day| day.date == date)
         .cloned()
         .unwrap_or(HabitDay {
-            date,
+            date: date.clone(),
             checks: HashMap::new(),
             updated_at: None,
         });
@@ -2057,6 +2222,18 @@ async fn get_journal_databases(
             updated_at: None,
         });
 
+    let annual_goals_db = read_annual_goal_database(&annual_goals_path)?;
+    let annual_goals = annual_goals_db
+        .years
+        .iter()
+        .find(|record| record.year == year)
+        .cloned()
+        .unwrap_or(AnnualGoalRecord {
+            year: year.clone(),
+            items: Vec::new(),
+            updated_at: None,
+        });
+
     Ok(JournalDatabases {
         frogs,
         frog_backlog: collect_frog_backlog(&frogs_db.days),
@@ -2064,7 +2241,8 @@ async fn get_journal_databases(
         habit_definitions: habits_db.definitions,
         monthly,
         monthly_backlog: collect_monthly_backlog(&monthly_db.months),
-        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path),
+        annual_goals,
+        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path, &annual_goals_path),
     })
 }
 
@@ -2077,11 +2255,12 @@ async fn save_journal_databases(
     monthly: Vec<MonthlyItem>,
     frog_backlog: Option<Vec<FrogBacklogItem>>,
     monthly_backlog: Option<Vec<MonthlyBacklogItem>>,
+    annual_goals: Option<Vec<AnnualGoalItem>>,
 ) -> Result<JournalDatabases, String> {
     parse_date(&date)?;
     let month = month_key(&date)?;
     let now = now_seconds();
-    let (frogs_path, habits_path, monthly_path) = database_paths(&app)?;
+    let (frogs_path, habits_path, monthly_path, annual_goals_path) = database_paths(&app)?;
 
     let mut frogs_db = read_frog_database(&frogs_path)?;
     let frog_day = FrogDay {
@@ -2131,6 +2310,25 @@ async fn save_journal_databases(
     )?;
     write_monthly_database(&monthly_path, &monthly_db)?;
 
+    let mut annual_goals_db = read_annual_goal_database(&annual_goals_path)?;
+    let year = year_key(&date)?;
+    log::info!("[save_journal_databases] annual_goals param: {:?} items", annual_goals.as_ref().map(|v| v.len()));
+    if let Some(goal_items) = annual_goals {
+        let normalized = normalize_annual_goal_items(&year, goal_items, now);
+        log::info!("[save_journal_databases] normalized {} annual goal items for year {}", normalized.len(), year);
+        let record = AnnualGoalRecord {
+            year: year.clone(),
+            items: normalized,
+            updated_at: Some(now),
+        };
+        annual_goals_db.years.retain(|r| r.year != year);
+        annual_goals_db.years.push(record);
+        annual_goals_db
+            .years
+            .sort_by(|left, right| left.year.cmp(&right.year));
+        write_annual_goal_database(&annual_goals_path, &annual_goals_db)?;
+    }
+
     let saved_frogs = frogs_db
         .days
         .iter()
@@ -2144,6 +2342,17 @@ async fn save_journal_databases(
         .cloned()
         .unwrap_or(monthly_record);
 
+    let saved_annual_goals = annual_goals_db
+        .years
+        .iter()
+        .find(|record| record.year == year)
+        .cloned()
+        .unwrap_or(AnnualGoalRecord {
+            year: year.clone(),
+            items: Vec::new(),
+            updated_at: None,
+        });
+
     Ok(JournalDatabases {
         frogs: saved_frogs,
         frog_backlog: collect_frog_backlog(&frogs_db.days),
@@ -2151,8 +2360,64 @@ async fn save_journal_databases(
         habit_definitions: habits_db.definitions,
         monthly: saved_monthly,
         monthly_backlog: collect_monthly_backlog(&monthly_db.months),
-        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path),
+        annual_goals: saved_annual_goals,
+        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path, &annual_goals_path),
     })
+}
+
+#[tauri::command]
+async fn save_annual_goal_database(
+    app: tauri::AppHandle,
+    years: Vec<AnnualGoalRecord>,
+) -> Result<AnnualGoalDatabase, String> {
+    let (_, _, _, annual_goals_path) = database_paths(&app)?;
+    let now = now_seconds();
+    let mut normalized = Vec::new();
+    let mut seen = HashSet::new();
+    for record in years {
+        parse_year(&record.year)?;
+        if !seen.insert(record.year.clone()) {
+            continue;
+        }
+        let items = normalize_annual_goal_items(&record.year, record.items, now);
+        normalized.push(AnnualGoalRecord {
+            year: record.year,
+            items,
+            updated_at: Some(now),
+        });
+    }
+    normalized.sort_by(|left, right| left.year.cmp(&right.year));
+    let database = AnnualGoalDatabase {
+        schema_version: 1,
+        years: normalized,
+    };
+    write_annual_goal_database(&annual_goals_path, &database)?;
+    Ok(database)
+}
+
+fn normalize_annual_goal_items(year: &str, items: Vec<AnnualGoalItem>, now: u64) -> Vec<AnnualGoalItem> {
+    items
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, item)| {
+            let text = item.text.trim().to_string();
+            if text.is_empty() {
+                return None;
+            }
+            let id = if item.id.trim().is_empty() {
+                format!("{year}-{}-{now}", index + 1)
+            } else {
+                item.id
+            };
+            Some(AnnualGoalItem {
+                id,
+                text,
+                done: item.done,
+                created_at: item.created_at.or(Some(now)),
+                updated_at: Some(now),
+            })
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -2375,6 +2640,7 @@ mod tests {
                 slot: 2,
                 text: "整理开源清单".to_string(),
                 done: false,
+                note: String::new(),
             }]),
             updated_at: Some(1),
         }];
@@ -2387,6 +2653,7 @@ mod tests {
                 text: "整理开源清单".to_string(),
                 done: true,
                 updated_at: Some(1),
+                note: String::new(),
             }],
             2,
         )
@@ -2505,6 +2772,7 @@ pub fn run() {
             save_frog_database,
             save_habit_database,
             save_monthly_database,
+            save_annual_goal_database,
             get_journal_databases,
             save_journal_databases,
             get_journal_month,

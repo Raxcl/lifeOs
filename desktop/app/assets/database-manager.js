@@ -8,15 +8,18 @@
   } = window.LifeOSShared;
   const isDate = window.LifeOSShared.isDateKey;
   const isMonth = window.LifeOSShared.isMonthKey;
+  const isYear = (value) => /^\d{4}$/.test(String(value || ""));
   const managerType = document.body.dataset.manager;
   const today = new Date();
   const currentDate = formatDate(today);
   const currentMonth = currentDate.slice(0, 7);
+  const currentYear = currentDate.slice(0, 4);
   const tauriInvoke = window.__TAURI__?.core?.invoke;
   const fallbackKeys = {
     frogs: "lifeos-db:frogs",
     habits: "lifeos-db:habits",
-    monthly: "lifeos-db:monthly-important"
+    monthly: "lifeos-db:monthly-important",
+    annualGoals: "lifeos-db:annual-goals"
   };
 
   const config = {
@@ -43,6 +46,14 @@
       pathKey: "monthly",
       saveCommand: "save_monthly_database",
       fileName: "monthly-important.csv"
+    },
+    "annual-goals": {
+      mark: "年",
+      title: "年度目标管理",
+      subtitle: "按年度管理目标；未完成优先，年份只是归属字段。",
+      pathKey: "annual_goals",
+      saveCommand: "save_annual_goal_database",
+      fileName: "annual-goals.csv"
     }
   };
 
@@ -57,8 +68,7 @@
     workspaceSubtitle: document.getElementById("workspaceSubtitle"),
     toolbar: document.getElementById("toolbar"),
     list: document.getElementById("recordList"),
-    notice: document.getElementById("notice"),
-    saveNow: document.getElementById("saveNow")
+    notice: document.getElementById("notice")
   };
 
   const state = {
@@ -98,10 +108,12 @@
         frogs: readFallback(fallbackKeys.frogs, defaultFrogs()),
         habits: readFallback(fallbackKeys.habits, defaultHabits()),
         monthly: readFallback(fallbackKeys.monthly, defaultMonthly()),
+        annual_goals: readFallback(fallbackKeys.annualGoals, defaultAnnualGoals()),
         paths: {
           frogs: `本机预览 / LifeOS-Vault / 00-Databases / ${config.frogs.fileName}`,
           habits: `本机预览 / LifeOS-Vault / 00-Databases / ${config.habits.fileName}`,
-          monthly: `本机预览 / LifeOS-Vault / 00-Databases / ${config.monthly.fileName}`
+          monthly: `本机预览 / LifeOS-Vault / 00-Databases / ${config.monthly.fileName}`,
+          annual_goals: `本机预览 / LifeOS-Vault / 00-Databases / ${config["annual-goals"].fileName}`
         }
       };
     }
@@ -129,6 +141,12 @@
       return database;
     }
 
+    if (command === "save_annual_goal_database") {
+      const database = { schema_version: 1, years: normalizeAnnualGoalYears(args.years || []) };
+      localStorage.setItem(fallbackKeys.annualGoals, JSON.stringify(database));
+      return database;
+    }
+
     throw new Error(`未支持的命令：${command}`);
   }
 
@@ -138,6 +156,8 @@
       renderHabits();
     } else if (managerType === "monthly") {
       renderMonthly();
+    } else if (managerType === "annual-goals") {
+      renderAnnualGoals();
     } else {
       renderFrogs();
     }
@@ -187,6 +207,7 @@
             <tr>
               <th>完成</th>
               <th>青蛙任务</th>
+              <th>描述</th>
               <th>关联日期</th>
               <th>序号</th>
               <th>状态</th>
@@ -208,6 +229,7 @@
       <tr class="data-row" data-kind="frog-item" data-row data-done="${task.done ? "true" : "false"}" data-date="${escapeAttr(task.date)}" data-slot="${escapeAttr(task.slot)}" data-search="${escapeAttr(task.text)}">
         <td><input type="checkbox" data-field="frog-done" ${task.done ? "checked" : ""} aria-label="完成状态"></td>
         <td><input type="text" data-field="frog-text" value="${escapeAttr(task.text)}" placeholder="青蛙任务"></td>
+        <td><input type="text" data-field="frog-note" value="${escapeAttr(task.note)}"></td>
         <td><input type="date" data-field="frog-date" value="${escapeAttr(task.date)}" aria-label="关联日期"></td>
         <td class="readonly-cell">
           <input type="hidden" data-field="frog-slot" value="${escapeAttr(task.slot)}">
@@ -419,6 +441,80 @@
     applyCurrentFilters();
   }
 
+  function renderAnnualGoals() {
+    const years = [...state.snapshot.annual_goals.years].sort((a, b) => b.year.localeCompare(a.year));
+    const items = sortAnnualGoalItems(flattenAnnualGoalItems(years));
+    const doneItems = items.filter((item) => item.done).length;
+    const openItems = items.length - doneItems;
+    setSummary([
+      ["记录年份", `${years.length} 个`],
+      ["待推进", `${openItems} 件`],
+      ["已完成", `${doneItems} 件`]
+    ]);
+    const yearOptions = ["", ...years.map((record) => record.year)];
+    el.toolbar.innerHTML = `
+      <div class="toolbar-group filter-group" aria-label="筛选条件">
+        <label class="toolbar-field search-field">
+          <span>搜索</span>
+          <input type="search" id="searchQuery" data-filter="search" placeholder="目标关键词" aria-label="搜索年度目标">
+        </label>
+        <label class="toolbar-field">
+          <span>状态</span>
+          <select id="statusFilter" data-filter="status" aria-label="状态筛选">
+            <option value="open" selected>未完成</option>
+            <option value="all">全部</option>
+            <option value="done">已完成</option>
+          </select>
+        </label>
+        <label class="toolbar-field">
+          <span>年份</span>
+          <select id="yearFilter" data-filter="year" aria-label="年份筛选">
+            ${yearOptions.map((year) => `<option value="${escapeAttr(year)}">${year ? escapeHtml(year) : "不限年份"}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <div class="toolbar-group create-group" aria-label="新增记录">
+        <label class="toolbar-field">
+          <span>新增年份</span>
+          <input type="number" id="newYear" min="2000" max="2099" value="${escapeAttr(currentYear)}" aria-label="新增目标归属年份">
+        </label>
+        <button class="btn secondary" type="button" data-action="add-annual-goal-item">新增目标</button>
+      </div>
+    `;
+    el.list.innerHTML = items.length ? `
+      <div class="table-scroll">
+        <table class="data-table" aria-label="年度目标表">
+          <thead>
+            <tr>
+              <th>完成</th>
+              <th>目标</th>
+              <th>年份</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(renderAnnualGoalItemRow).join("")}
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">目标按对象维护；年份只是归属字段，历史未完成项会排在前面。</p>
+    ` : emptyState("还没有年度目标。可以先新增一个目标，再选择归属年份。");
+    applyCurrentFilters();
+  }
+
+  function renderAnnualGoalItemRow(item) {
+    return `
+      <tr class="data-row" data-kind="annual-goal-item" data-row data-done="${item.done ? "true" : "false"}" data-year="${escapeAttr(item.year)}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}">
+        <td><input type="checkbox" data-field="goal-done" ${item.done ? "checked" : ""} aria-label="完成状态"></td>
+        <td><input type="text" data-field="goal-text" value="${escapeAttr(item.text)}" placeholder="年度目标"></td>
+        <td><input type="number" data-field="goal-year" value="${escapeAttr(item.year)}" min="2000" max="2099" aria-label="归属年份"></td>
+        <td>${statusPill(item.done)}</td>
+        <td><button class="btn danger compact" type="button" data-action="delete-row">删除</button></td>
+      </tr>
+    `;
+  }
+
   function renderMonthItemRow(item) {
     return `
       <tr class="data-row" data-kind="month-item" data-row data-done="${item.done ? "true" : "false"}" data-month="${escapeAttr(item.month)}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}">
@@ -508,6 +604,29 @@
       renderHabits();
     }
 
+    if (action === "add-annual-goal-item") {
+      const yearInput = document.getElementById("newYear");
+      const year = String(yearInput?.value || currentYear).padStart(4, "0");
+      if (!isYear(year)) {
+        setNotice("请输入有效的四位数年份。", "error");
+        return;
+      }
+      resetObjectFilters();
+      const tbody = ensureAnnualGoalTbody();
+      if (tbody) {
+        tbody.insertAdjacentHTML("afterbegin", renderAnnualGoalItemRow({
+          year,
+          id: uid("year"),
+          text: "",
+          done: false,
+          created_at: nowSeconds(),
+          updated_at: null
+        }));
+        tbody.querySelector('[data-field="goal-text"]')?.focus();
+        applyCurrentFilters();
+      }
+    }
+
     if (action === "add-month-item-row") {
       const month = document.getElementById("newMonth")?.value || currentMonth;
       resetObjectFilters();
@@ -527,8 +646,6 @@
     }
   });
 
-  el.saveNow.addEventListener("click", () => saveNow({ rerenderAfterSave: true }));
-
   function requestSave(options = {}) {
     if (!state.booted) return;
     clearTimeout(state.saveTimer);
@@ -538,12 +655,6 @@
 
   async function saveNow(options = {}) {
     clearTimeout(state.saveTimer);
-    const saveButton = el.saveNow;
-    const originalLabel = saveButton?.textContent;
-    if (saveButton) {
-      saveButton.disabled = true;
-      saveButton.textContent = "保存中…";
-    }
     try {
       if (managerType === "habits") {
         const habits = collectHabits();
@@ -553,20 +664,23 @@
         const monthly = collectMonthly();
         const saved = await invoke(view.saveCommand, { months: monthly.months });
         state.snapshot.monthly = saved;
+      } else if (managerType === "annual-goals") {
+        const annualGoals = collectAnnualGoals();
+        const saved = await invoke(view.saveCommand, { years: annualGoals.years });
+        state.snapshot.annual_goals = saved;
       } else {
         const frogs = collectFrogs();
         const saved = await invoke(view.saveCommand, { days: frogs.days });
         state.snapshot.frogs = saved;
       }
-      setNotice("已保存到独立数据库。", "saved");
-      if (options.rerenderAfterSave) render();
+      if (options.rerenderAfterSave) {
+        setNotice("已保存。", "saved");
+        render();
+      } else {
+        setNotice("", "saved");
+      }
     } catch (error) {
       setNotice(toErrorMessage(error), "error");
-    } finally {
-      if (saveButton) {
-        saveButton.disabled = false;
-        saveButton.textContent = originalLabel;
-      }
     }
   }
 
@@ -578,9 +692,10 @@
       const slot = readFrogSlot(row) || nextFrogSlot(date, row);
       const text = row.querySelector('[data-field="frog-text"]')?.value || "";
       const done = Boolean(row.querySelector('[data-field="frog-done"]')?.checked);
+      const note = row.querySelector('[data-field="frog-note"]')?.value || "";
       if (!text.trim()) return;
       if (!grouped.has(date)) grouped.set(date, normalizeFrogItems([]));
-      grouped.get(date)[Math.max(1, Math.min(3, slot)) - 1] = { slot: Math.max(1, Math.min(3, slot)), text, done };
+      grouped.get(date)[Math.max(1, Math.min(3, slot)) - 1] = { slot: Math.max(1, Math.min(3, slot)), text, done, note };
     });
     const days = [...grouped.entries()].map(([date, items]) => ({ date, items, updated_at: null }));
     return { schema_version: 1, days };
@@ -633,6 +748,13 @@
       const status = row.querySelector(".status-pill");
       if (status) status.outerHTML = statusPill(row.dataset.done === "true");
     }
+    if (row.dataset.kind === "annual-goal-item") {
+      row.dataset.done = row.querySelector('[data-field="goal-done"]')?.checked ? "true" : "false";
+      row.dataset.year = String(row.querySelector('[data-field="goal-year"]')?.value || "").padStart(4, "0");
+      row.dataset.search = row.querySelector('[data-field="goal-text"]')?.value || "";
+      const status = row.querySelector(".status-pill");
+      if (status) status.outerHTML = statusPill(row.dataset.done === "true");
+    }
     if (row.dataset.kind === "month-item") {
       row.dataset.done = row.querySelector('[data-field="month-done"]')?.checked ? "true" : "false";
       row.dataset.month = row.querySelector('[data-field="month-value"]')?.value || "";
@@ -648,13 +770,15 @@
     const status = document.getElementById("statusFilter")?.value || "all";
     const date = document.getElementById("dateFilter")?.value || "";
     const month = document.getElementById("monthFilter")?.value || "";
+    const year = document.getElementById("yearFilter")?.value || "";
     el.list.querySelectorAll("[data-row]").forEach((row) => {
       const text = `${row.dataset.search || ""} ${row.querySelector("input[type='text']")?.value || ""}`.toLowerCase();
       const done = row.dataset.done === "true";
       const statusMatch = status === "all" || (status === "done" && done) || (status === "open" && !done);
       const dateMatch = !date || row.dataset.date === date;
       const monthMatch = !month || row.dataset.month === month;
-      row.hidden = Boolean(query && !text.includes(query)) || !statusMatch || !dateMatch || !monthMatch;
+      const yearMatch = !year || row.dataset.year === year;
+      row.hidden = Boolean(query && !text.includes(query)) || !statusMatch || !dateMatch || !monthMatch || !yearMatch;
     });
   }
 
@@ -690,10 +814,12 @@
     const status = document.getElementById("statusFilter");
     const date = document.getElementById("dateFilter");
     const month = document.getElementById("monthFilter");
+    const year = document.getElementById("yearFilter");
     if (search) search.value = "";
     if (status) status.value = "open";
     if (date) date.value = "";
     if (month) month.value = "";
+    if (year) year.value = "";
   }
 
   function ensureFrogTbody() {
@@ -706,6 +832,7 @@
             <tr>
               <th>完成</th>
               <th>青蛙任务</th>
+              <th>描述</th>
               <th>关联日期</th>
               <th>序号</th>
               <th>状态</th>
@@ -743,6 +870,29 @@
     return el.list.querySelector("tbody");
   }
 
+  function ensureAnnualGoalTbody() {
+    let tbody = el.list.querySelector("tbody");
+    if (tbody) return tbody;
+    el.list.innerHTML = `
+      <div class="table-scroll">
+        <table class="data-table" aria-label="年度目标表">
+          <thead>
+            <tr>
+              <th>完成</th>
+              <th>目标</th>
+              <th>年份</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="table-note">目标按对象维护；年份只是归属字段，历史未完成项会排在前面。</p>
+    `;
+    return el.list.querySelector("tbody");
+  }
+
   function getMatrixMonth() {
     return document.getElementById("matrixMonth")?.value || currentMonth;
   }
@@ -772,12 +922,48 @@
         slot: item.slot,
         text: item.text,
         done: item.done,
+        note: item.note,
         updated_at: day.updated_at || null
       })));
   }
 
   function sortFrogTasks(tasks) {
     return [...tasks].sort((a, b) => Number(a.done) - Number(b.done) || b.date.localeCompare(a.date) || a.slot - b.slot);
+  }
+
+  function flattenAnnualGoalItems(years) {
+    return (years || []).flatMap((record) => (record.items || []).map((item) => ({
+      year: record.year,
+      id: item.id || uid("year"),
+      text: item.text || "",
+      done: Boolean(item.done),
+      created_at: item.created_at || nowSeconds(),
+      updated_at: item.updated_at || null
+    })));
+  }
+
+  function sortAnnualGoalItems(items) {
+    return [...items].sort((a, b) => Number(a.done) - Number(b.done) || b.year.localeCompare(a.year) || String(a.text).localeCompare(String(b.text), "zh-CN"));
+  }
+
+  function collectAnnualGoals() {
+    const grouped = new Map();
+    [...el.list.querySelectorAll('[data-kind="annual-goal-item"]')].forEach((row) => {
+      const year = String(row.querySelector('[data-field="goal-year"]')?.value || "").padStart(4, "0");
+      if (!isYear(year)) return;
+      const text = row.querySelector('[data-field="goal-text"]')?.value || "";
+      if (!text.trim()) return;
+      if (!grouped.has(year)) grouped.set(year, []);
+      grouped.get(year).push({
+        id: row.dataset.itemId || uid("year"),
+        text,
+        done: Boolean(row.querySelector('[data-field="goal-done"]')?.checked),
+        created_at: Number(row.dataset.createdAt) || nowSeconds(),
+        updated_at: null
+      });
+    });
+    const years = [...grouped.entries()].map(([year, items]) => ({ year, items, updated_at: null }));
+    return { schema_version: 1, years };
   }
 
   function flattenMonthItems(months) {
@@ -824,6 +1010,10 @@
         schema_version: 1,
         months: normalizeMonths(snapshot?.monthly?.months || [])
       },
+      annual_goals: {
+        schema_version: 1,
+        years: normalizeAnnualGoalYears(snapshot?.annual_goals?.years || [])
+      },
       paths: snapshot?.paths || {}
     };
   }
@@ -838,6 +1028,10 @@
 
   function defaultMonthly() {
     return { schema_version: 1, months: [] };
+  }
+
+  function defaultAnnualGoals() {
+    return { schema_version: 1, years: [] };
   }
 
   function normalizeFrogDays(days) {
@@ -855,7 +1049,8 @@
       return {
         slot,
         text: String(item.text || ""),
-        done: Boolean(item.done)
+        done: Boolean(item.done),
+        note: String(item.note || "")
       };
     });
   }
@@ -897,6 +1092,20 @@
       })),
       updated_at: record.updated_at || null
     })).filter((record) => record.items.length).sort((a, b) => a.month.localeCompare(b.month));
+  }
+
+  function normalizeAnnualGoalYears(years) {
+    return [...dedupeBy(years, "year")].filter((record) => isYear(record.year)).map((record) => ({
+      year: record.year,
+      items: (record.items || []).filter((item) => String(item.text || "").trim()).map((item) => ({
+        id: item.id || uid("year"),
+        text: String(item.text || "").trim(),
+        done: Boolean(item.done),
+        created_at: item.created_at || nowSeconds(),
+        updated_at: item.updated_at || null
+      })),
+      updated_at: record.updated_at || null
+    })).sort((a, b) => a.year.localeCompare(b.year));
   }
 
   function dedupeBy(items, key) {

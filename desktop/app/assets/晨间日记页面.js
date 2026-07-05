@@ -358,7 +358,7 @@
             updateWallpaperFields(settings);
             await state.background?.refresh(settings, false);
           }
-          if (file.created) await saveNow(true);
+          await saveNow(true);
         } catch (error) {
           setFormDisabled(true);
           setStatus(`连接失败，当前内容无法保存：${toErrorMessage(error)}`);
@@ -498,8 +498,9 @@
             args.frogs || [],
             args.habits || {},
             args.monthly || [],
-            args.frog_backlog || [],
-            args.monthly_backlog || []
+            args.frogBacklog || [],
+            args.monthlyBacklog || [],
+            args.annualGoals || []
           );
         }
         throw new Error(`未知命令：${command}`);
@@ -514,7 +515,9 @@
         });
         habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
         const monthlyDb = readFallbackDatabase("lifeos-db:monthly-important", { schema_version: 1, months: [] });
+        const annualGoalsDb = readFallbackDatabase("lifeos-db:annual-goals", { schema_version: 1, years: [] });
         const month = valueDate.slice(0, 7);
+        const year = valueDate.slice(0, 4);
         return {
           frogs: frogsDb.days.find((day) => day.date === valueDate) || { date: valueDate, items: [], updated_at: null },
           frog_backlog: collectFrogBacklog(frogsDb.days),
@@ -522,17 +525,20 @@
           habit_definitions: habitsDb.definitions,
           monthly: monthlyDb.months.find((record) => record.month === month) || { month, items: [], updated_at: null },
           monthly_backlog: collectMonthlyBacklog(monthlyDb.months),
+          annual_goals: annualGoalsDb.years.find((record) => record.year === year) || { year, items: [], updated_at: null },
           paths: {
             frogs: "本机预览 / LifeOS-Vault / 00-Databases / frogs.csv",
             habits: "本机预览 / LifeOS-Vault / 00-Databases / habits.csv",
-            monthly: "本机预览 / LifeOS-Vault / 00-Databases / monthly-important.csv"
+            monthly: "本机预览 / LifeOS-Vault / 00-Databases / monthly-important.csv",
+            annual_goals: "本机预览 / LifeOS-Vault / 00-Databases / annual-goals.csv"
           }
         };
       }
 
-      function saveFallbackDatabases(valueDate, frogs, habits, monthly, frogBacklog, monthlyBacklog) {
+      function saveFallbackDatabases(valueDate, frogs, habits, monthly, frogBacklog, monthlyBacklog, annualGoals) {
         const now = Math.floor(Date.now() / 1000);
         const month = valueDate.slice(0, 7);
+        const year = valueDate.slice(0, 4);
         const frogsDb = readFallbackDatabase("lifeos-db:frogs", { schema_version: 1, days: [] });
         const habitsDb = readFallbackDatabase("lifeos-db:habits", {
           schema_version: 1,
@@ -541,6 +547,7 @@
         });
         habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
         const monthlyDb = readFallbackDatabase("lifeos-db:monthly-important", { schema_version: 1, months: [] });
+        const annualGoalsDb = readFallbackDatabase("lifeos-db:annual-goals", { schema_version: 1, years: [] });
 
         const frogDay = {
           date: valueDate,
@@ -568,6 +575,24 @@
         monthlyDb.months = [...monthlyDb.months.filter((record) => record.month !== month), monthlyRecord].sort((a, b) => a.month.localeCompare(b.month));
         applyMonthlyBacklog(monthlyDb, monthlyBacklog, now);
         localStorage.setItem("lifeos-db:monthly-important", JSON.stringify(monthlyDb));
+
+        const goalItems = (annualGoals || []).map((item, index) => ({
+          id: item.id || createClientId("year"),
+          text: String(item.text || "").trim(),
+          done: Boolean(item.done),
+          created_at: item.created_at || now,
+          updated_at: now
+        })).filter((item) => item.text);
+        let annualRecord = annualGoalsDb.years.find((record) => record.year === year);
+        if (!annualRecord) {
+          annualRecord = { year, items: [], updated_at: now };
+          annualGoalsDb.years.push(annualRecord);
+        }
+        annualRecord.items = goalItems;
+        annualRecord.updated_at = now;
+        annualGoalsDb.years = annualGoalsDb.years.filter((record) => record.items.length);
+        annualGoalsDb.years.sort((a, b) => a.year.localeCompare(b.year));
+        localStorage.setItem("lifeos-db:annual-goals", JSON.stringify(annualGoalsDb));
 
         return getFallbackDatabases(valueDate);
       }
@@ -664,13 +689,21 @@
         if (!state.file) return;
         readPageToForm();
         const content = buildMarkdown(state.form);
+        const payload = databasePayloadFromForm(state.form);
+        console.log("[DEBUG saveNow] annual_goals:", JSON.stringify(payload.annual_goals), "form.annualGoals:", JSON.stringify(state.form.annualGoals));
         if (!force && content === state.lastSavedContent) {
-          const databases = await invoke("save_journal_databases", {
-            date: state.form.date,
-            ...databasePayloadFromForm(state.form)
-          });
-          state.databases = databases;
-          setStatus("已同步三类数据库");
+          try {
+            const databases = await invoke("save_journal_databases", {
+              date: state.form.date,
+              ...payload
+            });
+            state.databases = databases;
+            console.log("[DEBUG saveNow] DB sync OK, annual_goals from server:", JSON.stringify(databases?.annual_goals));
+            setStatus("已同步数据库");
+          } catch (error) {
+            console.error("[DEBUG saveNow] DB sync FAILED:", error);
+            setStatus(`数据库同步失败：${toErrorMessage(error)}`);
+          }
           return;
         }
 
@@ -683,7 +716,7 @@
           const file = await invoke("save_journal", { date: state.form.date, content });
           const databases = await invoke("save_journal_databases", {
             date: state.form.date,
-            ...databasePayloadFromForm(state.form)
+            ...payload
           });
           if (token !== state.saveToken) return;
           state.file = file;
@@ -691,9 +724,11 @@
           state.form.dayIndex = String(file.day_index || state.form.dayIndex || 1);
           state.lastSavedContent = buildMarkdown(state.form);
           updateMasthead();
-          setStatus(file.path ? `已保存 Markdown，并同步三类数据库：${file.path}` : "已保存 Markdown，并同步三类数据库");
+          console.log("[DEBUG saveNow] Full save OK, annual_goals from server:", JSON.stringify(databases?.annual_goals));
+          setStatus(file.path ? `已保存 Markdown，并同步数据库：${file.path}` : "已保存 Markdown，并同步数据库");
         } catch (error) {
           if (token !== state.saveToken) return;
+          console.error("[DEBUG saveNow] Full save FAILED:", error);
           setStatus(`保存失败：${toErrorMessage(error)}`);
         }
       }
@@ -703,7 +738,8 @@
         applyHabitMarkdownFallback(state.form, state.form.habitDefinitions);
 
         const frogs = databases?.frogs;
-        if (frogs && (frogs.updated_at || frogs.items?.length)) {
+        if (frogs) {
+          [1, 2, 3].forEach((slot) => { state.form[`frog-${slot}`] = ""; });
           (frogs.items || []).forEach((item) => {
             if (item.slot >= 1 && item.slot <= 3) {
               state.form[`frog-${item.slot}`] = item.text || "";
@@ -712,7 +748,7 @@
         }
 
         const habits = databases?.habits;
-        if (habits && (habits.updated_at || Object.keys(habits.checks || {}).length)) {
+        if (habits) {
           activeHabitDefinitions().forEach((definition) => {
             state.form[definition.id] = Boolean((habits.checks || {})[definition.id]);
           });
@@ -736,7 +772,7 @@
             created_at: item.created_at || null,
             updated_at: item.updated_at || null
           })).filter((item) => item.text);
-        } else if (monthly && (monthly.updated_at || monthly.items?.length)) {
+        } else if (monthly) {
           state.form.todos = (monthly.items || []).filter((item) => !item.done).map((item) => ({
             month: monthly.month || state.form.date.slice(0, 7),
             id: item.id || createClientId("month"),
@@ -746,6 +782,12 @@
             updated_at: item.updated_at || null
           })).filter((item) => item.text);
         }
+
+        const annualGoals = databases?.annual_goals;
+        console.log("[DEBUG mergeDatabasesToForm] annual_goals:", JSON.stringify(annualGoals));
+        if (annualGoals) {
+          state.form.annualGoals = (annualGoals.items || []).map((item) => item.text || "").filter(Boolean);
+        }
       }
 
       function databasePayloadFromForm(form) {
@@ -753,8 +795,9 @@
           frogs: collectFrogsForDatabase(form),
           habits: collectHabitsForDatabase(form),
           monthly: collectCurrentMonthlyForDatabase(form),
-          frog_backlog: collectFrogBacklogForDatabase(form),
-          monthly_backlog: collectMonthlyBacklogForDatabase(form)
+          frogBacklog: collectFrogBacklogForDatabase(form),
+          monthlyBacklog: collectMonthlyBacklogForDatabase(form),
+          annualGoals: collectAnnualGoalsForDatabase(form)
         };
       }
 
@@ -823,6 +866,22 @@
           created_at: item.created_at || null,
           updated_at: item.updated_at || null
         })).filter((item) => item.month && item.text);
+      }
+
+      function collectAnnualGoalsForDatabase(form) {
+        const existingItems = (state.databases?.annual_goals?.items || []);
+        const goalTexts = (form.annualGoals || []).map((goal) => String(goal || "").trim()).filter(Boolean);
+        console.log("[DEBUG] collectAnnualGoalsForDatabase: form.annualGoals=", JSON.stringify(form.annualGoals), "goalTexts=", JSON.stringify(goalTexts), "existingItems=", existingItems.length);
+        return goalTexts.map((text, index) => {
+          const existing = existingItems.find((item) => item.text === text);
+          return {
+            id: existing?.id || createClientId("year"),
+            text,
+            done: Boolean(existing?.done),
+            created_at: existing?.created_at || null,
+            updated_at: existing?.updated_at || null
+          };
+        });
       }
 
       function applyFormToPage() {
@@ -1317,8 +1376,10 @@
       }
 
       function readAnnualGoalsFromDom() {
-        if (!annualGoalList) return [];
-        return Array.from(annualGoalList.querySelectorAll("input.write-line")).map((input) => input.value);
+        if (!annualGoalList) { console.log("[DEBUG] readAnnualGoalsFromDom: annualGoalList is null!"); return []; }
+        const values = Array.from(annualGoalList.querySelectorAll("input.write-line")).map((input) => input.value);
+        console.log("[DEBUG] readAnnualGoalsFromDom: found", values.length, "inputs, values=", JSON.stringify(values));
+        return values;
       }
 
       function renderAnnualGoals(goals) {
