@@ -798,16 +798,31 @@
     }
 
     .calendar {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .weekday-header {
       display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-rows: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      flex: 1;
       min-height: 0;
-      overflow: auto;
-      overscroll-behavior: contain;
+      overflow: hidden;
       border: 0;
       border-radius: 0;
       background: transparent;
-      scrollbar-width: thin;
     }
 
     .weekday {
@@ -824,10 +839,11 @@
 
     .day {
       display: grid;
-      grid-template-rows: auto auto minmax(24px, 1fr) auto;
-      gap: 7px;
-      min-height: clamp(84px, 9.1vh, 118px);
-      padding: 10px;
+      grid-template-rows: auto minmax(0, 1fr) auto auto;
+      gap: 4px;
+      min-height: 0;
+      padding: 8px;
+      overflow: hidden;
       border: 1px solid var(--card-border);
       border-radius: 14px;
       background: rgba(255, 253, 248, 0.76);
@@ -842,7 +858,6 @@
     }
 
     .day.outside {
-      min-height: clamp(84px, 9.1vh, 118px);
       border-style: dashed;
       background: rgba(244, 239, 226, 0.44);
       color: rgba(102, 112, 100, 0.56);
@@ -917,7 +932,7 @@
     }
 
     .day-title {
-      min-height: 36px;
+      min-height: 0;
       overflow: hidden;
       color: var(--muted);
       font-size: 0.82rem;
@@ -930,7 +945,7 @@
     }
 
     .day-meta-line {
-      min-height: 20px;
+      min-height: 0;
       color: var(--muted);
       font-size: 0.75rem;
       font-weight: 800;
@@ -940,8 +955,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      min-height: 18px;
+      gap: 6px;
+      min-height: 0;
     }
 
     .dot {
@@ -1998,6 +2013,11 @@
         gap: 0;
       }
 
+      .weekday-header,
+      .calendar-grid {
+        gap: 0;
+      }
+
       .weekday {
         min-height: 34px;
         padding: 8px 3px;
@@ -2005,12 +2025,11 @@
       }
 
       .day {
-        min-height: 86px;
         padding: 7px;
       }
 
       .day-title {
-        min-height: 24px;
+        min-height: 0;
         font-size: 0.72rem;
       }
 
@@ -2137,7 +2156,10 @@
                 <button class="btn secondary" type="button" id="nextMonth">下个月</button>
               </div>
             </div>
-            <div class="calendar" id="calendar"></div>
+            <div class="calendar" id="calendar">
+              <div class="weekday-header" id="weekdayHeader"></div>
+              <div class="calendar-grid" id="calendarGrid"></div>
+            </div>
           </section>
 
           <aside class="day-panel">
@@ -2289,6 +2311,8 @@
       resetVaultDir: document.getElementById("resetVaultDir"),
       calendarView: document.getElementById("calendarView"),
       calendar: document.getElementById("calendar"),
+      weekdayHeader: document.getElementById("weekdayHeader"),
+      calendarGrid: document.getElementById("calendarGrid"),
       monthTitle: document.getElementById("monthTitle"),
       monthMeta: document.getElementById("monthMeta"),
       selectedDayNumber: document.getElementById("selectedDayNumber"),
@@ -2371,7 +2395,7 @@
     document.getElementById("nextMonth").addEventListener("click", () => shiftMonth(1));
     document.getElementById("goToday").addEventListener("click", goToToday);
     document.getElementById("openSelected").addEventListener("click", () => openSelectedDate());
-    document.getElementById("calendar").addEventListener("click", (event) => {
+    document.getElementById("calendarGrid").addEventListener("click", (event) => {
       const dayButton = event.target.closest("button.day[data-date]");
       if (dayButton) handleDayClick(dayButton.dataset.date);
     });
@@ -3394,13 +3418,14 @@
 
       el.monthTitle.textContent = `${year} 年 ${String(month).padStart(2, "0")} 月`;
       el.monthMeta.textContent = `本月 ${state.entries.size} 天 · 累计 ${state.totalEntries} 天 · 节假日 ${holidayCount} 天 · 进度 ${monthProgress}%`;
-      el.calendar.innerHTML = "";
+      el.weekdayHeader.innerHTML = "";
+      el.calendarGrid.innerHTML = "";
 
       for (const weekday of weekdays) {
         const node = document.createElement("div");
         node.className = "weekday";
         node.textContent = weekday;
-        el.calendar.appendChild(node);
+        el.weekdayHeader.appendChild(node);
       }
 
       for (let index = 0; index < lead; index += 1) {
@@ -3419,7 +3444,7 @@
         if (!date) {
           const blank = document.createElement("div");
           blank.className = "day outside";
-          el.calendar.appendChild(blank);
+          el.calendarGrid.appendChild(blank);
           continue;
         }
 
@@ -3471,7 +3496,7 @@
         row.appendChild(tiny);
 
         button.append(top, title, metaLine, row);
-        el.calendar.appendChild(button);
+        el.calendarGrid.appendChild(button);
       }
     }
 
