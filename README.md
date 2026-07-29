@@ -5,9 +5,18 @@
 
 ### 环境要求
 
-- [Node.js](https://nodejs.org/)
-- [Rust](https://rustup.rs/)
-- Windows 上还需要 Visual Studio Build Tools（勾选 C++ 桌面开发组件）
+| 工具 | 下载地址 | 安装说明 |
+|------|----------|----------|
+| Node.js (LTS) | https://nodejs.org/zh-cn/download | 下载 Windows 安装包，一路下一步即可 |
+| Rust | https://rustup.rs/ | 下载并运行 `rustup-init.exe`，按提示完成安装 |
+| Visual Studio Build Tools | https://visualstudio.microsoft.com/zh-hans/visual-cpp-build-tools/ | 安装时勾选「使用 C++ 的桌面开发」工作负载 |
+
+安装完成后重启终端，验证环境：
+
+```powershell
+node --version
+rustc --version
+```
 
 ### 一键启动（开发）
 
