@@ -3,35 +3,43 @@
 
 ## 快速开始
 
-需要先安装：
+### 环境要求
 
-- Node.js
-- Rust
-- Windows 上还需要 Visual Studio Build Tools，并勾选 C++ 桌面开发相关组件
+- [Node.js](https://nodejs.org/)
+- [Rust](https://rustup.rs/)
+- Windows 上还需要 Visual Studio Build Tools（勾选 C++ 桌面开发组件）
 
-安装依赖并启动开发模式：
+### 一键启动（开发）
+
+在仓库根目录执行：
+
+```powershell
+.\run.ps1
+```
+
+脚本会自动安装依赖并启动应用。如果已经构建过 release 版本，会直接启动 release。
+
+### 一键打包（生成安装包）
+
+```powershell
+.\build.ps1
+```
+
+构建完成后，安装包会自动复制到仓库根目录的 **`dist/`** 文件夹并打开资源管理器。
+
+### 手动操作（可选）
 
 ```powershell
 cd desktop
 npm install
-npm run tauri:dev
-```
-
-开发模式使用 `--no-dev-server` 直接加载本地静态资源。
-
-打包桌面应用：
-
-```powershell
-cd desktop
-npm run tauri:build
+npm run tauri:dev    # 开发模式
+npm run tauri:build  # 打包（产物在 src-tauri/target/release/bundle/nsis/）
 ```
 
 Tauri 环境检查：
 
 ```powershell
 cd desktop
-rustc --version
-cargo --version
 npx tauri info
 ```
 
@@ -79,7 +87,10 @@ LifeOS 是一个本地优先的人生管理系统。它把晨间日记、三只�
 ```text
 .
 ├── desktop/          # Tauri v2 桌面应用
-├── scripts/          # 辅助脚本，例如应用图标生成和启动脚本
+├── scripts/          # 辅助脚本（图标生成、版本升级等）
+├── dist/             # 构建产物（安装包，自动生成）
+├── build.ps1         # 一键打包脚本
+├── run.ps1           # 一键启动脚本
 ├── 人生管理记录/     # 可复制使用的 Markdown 人生管理模板
 ├── 应用截图/         # README 中展示的应用界面截图
 ├── LICENSE
