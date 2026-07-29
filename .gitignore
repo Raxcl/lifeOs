@@ -9,6 +9,9 @@ desktop/src-tauri/gen/schemas/
 desktop/src-tauri/.tauri/
 desktop/dist/
 
+# Build installer output
+dist/
+
 # Local app data and personal imports
 LifeOS-Vault/
 notion导出晨间日记/
