@@ -11,6 +11,9 @@ desktop/dist/
 
 # Build installer output
 dist/
+Build/.dist/
+Build/.package/
+Build/publish.7z
 
 # Local app data and personal imports
 LifeOS-Vault/
