@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "pPEDkPiTeSE=",
+  "success": true,
+  "projectFilePath": "E:\\code\\self\\lifeOs\\Build\\MicaSetup.Tools.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Administrator\\.nuget\\packages\\micasetup.tools\\2.5.3\\micasetup.tools.2.5.3.nupkg.sha512"
+  ],
+  "logs": []
+}
