@@ -629,6 +629,14 @@
       overscroll-behavior: contain;
     }
 
+    .panel-toggle {
+      display: none;
+    }
+
+    .panel-backdrop {
+      display: none;
+    }
+
     .calendar-main,
     .day-panel,
     .database-preview-card {
@@ -1953,8 +1961,12 @@
       border-top-color: var(--coral);
     }
 
-    @media (max-width: 1120px) {
-      .calendar-layout,
+    /* ── 中屏：两栏布局，数据库面板收纳为浮层 ── */
+    @media (max-width: 1360px) {
+      .calendar-layout {
+        grid-template-columns: minmax(0, 1fr) minmax(218px, 272px);
+      }
+
       .journal-layout {
         grid-template-columns: minmax(0, 1fr);
         overflow: auto;
@@ -1966,16 +1978,117 @@
         grid-row: var(--journal-grid-row) !important;
       }
 
-      .calendar-main,
-      .day-panel,
+      .panel-toggle {
+        display: inline-flex;
+      }
+
       .database-preview-panel {
-        min-height: auto;
+        display: none;
+        position: fixed;
+        top: var(--window-frame-h, 42px);
+        bottom: 0;
+        left: 0;
+        z-index: 70;
+        width: min(320px, 84vw);
+        padding: 14px;
+        border-right: 1px solid var(--card-border);
+        background: var(--surface);
+        box-shadow: 18px 0 44px rgba(44, 50, 42, 0.16);
+        animation: panelSlideIn 180ms ease;
+      }
+
+      .calendar-layout.panel-open .database-preview-panel {
+        display: grid;
+      }
+
+      .panel-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        background: rgba(36, 40, 33, 0.26);
+      }
+
+      .calendar-layout.panel-open ~ .panel-backdrop {
+        display: block;
       }
 
       .calendar-anchor {
         grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
       }
 
+    }
+
+    @keyframes panelSlideIn {
+      from { transform: translateX(-14px); opacity: 0; }
+      to { transform: none; opacity: 1; }
+    }
+
+    /* ── 窄屏：单列布局，日历优先，单元格精简 ── */
+    @media (max-width: 860px) {
+      .calendar-layout {
+        grid-template-columns: minmax(0, 1fr);
+        overflow: auto;
+        overscroll-behavior: contain;
+      }
+
+      .calendar-main {
+        min-height: 460px;
+      }
+
+      .day-panel {
+        min-height: auto;
+      }
+
+      .calendar-anchor {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 12px 16px;
+      }
+
+      .anchor-lines {
+        display: none;
+      }
+
+      .anchor-title {
+        margin: 0;
+      }
+
+      .day-title,
+      .day-meta-line {
+        display: none;
+      }
+
+      .day {
+        padding: 6px;
+        gap: 3px;
+      }
+
+      .day-number {
+        font-size: 0.95rem;
+      }
+
+      .month-toolbar .btn {
+        min-height: 32px;
+        padding: 6px 9px;
+        font-size: 0;
+      }
+
+      .month-toolbar .btn::after {
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+
+      #prevMonth::after {
+        content: "\2039 上月";
+      }
+
+      #goToday::after {
+        content: "今天";
+      }
+
+      #nextMonth::after {
+        content: "下月 \203A";
+      }
     }
 
     @media (max-width: 780px) {
@@ -2001,10 +2114,6 @@
         padding: 14px;
       }
 
-      .calendar-anchor {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
       .settings-path-row {
         grid-template-columns: minmax(0, 1fr);
       }
@@ -2025,12 +2134,11 @@
       }
 
       .day {
-        padding: 7px;
+        padding: 5px;
       }
 
-      .day-title {
-        min-height: 0;
-        font-size: 0.72rem;
+      .day-mark {
+        display: none;
       }
 
       html[data-ui-theme="whimsy"] .card[data-card="today"] {
@@ -2071,6 +2179,7 @@
           </div>
         </div>
         <div class="topbar-actions">
+          <button class="icon-btn panel-toggle" type="button" id="databasePanelToggle" aria-expanded="false" aria-controls="databasePreviewPanel">清单</button>
           <button class="icon-btn" type="button" id="settingsButton" aria-haspopup="dialog">设置</button>
         </div>
       </header>
@@ -2183,6 +2292,7 @@
             </section>
           </aside>
         </div>
+        <div class="panel-backdrop" id="databasePanelBackdrop"></div>
       </section>
 
 
@@ -2332,7 +2442,9 @@
       annualGoalsPreviewList: document.getElementById("annualGoalsPreviewList"),
       annualGoalsPreviewMeta: document.getElementById("annualGoalsPreviewMeta"),
       databasePreviewStatus: document.getElementById("databasePreviewStatus"),
-      calendarNotice: document.getElementById("calendarNotice")
+      calendarNotice: document.getElementById("calendarNotice"),
+      databasePanelToggle: document.getElementById("databasePanelToggle"),
+      databasePanelBackdrop: document.getElementById("databasePanelBackdrop")
     };
 
     const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
@@ -2400,6 +2512,8 @@
       if (dayButton) handleDayClick(dayButton.dataset.date);
     });
     el.databasePreviewPanel?.addEventListener("change", handleDatabasePreviewChange);
+    el.databasePanelToggle?.addEventListener("click", toggleDatabasePanel);
+    el.databasePanelBackdrop?.addEventListener("click", closeDatabasePanel);
     el.settingsButton?.addEventListener("click", openSettings);
     el.settingsClose?.addEventListener("click", closeSettings);
     el.settingsOverlay?.addEventListener("click", (event) => {
@@ -3191,6 +3305,28 @@
       document.body.classList.remove("settings-open");
       setSettingsStatus("", "");
     }
+
+    function toggleDatabasePanel() {
+      const layout = el.calendarView?.querySelector(".calendar-layout");
+      if (!layout) return;
+      const open = layout.classList.toggle("panel-open");
+      el.databasePanelToggle?.setAttribute("aria-expanded", String(open));
+    }
+
+    function closeDatabasePanel() {
+      const layout = el.calendarView?.querySelector(".calendar-layout");
+      if (!layout) return;
+      layout.classList.remove("panel-open");
+      el.databasePanelToggle?.setAttribute("aria-expanded", "false");
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDatabasePanel();
+    });
+
+    window.matchMedia("(min-width: 1361px)").addEventListener("change", (event) => {
+      if (event.matches) closeDatabasePanel();
+    });
 
     async function applyVaultDir(path, pendingText = "保存中...") {
       setSettingsStatus("", pendingText);
