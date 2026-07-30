@@ -23,7 +23,11 @@ rustc --version
 在仓库根目录执行：
 
 ```powershell
+# 启动已编译好的
 .\run.ps1
+
+# 启动未编译的
+.\run.ps1 -Dev
 ```
 
 脚本会自动安装依赖并启动应用。如果已经构建过 release 版本，会直接启动 release。

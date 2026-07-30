@@ -3,3 +3,7 @@
 /target/
 /gen/schemas
 /icons/.app-icon.fingerprint
+
+# Syncthing sidecar binary (download separately, see binaries/README.md)
+/binaries/syncthing-*
+!/binaries/README.md
