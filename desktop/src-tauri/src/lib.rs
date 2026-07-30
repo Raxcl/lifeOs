@@ -1,3 +1,5 @@
+mod sync;
+
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -2764,6 +2766,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
+        .manage(sync::SyncState::new())
         .setup(|app| {
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()
@@ -2809,8 +2813,18 @@ pub fn run() {
             get_journal_month,
             open_or_create_journal,
             read_journal,
-            save_journal
+            save_journal,
+            sync::get_sync_status,
+            sync::start_sync,
+            sync::stop_sync,
+            sync::add_sync_device,
+            sync::remove_sync_device
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                sync::cleanup(app_handle);
+            }
+        });
 }
