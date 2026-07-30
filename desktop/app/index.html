@@ -655,9 +655,10 @@
     .calendar-main {
       position: relative;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(auto, 1fr);
       gap: 16px;
-      overflow: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 18px;
     }
 
@@ -810,7 +811,8 @@
       flex-direction: column;
       gap: 8px;
       min-height: 0;
-      overflow: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
 
     .weekday-header {
@@ -823,11 +825,10 @@
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
-      grid-template-rows: repeat(6, minmax(0, 1fr));
+      grid-template-rows: repeat(6, minmax(78px, 1fr));
       gap: 8px;
       flex: 1;
       min-height: 0;
-      overflow: hidden;
       border: 0;
       border-radius: 0;
       background: transparent;
@@ -848,9 +849,9 @@
     .day {
       display: grid;
       grid-template-rows: auto minmax(0, 1fr) auto auto;
-      gap: 4px;
+      gap: 3px;
       min-height: 0;
-      padding: 8px;
+      padding: 6px;
       overflow: hidden;
       border: 1px solid var(--card-border);
       border-radius: 14px;
@@ -945,6 +946,8 @@
       color: var(--muted);
       font-size: 0.82rem;
       line-height: 1.35;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
     .day.has-entry .day-title {
@@ -957,6 +960,10 @@
       color: var(--muted);
       font-size: 0.75rem;
       font-weight: 800;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .dot-row {
@@ -965,6 +972,8 @@
       justify-content: space-between;
       gap: 6px;
       min-height: 0;
+      margin-top: 0;
+      line-height: 1;
     }
 
     .dot {
@@ -2053,8 +2062,7 @@
         margin: 0;
       }
 
-      .day-title,
-      .day-meta-line {
+      .day-title {
         display: none;
       }
 
@@ -3617,7 +3625,8 @@
 
         const metaLine = document.createElement("div");
         metaLine.className = "day-meta-line";
-        metaLine.textContent = entry ? `第 ${entry.day_index} 天` : meta.stateText;
+        const dayCountText = `第 ${entry ? entry.day_index : ""} 天`;
+        metaLine.textContent = entry ? (entry.title === dayCountText ? "" : dayCountText) : meta.stateText;
 
         const row = document.createElement("div");
         row.className = "dot-row";
