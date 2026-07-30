@@ -469,12 +469,19 @@ $installerDest = Join-Path $distDir $installerName
 Copy-Item -LiteralPath $micaOutput -Destination $installerDest -Force
 Write-Host "  已生成: $installerName" -ForegroundColor DarkGray
 
+# 绿色免安装版 (zip)
+$portableName = "$productName.$version.Portable.zip"
+$portableDest = Join-Path $distDir $portableName
+Compress-Archive -LiteralPath $tauriExe -DestinationPath $portableDest -Force
+Write-Host "  已生成: $portableName（绿色免安装版）" -ForegroundColor DarkGray
+
 # 清理临时文件
 if (Test-Path $archiveFile) { Remove-Item $archiveFile -Force }
 
 Write-Host ""
 Write-Host "=== 构建完成 ===" -ForegroundColor Green
-Write-Host "安装包: $installerDest" -ForegroundColor Green
+Write-Host "安装包:   $installerDest" -ForegroundColor Green
+Write-Host "绿色版:   $portableDest" -ForegroundColor Green
 Write-Host ""
 
 # 自动打开 dist 文件夹
