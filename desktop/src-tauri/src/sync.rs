@@ -678,9 +678,28 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
         None => return Ok(vec![]),
     };
 
+    // 第一遍：收集"从云端下载完成"的文件名。
+    // ItemFinished 只在真实下载/应用远端变更时触发（本地修改上传不会触发），且带文件名，
+    // 用于把"下载"从 LocalIndexUpdated（上传和下载都会触发）中区分出来。
+    let mut downloaded_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for ev in arr.iter() {
+        if ev.get("type").and_then(|t| t.as_str()) == Some("ItemFinished") {
+            let data = ev.get("data").cloned().unwrap_or(serde_json::Value::Null);
+            if is_successful_file_item(&data) {
+                if let Some(item) = data.get("item").and_then(|v| v.as_str()) {
+                    if !is_ignorable_path(item) {
+                        downloaded_names.insert(file_name_from_path(item));
+                    }
+                }
+            }
+        }
+    }
+
     let mut result: Vec<SyncEvent> = Vec::new();
     // 记录上一条设备连接事件，用于去除频繁重连产生的刷屏
     let mut last_device_event: Option<(String, String)> = None;
+    // 已上报过的文件名：本机可能有多个文件夹监听同一日记本路径，同一文件会触发多次事件，需去重
+    let mut reported_files: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for ev in arr.iter().rev() {
         if result.len() >= 50 {
@@ -691,7 +710,25 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
         let data = ev.get("data").cloned().unwrap_or(serde_json::Value::Null);
 
         match ev_type {
-            // 本地文件变更并被索引 → 即将上传到云端（data.filenames 带文件名）
+            // 远端文件下载完成 → 从云端同步到本机（ItemFinished 带文件名，最准确的下载信号）
+            "ItemFinished" => {
+                if !is_successful_file_item(&data) {
+                    continue;
+                }
+                let item = match data.get("item").and_then(|v| v.as_str()) {
+                    Some(i) if !is_ignorable_path(i) => file_name_from_path(i),
+                    _ => continue,
+                };
+                if !reported_files.insert(item.clone()) {
+                    continue;
+                }
+                result.push(SyncEvent {
+                    time,
+                    kind: "file_synced".to_string(),
+                    description: format!("已从云端同步：{item}"),
+                });
+            }
+            // 本地文件变更并被索引 → 上传到云端（需排除刚下载的文件，下载也会触发此事件）
             "LocalIndexUpdated" => {
                 let names: Vec<String> = data
                     .get("filenames")
@@ -699,32 +736,23 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
                     .map(|arr| {
                         arr.iter()
                             .filter_map(|n| n.as_str())
-                            .filter(|p| !p.ends_with(SYNC_MARKER_FILE) && !p.contains("~syncthing~"))
+                            .filter(|p| !is_ignorable_path(p))
                             .map(|p| file_name_from_path(p))
+                            .filter(|n| !downloaded_names.contains(n) && !reported_files.contains(n))
                             .collect()
                     })
                     .unwrap_or_default();
                 if names.is_empty() {
                     continue;
                 }
+                for n in &names {
+                    reported_files.insert(n.clone());
+                }
                 let desc = if names.len() == 1 {
                     format!("已上传：{}", names[0])
                 } else {
                     let shown = names.iter().take(3).cloned().collect::<Vec<_>>().join("、");
                     format!("已上传：{shown} 等 {} 个文件", names.len())
-                };
-                result.push(SyncEvent { time, kind: "file_synced".to_string(), description: desc });
-            }
-            // 收到远端索引更新 → 云端有变更同步到本机（data 只有数量，无文件名）
-            "RemoteIndexUpdated" => {
-                let items = data.get("items").and_then(|v| v.as_u64()).unwrap_or(0);
-                if items == 0 {
-                    continue;
-                }
-                let desc = if items == 1 {
-                    "从云端同步了 1 个文件".to_string()
-                } else {
-                    format!("从云端同步了 {items} 个文件")
                 };
                 result.push(SyncEvent { time, kind: "file_synced".to_string(), description: desc });
             }
@@ -780,6 +808,19 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
 fn file_name_from_path(path: &str) -> String {
     let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
     if name.is_empty() { path.to_string() } else { name.to_string() }
+}
+
+/// 判断 ItemFinished 事件是否为一次成功的文件同步（动作为更新、类型为文件、无错误）。
+fn is_successful_file_item(data: &serde_json::Value) -> bool {
+    let action = data.get("action").and_then(|v| v.as_str()).unwrap_or("");
+    let ty = data.get("type").and_then(|v| v.as_str()).unwrap_or("");
+    let error_ok = data.get("error").map(|e| e.is_null()).unwrap_or(true);
+    action == "update" && ty == "file" && error_ok
+}
+
+/// 判断路径是否为应忽略的同步标记/临时文件。
+fn is_ignorable_path(path: &str) -> bool {
+    path.ends_with(SYNC_MARKER_FILE) || path.contains("~syncthing~")
 }
 
 // ---------------------------------------------------------------------------

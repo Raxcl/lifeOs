@@ -1,6 +1,6 @@
 {
   "name": "lifeos-morning-journal",
-  "version": "0.1.30",
+  "version": "0.1.32",
   "private": true,
   "description": "Tauri desktop app for 时光手帐.",
   "scripts": {
