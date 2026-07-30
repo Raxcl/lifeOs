@@ -1817,6 +1817,10 @@ fn set_vault_dir(app: tauri::AppHandle, path: String) -> Result<VaultSettings, S
     let mut settings = read_app_settings(&app)?;
     settings.vault_dir = Some(path.display().to_string());
     write_app_settings(&app, &settings)?;
+    // 通知正在运行的 Syncthing 更新同步文件夹路径
+    if let Some(state) = app.try_state::<sync::SyncState>() {
+        sync::notify_vault_path_changed(&state, &path);
+    }
     vault_settings(&app)
 }
 
@@ -1825,6 +1829,12 @@ fn reset_vault_dir(app: tauri::AppHandle) -> Result<VaultSettings, String> {
     let mut settings = read_app_settings(&app)?;
     settings.vault_dir = None;
     write_app_settings(&app, &settings)?;
+    // 通知正在运行的 Syncthing 更新为默认路径
+    if let Some(state) = app.try_state::<sync::SyncState>() {
+        if let Ok(default_path) = default_vault_root(&app) {
+            sync::notify_vault_path_changed(&state, &default_path);
+        }
+    }
     vault_settings(&app)
 }
 
@@ -2781,6 +2791,13 @@ pub fn run() {
                 }
                 let _ = window.show();
             }
+
+            // 自动恢复同步服务：如果之前配置过 Syncthing，应用启动时自动拉起
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                sync::auto_start_if_configured(&handle);
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -2818,7 +2835,11 @@ pub fn run() {
             sync::start_sync,
             sync::stop_sync,
             sync::add_sync_device,
-            sync::remove_sync_device
+            sync::remove_sync_device,
+            sync::get_sync_events,
+            sync::get_sync_account,
+            sync::connect_to_server,
+            sync::disconnect_server
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
