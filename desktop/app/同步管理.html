@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>数据同步 | 时光手帐</title>
+  <link rel="stylesheet" href="assets/window-frame.css" />
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f5f6f3;
+      --surface: #fffdf8;
+      --surface-soft: #f8f9f5;
+      --ink: #242821;
+      --muted: #667064;
+      --line: #d9ded5;
+      --line-strong: #bfc8bc;
+      --green: #2f735d;
+      --green-soft: #e5f0ea;
+      --blue: #426f8f;
+      --blue-soft: #e6eef4;
+      --coral: #b96657;
+      --coral-soft: #f7e5df;
+      --gold: #a67a2c;
+      --gold-soft: #f6eedb;
+      --radius: 8px;
+      --card-bg: var(--surface);
+      --input-bg: #fffefa;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--ink);
+    }
+
+    .sync-page {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    .sync-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .back-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+
+    .sync-header h1 {
+      font-size: 1.1rem;
+      font-weight: 900;
+    }
+
+    /* 状态栏 */
+    .sync-status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      font-size: 0.86rem;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--line-strong);
+      flex-shrink: 0;
+    }
+
+    .sync-dot.on { background: var(--green); }
+
+    /* 认证卡片 */
+    .sync-auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .sync-auth-tabs {
+      display: flex;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sync-auth-tab {
+      border: none;
+      background: none;
+      padding: 8px 20px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+
+    .sync-auth-tab.active {
+      color: var(--coral);
+      border-bottom-color: var(--coral);
+    }
+
+    .field-row {
+      margin-bottom: 10px;
+    }
+
+    .field-row input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--input-bg);
+      font-size: 0.86rem;
+      color: var(--ink);
+      outline: none;
+    }
+
+    .field-row input:focus {
+      border-color: var(--green);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 8px 18px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .btn:hover { border-color: var(--line-strong); background: var(--surface-soft); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+      width: 100%;
+      padding: 10px;
+    }
+
+    .btn-primary:hover { opacity: 0.9; background: var(--green); }
+
+    .btn-danger {
+      color: var(--coral);
+      border-color: var(--coral-soft);
+    }
+
+    .btn-danger:hover { background: var(--coral-soft); }
+
+    .auth-help {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* 消息提示 */
+    .sync-message {
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 0.82rem;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .sync-message.error {
+      display: block;
+      background: var(--coral-soft);
+      color: var(--coral);
+    }
+
+    .sync-message.success {
+      display: block;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    /* 已连接面板 */
+    .sync-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .panel-title {
+      font-size: 0.84rem;
+      font-weight: 850;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+
+    .account-text {
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* 设备列表 */
+    .device-list { display: grid; gap: 6px; }
+
+    .device-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.5);
+      font-size: 0.84rem;
+    }
+
+    .dev-name { font-weight: 850; color: var(--ink); }
+
+    .dev-id {
+      color: var(--muted);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.72rem;
+    }
+
+    .dev-status { font-size: 0.76rem; font-weight: 850; }
+    .dev-status.on { color: var(--green); }
+    .dev-status.off { color: var(--muted); }
+
+    .dev-remove {
+      border: none;
+      background: none;
+      color: var(--coral);
+      cursor: pointer;
+      font-size: 0.76rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .dev-remove:hover { background: var(--coral-soft); }
+
+    .empty-text {
+      color: var(--muted);
+      font-size: 0.84rem;
+      padding: 4px 0;
+    }
+
+    /* 同步日志 */
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .log-header .panel-title { margin-bottom: 0; }
+
+    .btn-sm {
+      padding: 3px 10px;
+      font-size: 0.76rem;
+    }
+
+    .log-list {
+      max-height: 220px;
+      overflow-y: auto;
+      display: grid;
+      gap: 4px;
+      font-size: 0.8rem;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .log-item {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.45);
+    }
+
+    .log-time {
+      color: var(--muted);
+      font-size: 0.72rem;
+      white-space: nowrap;
+      font-family: "SFMono-Regular", Consolas, monospace;
+    }
+
+    .log-desc { color: var(--ink); font-weight: 600; }
+    .log-item.log-error .log-desc { color: var(--coral); }
+    .log-item.log-device .log-desc { color: var(--green); }
+
+    .log-empty {
+      color: var(--muted);
+      font-size: 0.8rem;
+      padding: 8px 0;
+    }
+
+    /* 高级区 */
+    .sync-advanced {
+      margin-top: 12px;
+      border-top: 1px dashed var(--line);
+      padding-top: 10px;
+    }
+
+    .sync-advanced summary {
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sync-advanced summary:hover { color: var(--ink); }
+
+    .device-id-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+    }
+
+    .device-id-row code {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.62);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.78rem;
+      word-break: break-all;
+      color: var(--ink);
+    }
+
+    .pair-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .pair-row input {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--input-bg);
+      font-size: 0.82rem;
+      color: var(--ink);
+      outline: none;
+    }
+
+    .pair-row input:focus { border-color: var(--green); }
+
+    .advanced-help {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin: 6px 0;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="window-frame" data-tauri-drag-region>
+    <div class="window-title" data-tauri-drag-region>时光手帐 · 数据同步</div>
+    <div class="window-controls">
+      <button class="window-control" type="button" data-window-control="minimize" aria-label="最小化">─</button>
+      <button class="window-control" type="button" data-window-control="maximize" aria-label="最大化">□</button>
+      <button class="window-control close" type="button" data-window-control="close" aria-label="关闭">×</button>
+    </div>
+  </div>
+
+  <div class="sync-page">
+    <div class="sync-header">
+      <a class="back-btn" href="index.html">← 返回日历</a>
+      <h1>数据同步</h1>
+    </div>
+
+    <!-- 状态栏 -->
+    <div class="sync-status-bar">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncStatusText">同步未开启</span>
+    </div>
+
+    <!-- 消息提示 -->
+    <div class="sync-message" id="syncMessage"></div>
+
+    <!-- 认证卡片（未连接时） -->
+    <div id="syncServerForm" class="sync-auth-card">
+      <div class="sync-auth-tabs">
+        <button class="sync-auth-tab active" id="syncTabLogin" type="button">登录</button>
+        <button class="sync-auth-tab" id="syncTabRegister" type="button">注册</button>
+      </div>
+      <div class="field-row">
+        <input id="syncServerUrl" type="text" spellcheck="false" placeholder="服务器地址" value="http://175.178.86.52:8385">
+      </div>
+      <div class="field-row">
+        <input id="syncUsername" type="text" spellcheck="false" placeholder="用户名">
+      </div>
+      <div class="field-row">
+        <input id="syncPassword" type="password" placeholder="密码">
+      </div>
+      <div class="field-row" id="syncConfirmRow" hidden>
+        <input id="syncConfirmPassword" type="password" placeholder="确认密码">
+      </div>
+      <button class="btn btn-primary" type="button" id="syncConnectBtn">登录并同步</button>
+      <p class="auth-help" id="syncAuthHelp">已有账号？输入服务器地址和账号信息即可开始同步。</p>
+    </div>
+
+    <!-- 已连接面板 -->
+    <div id="syncConnectedPanel" hidden>
+      <div class="sync-panel">
+        <p class="account-text" id="syncAccountText"></p>
+        <p class="advanced-help">所有设备均与中心服务器同步，无需关心具体设备。</p>
+        <div class="actions-row">
+          <button class="btn btn-danger" type="button" id="syncDisconnectBtn">退出登录</button>
+        </div>
+      </div>
+
+      <!-- 同步日志 -->
+      <div class="sync-panel" id="syncLogSection" hidden>
+        <div class="log-header">
+          <span class="panel-title">最近同步记录</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" type="button" id="syncLogCopy">复制日志</button>
+            <button class="btn btn-sm" type="button" id="syncLogRefresh">刷新</button>
+          </div>
+        </div>
+        <div class="log-list" id="syncLogList">
+          <p class="log-empty">暂无同步记录</p>
+        </div>
+      </div>
+
+      <!-- 高级：手动配对 -->
+      <div class="sync-panel">
+        <details class="sync-advanced">
+          <summary>高级：手动配对（局域网直连）</summary>
+          <div id="syncDeviceIdRow" class="device-id-row" hidden>
+            <code id="syncDeviceId"></code>
+            <button class="btn btn-sm" type="button" id="copyDeviceId">复制</button>
+          </div>
+          <p class="advanced-help">配对需要双方互相输入设备码：先复制本机设备码发给对方，再输入对方的设备码点击配对。</p>
+          <div class="pair-row" id="syncPairRow" hidden>
+            <input id="syncPairInput" type="text" spellcheck="false" placeholder="输入对方设备码">
+            <button class="btn" type="button" id="syncPairBtn">配对</button>
+          </div>
+          <div class="panel-title" style="margin-top:12px">已配对设备</div>
+          <div class="device-list" id="syncDeviceList"></div>
+          <div class="actions-row">
+            <button class="btn" type="button" id="syncToggleBtn">开启同步</button>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/lifeos-shared.js"></script>
+  <script src="assets/window-controls.js"></script>
+  <script>
+    const { escapeHtml, toErrorMessage } = window.LifeOSShared;
+    const tauriInvoke = window.__TAURI__?.core?.invoke;
+
+    const el = {
+      syncDot: document.getElementById("syncDot"),
+      syncStatusText: document.getElementById("syncStatusText"),
+      syncMessage: document.getElementById("syncMessage"),
+      syncServerForm: document.getElementById("syncServerForm"),
+      syncTabLogin: document.getElementById("syncTabLogin"),
+      syncTabRegister: document.getElementById("syncTabRegister"),
+      syncServerUrl: document.getElementById("syncServerUrl"),
+      syncUsername: document.getElementById("syncUsername"),
+      syncPassword: document.getElementById("syncPassword"),
+      syncConfirmRow: document.getElementById("syncConfirmRow"),
+      syncConfirmPassword: document.getElementById("syncConfirmPassword"),
+      syncConnectBtn: document.getElementById("syncConnectBtn"),
+      syncAuthHelp: document.getElementById("syncAuthHelp"),
+      syncConnectedPanel: document.getElementById("syncConnectedPanel"),
+      syncAccountText: document.getElementById("syncAccountText"),
+      syncDeviceList: document.getElementById("syncDeviceList"),
+      syncDisconnectBtn: document.getElementById("syncDisconnectBtn"),
+      syncLogSection: document.getElementById("syncLogSection"),
+      syncLogList: document.getElementById("syncLogList"),
+      syncLogRefresh: document.getElementById("syncLogRefresh"),
+      syncLogCopy: document.getElementById("syncLogCopy"),
+      syncDeviceIdRow: document.getElementById("syncDeviceIdRow"),
+      syncDeviceId: document.getElementById("syncDeviceId"),
+      copyDeviceId: document.getElementById("copyDeviceId"),
+      syncPairRow: document.getElementById("syncPairRow"),
+      syncPairInput: document.getElementById("syncPairInput"),
+      syncPairBtn: document.getElementById("syncPairBtn"),
+      syncToggleBtn: document.getElementById("syncToggleBtn"),
+    };
+
+    // 事件绑定
+    el.syncTabLogin?.addEventListener("click", () => switchAuthTab(false));
+    el.syncTabRegister?.addEventListener("click", () => switchAuthTab(true));
+    el.syncConnectBtn?.addEventListener("click", connectServer);
+    el.syncDisconnectBtn?.addEventListener("click", disconnectServer);
+    el.syncToggleBtn?.addEventListener("click", toggleSync);
+    el.syncPairBtn?.addEventListener("click", pairDevice);
+    el.copyDeviceId?.addEventListener("click", copySyncDeviceId);
+    el.syncLogRefresh?.addEventListener("click", loadSyncLog);
+    el.syncLogCopy?.addEventListener("click", copySyncLog);
+
+    // 消息提示
+    function showMessage(type, text) {
+      if (!el.syncMessage) return;
+      el.syncMessage.className = "sync-message " + type;
+      el.syncMessage.textContent = text;
+      if (type === "success") {
+        setTimeout(() => { el.syncMessage.className = "sync-message"; }, 4000);
+      }
+    }
+
+    // Tab 切换
+    let isRegister = false;
+
+    function switchAuthTab(register) {
+      isRegister = register;
+      el.syncTabLogin?.classList.toggle("active", !register);
+      el.syncTabRegister?.classList.toggle("active", register);
+      if (el.syncConfirmRow) el.syncConfirmRow.hidden = !register;
+      if (el.syncConnectBtn) el.syncConnectBtn.textContent = register ? "注册并同步" : "登录并同步";
+      if (el.syncAuthHelp) el.syncAuthHelp.textContent = register
+        ? "新用户注册后即可开始多设备同步。"
+        : "已有账号？输入服务器地址和账号信息即可开始同步。";
+    }
+
+    // 连接服务器
+    async function connectServer() {
+      if (!tauriInvoke) return;
+      const register = isRegister;
+      const serverUrl = (el.syncServerUrl?.value || "").trim();
+      const username = (el.syncUsername?.value || "").trim();
+      const password = (el.syncPassword?.value || "").trim();
+      if (!serverUrl || !username || !password) {
+        showMessage("error", "请填写完整的服务器地址、用户名和密码");
+        return;
+      }
+      if (register) {
+        const confirm = (el.syncConfirmPassword?.value || "").trim();
+        if (password !== confirm) {
+          showMessage("error", "两次输入的密码不一致");
+          return;
+        }
+      }
+      const btn = el.syncConnectBtn;
+      if (btn) { btn.disabled = true; btn.textContent = register ? "注册中…" : "登录中…"; }
+      try {
+        const settings = await invoke("get_vault_settings", {});
+        const msg = await invoke("connect_to_server", {
+          serverUrl, username, password, register,
+          vaultPath: settings.vault_dir
+        });
+        showMessage("success", msg);
+        if (el.syncPassword) el.syncPassword.value = "";
+        if (el.syncConfirmPassword) el.syncConfirmPassword.value = "";
+        await refresh();
+      } catch (err) {
+        showMessage("error", toErrorMessage(err));
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = register ? "注册并同步" : "登录并同步"; }
+      }
+    }
+
+    // 退出登录
+    async function disconnectServer() {
+      if (!tauriInvoke) return;
+      const btn = el.syncDisconnectBtn;
+      if (btn) btn.disabled = true;
+      try {
+        const msg = await invoke("disconnect_server", {});
+        showMessage("success", msg);
+        await refresh();
+      } catch (err) {
+        showMessage("error", toErrorMessage(err));
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    // 开启/停止同步
+    async function toggleSync() {
+      if (!tauriInvoke) return;
+      const btn = el.syncToggleBtn;
+      if (btn) { btn.disabled = true; btn.textContent = "请稍候…"; }
+      try {
+        const status = await invoke("get_sync_status", {});
+        if (status.running) {
+          await invoke("stop_sync", {});
+        } else {
+          const settings = await invoke("get_vault_settings", {});
+          await invoke("start_sync", { vaultPath: settings.vault_dir });
+        }
+        await refresh();
+      } catch (err) {
+        showMessage("error", toErrorMessage(err));
+        await refresh();
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    // 手动配对
+    async function pairDevice() {
+      if (!tauriInvoke) return;
+      const deviceId = (el.syncPairInput?.value || "").trim();
+      if (!deviceId) { showMessage("error", "请输入对方设备码"); return; }
+      const btn = el.syncPairBtn;
+      if (btn) btn.disabled = true;
+      try {
+        const msg = await invoke("add_sync_device", { deviceId, deviceName: null });
+        showMessage("success", msg);
+        if (el.syncPairInput) el.syncPairInput.value = "";
+        await refresh();
+      } catch (err) {
+        showMessage("error", toErrorMessage(err));
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    // 移除设备
+    async function removeSyncDevice(deviceId) {
+      if (!tauriInvoke || !deviceId) return;
+      try {
+        const msg = await invoke("remove_sync_device", { deviceId });
+        showMessage("success", msg);
+        await refresh();
+      } catch (err) {
+        showMessage("error", toErrorMessage(err));
+      }
+    }
+
+    // 复制设备码
+    async function copySyncDeviceId() {
+      const text = el.syncDeviceId?.textContent || "";
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = el.copyDeviceId;
+        if (btn) { btn.textContent = "已复制"; setTimeout(() => { btn.textContent = "复制"; }, 1500); }
+      } catch { /* ignore */ }
+    }
+
+    // 同步日志
+    let lastSyncEvents = [];
+
+    async function loadSyncLog() {
+      if (!tauriInvoke || !el.syncLogList) return;
+      try {
+        const events = await invoke("get_sync_events", {});
+        lastSyncEvents = events || [];
+        if (!lastSyncEvents.length) {
+          el.syncLogList.innerHTML = '<p class="log-empty">暂无同步记录</p>';
+          return;
+        }
+        el.syncLogList.innerHTML = lastSyncEvents.map(ev => {
+          const cls = ev.kind === "folder_error" ? "log-error"
+            : (ev.kind === "device_connected" || ev.kind === "device_disconnected") ? "log-device" : "";
+          return `<div class="log-item ${cls}">`
+            + `<span class="log-time">${escapeHtml(formatSyncTime(ev.time))}</span>`
+            + `<span class="log-desc">${escapeHtml(ev.description)}</span>`
+            + `</div>`;
+        }).join("");
+      } catch {
+        lastSyncEvents = [];
+        el.syncLogList.innerHTML = '<p class="log-empty">查询失败</p>';
+      }
+    }
+
+    async function copySyncLog() {
+      const btn = el.syncLogCopy;
+      if (!lastSyncEvents.length) {
+        if (btn) { btn.textContent = "无记录"; setTimeout(() => { btn.textContent = "复制日志"; }, 1500); }
+        return;
+      }
+      const text = lastSyncEvents.map(ev => `${ev.time}  [${ev.kind}]  ${ev.description}`).join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        if (btn) { btn.textContent = "已复制"; setTimeout(() => { btn.textContent = "复制日志"; }, 1500); }
+      } catch {
+        if (btn) { btn.textContent = "复制失败"; setTimeout(() => { btn.textContent = "复制日志"; }, 1500); }
+      }
+    }
+
+    // 工具函数
+    function formatSyncTime(isoStr) {
+      if (!isoStr) return "";
+      try {
+        const d = new Date(isoStr);
+        const pad = n => String(n).padStart(2, "0");
+        return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch { return isoStr.slice(5, 16).replace("T", " "); }
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes <= 0) return "0 B";
+      const units = ["B", "KB", "MB", "GB"];
+      let i = 0, val = bytes;
+      while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+      return `${val < 10 ? val.toFixed(1) : Math.round(val)} ${units[i]}`;
+    }
+
+    function formatSpeed(bps) {
+      if (!bps || bps < 1) return "";
+      return `${formatBytes(bps)}/s`;
+    }
+
+    async function invoke(command, args) {
+      if (tauriInvoke) return tauriInvoke(command, args);
+      throw new Error("浏览器预览不支持此操作");
+    }
+
+    // 主刷新
+    async function refresh() {
+      if (!tauriInvoke) {
+        if (el.syncStatusText) el.syncStatusText.textContent = "浏览器预览不支持同步";
+        return;
+      }
+      // 账号状态
+      let account = null;
+      try { account = await invoke("get_sync_account", {}); } catch { /* ignore */ }
+      const hasAccount = account && account.connected;
+      if (el.syncServerForm) el.syncServerForm.hidden = !!hasAccount;
+      if (el.syncConnectedPanel) el.syncConnectedPanel.hidden = !hasAccount;
+      if (hasAccount && el.syncAccountText) {
+        const host = (account.server_url || "").replace(/https?:\/\//, "").replace(/:\d+/, "");
+        el.syncAccountText.textContent = `账号：${account.username} @ ${host}`;
+      }
+      // 同步状态
+      try {
+        const status = await invoke("get_sync_status", {});
+        updateStatusUI(status.running, status.device_id, status.devices || [], status.folder_ok, {
+          folderState: status.folder_state,
+          needFiles: status.need_files,
+          needBytes: status.need_bytes,
+          inSyncFiles: status.in_sync_files
+        });
+      } catch (err) {
+        updateStatusUI(false, "", [], false);
+        if (el.syncStatusText) el.syncStatusText.textContent = toErrorMessage(err);
+      }
+    }
+
+    function updateStatusUI(running, deviceId, devices, folderOk, extra) {
+      if (el.syncDot) el.syncDot.classList.toggle("on", running);
+      if (el.syncStatusText) {
+        if (!running) {
+          el.syncStatusText.textContent = "同步未开启";
+        } else {
+          const st = extra?.folderState || "";
+          const needFiles = extra?.needFiles || 0;
+          const needBytes = extra?.needBytes || 0;
+          const inSync = extra?.inSyncFiles || 0;
+          if (st === "syncing") {
+            el.syncStatusText.textContent = `正在同步… 剩余 ${needFiles} 个文件（${formatBytes(needBytes)}）`;
+          } else if (st === "scanning") {
+            el.syncStatusText.textContent = "正在扫描文件变更…";
+          } else {
+            el.syncStatusText.textContent = `已同步 · 共 ${inSync} 个文件`;
+          }
+        }
+      }
+      if (el.syncDeviceIdRow) el.syncDeviceIdRow.hidden = !running;
+      if (el.syncDeviceId) el.syncDeviceId.textContent = deviceId || "";
+      if (el.syncPairRow) el.syncPairRow.hidden = !running;
+      if (el.syncToggleBtn) el.syncToggleBtn.textContent = running ? "停止同步" : "开启同步";
+      if (el.syncLogSection) el.syncLogSection.hidden = !running;
+      renderDevices(devices || []);
+    }
+
+    function renderDevices(devices) {
+      if (!el.syncDeviceList) return;
+      if (!devices.length) {
+        el.syncDeviceList.innerHTML = '<p class="empty-text">尚未配对其他设备</p>';
+        return;
+      }
+      el.syncDeviceList.innerHTML = devices.map((dev) => {
+        const shortId = dev.id.length > 24 ? dev.id.slice(0, 24) + "…" : dev.id;
+        const statusCls = dev.connected ? "on" : "off";
+        let statusText = dev.connected ? "已连接" : "离线";
+        if (dev.connected && dev.completion < 100) {
+          statusText = `同步中 ${Math.round(dev.completion)}%`;
+        }
+        const speed = dev.connected
+          ? [formatSpeed(dev.out_bps) && `↑${formatSpeed(dev.out_bps)}`, formatSpeed(dev.in_bps) && `↓${formatSpeed(dev.in_bps)}`].filter(Boolean).join(" ")
+          : "";
+        return `<div class="device-item">`
+          + `<div><span class="dev-name">${escapeHtml(dev.name || "未命名设备")}</span>`
+          + ` <span class="dev-id">${escapeHtml(shortId)}</span></div>`
+          + `<div style="display:flex;align-items:center;gap:8px">`
+          + (speed ? `<span style="font-size:0.72rem;color:var(--muted)">${speed}</span>` : "")
+          + `<span class="dev-status ${statusCls}">${statusText}</span>`
+          + `<button class="dev-remove" data-device-id="${escapeHtml(dev.id)}">移除</button>`
+          + `</div></div>`;
+      }).join("");
+      el.syncDeviceList.querySelectorAll(".dev-remove").forEach((btn) => {
+        btn.addEventListener("click", () => removeSyncDevice(btn.dataset.deviceId));
+      });
+    }
+
+    // 初始化 + 轮询
+    refresh();
+    loadSyncLog();
+    setInterval(() => { refresh(); loadSyncLog(); }, 3000);
+  </script>
+</body>
+</html>

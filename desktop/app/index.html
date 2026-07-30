@@ -1297,88 +1297,6 @@
       background: var(--green);
     }
 
-    .sync-device-id {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .sync-device-id code {
-      flex: 1;
-      min-width: 0;
-      padding: 8px 10px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(255,255,255,0.62);
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      font-size: 0.78rem;
-      word-break: break-all;
-      color: var(--ink);
-      line-height: 1.5;
-    }
-
-    .sync-device-list {
-      display: grid;
-      gap: 6px;
-    }
-
-    .sync-device-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 8px 10px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(255,255,255,0.5);
-      font-size: 0.84rem;
-    }
-
-    .sync-device-item .dev-name {
-      font-weight: 850;
-      color: var(--ink);
-    }
-
-    .sync-device-item .dev-id {
-      color: var(--muted);
-      font-family: "SFMono-Regular", Consolas, monospace;
-      font-size: 0.72rem;
-    }
-
-    .sync-device-item .dev-status {
-      font-size: 0.76rem;
-      font-weight: 850;
-    }
-
-    .sync-device-item .dev-status.on {
-      color: var(--green);
-    }
-
-    .sync-device-item .dev-status.off {
-      color: var(--muted);
-    }
-
-    .sync-device-item .dev-remove {
-      border: none;
-      background: none;
-      color: var(--coral);
-      cursor: pointer;
-      font-size: 0.8rem;
-      font-weight: 850;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-
-    .sync-device-item .dev-remove:hover {
-      background: var(--coral-soft);
-    }
-
-    .sync-empty {
-      color: var(--muted);
-      font-size: 0.84rem;
-      padding: 4px 0;
-    }
-
     .autosave-dot.error {
       background: var(--coral);
     }
@@ -2295,6 +2213,7 @@
           </div>
         </div>
         <div class="topbar-actions">
+          <button class="icon-btn" type="button" id="syncPageButton">同步</button>
           <button class="icon-btn panel-toggle" type="button" id="databasePanelToggle" aria-expanded="false" aria-controls="databasePreviewPanel">清单</button>
           <button class="icon-btn" type="button" id="settingsButton" aria-haspopup="dialog">设置</button>
         </div>
@@ -2464,18 +2383,8 @@
             <span class="sync-dot" id="syncDot"></span>
             <span id="syncStatusText">同步未开启</span>
           </div>
-          <div id="syncDeviceIdRow" class="sync-device-id" hidden>
-            <code id="syncDeviceId"></code>
-            <button class="btn secondary" type="button" id="copyDeviceId">复制</button>
-          </div>
-          <p class="settings-help">在另一台设备上打开时光手帐，进入同步设置，输入上方设备码即可配对。配对后数据会自动同步，无需任何操作。</p>
-          <div id="syncDeviceList" class="sync-device-list"></div>
-          <div class="settings-path-row" id="syncPairRow" hidden>
-            <input id="syncPairInput" type="text" spellcheck="false" placeholder="输入对方设备码，如 XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX">
-            <button class="btn secondary" type="button" id="syncPairBtn">配对</button>
-          </div>
-          <div class="template-actions">
-            <button class="btn secondary" type="button" id="syncToggleBtn">开启同步</button>
+          <div class="template-actions" style="margin-top:8px">
+            <button class="btn secondary" type="button" id="openSyncPageBtn">打开同步管理</button>
           </div>
         </div>
         <div class="settings-actions">
@@ -2557,14 +2466,8 @@
       resetVaultDir: document.getElementById("resetVaultDir"),
       syncDot: document.getElementById("syncDot"),
       syncStatusText: document.getElementById("syncStatusText"),
-      syncDeviceIdRow: document.getElementById("syncDeviceIdRow"),
-      syncDeviceId: document.getElementById("syncDeviceId"),
-      copyDeviceId: document.getElementById("copyDeviceId"),
-      syncDeviceList: document.getElementById("syncDeviceList"),
-      syncPairRow: document.getElementById("syncPairRow"),
-      syncPairInput: document.getElementById("syncPairInput"),
-      syncPairBtn: document.getElementById("syncPairBtn"),
-      syncToggleBtn: document.getElementById("syncToggleBtn"),
+      syncPageButton: document.getElementById("syncPageButton"),
+      openSyncPageBtn: document.getElementById("openSyncPageBtn"),
       calendarView: document.getElementById("calendarView"),
       calendar: document.getElementById("calendar"),
       weekdayHeader: document.getElementById("weekdayHeader"),
@@ -2671,9 +2574,8 @@
     el.resetAppIconSource?.addEventListener("click", resetAppIconSource);
     el.chooseImagesDir?.addEventListener("click", chooseImagesDir);
     el.resetImagesDir?.addEventListener("click", resetImagesDir);
-    el.syncToggleBtn?.addEventListener("click", toggleSync);
-    el.syncPairBtn?.addEventListener("click", pairDevice);
-    el.copyDeviceId?.addEventListener("click", copySyncDeviceId);
+    el.syncPageButton?.addEventListener("click", () => { window.location.href = "同步管理.html"; });
+    el.openSyncPageBtn?.addEventListener("click", () => { window.location.href = "同步管理.html"; });
 
     const ANCHOR_COPY_KEY = "lifeos-anchor-copy";
 
@@ -3437,6 +3339,8 @@
       }
     }
 
+    let syncPollTimer = null;
+
     async function openSettings() {
       if (!el.settingsOverlay) return;
       el.settingsOverlay.hidden = false;
@@ -3444,6 +3348,9 @@
       setSettingsStatus("", "");
       await refreshVaultSettings(true);
       loadSyncSection();
+      // 每 3 秒自动刷新同步状态
+      clearInterval(syncPollTimer);
+      syncPollTimer = setInterval(loadSyncSection, 3000);
       window.setTimeout(() => {
         el.chooseVaultDir?.focus();
       }, 0);
@@ -3454,6 +3361,8 @@
       el.settingsOverlay.hidden = true;
       document.body.classList.remove("settings-open");
       setSettingsStatus("", "");
+      clearInterval(syncPollTimer);
+      syncPollTimer = null;
     }
 
     function toggleDatabasePanel() {
@@ -4015,115 +3924,30 @@
 
     async function loadSyncSection() {
       if (!tauriInvoke) {
-        setSyncUI(false, "", [], false);
         if (el.syncStatusText) el.syncStatusText.textContent = "浏览器预览不支持同步";
         return;
       }
       try {
         const status = await invoke("get_sync_status", {});
-        setSyncUI(status.running, status.device_id, status.devices || [], status.folder_ok);
-      } catch (err) {
-        setSyncUI(false, "", [], false);
-        if (el.syncStatusText) el.syncStatusText.textContent = toErrorMessage(err);
-      }
-    }
-
-    function setSyncUI(running, deviceId, devices, folderOk) {
-      if (el.syncDot) el.syncDot.classList.toggle("on", running);
-      if (el.syncStatusText) {
-        el.syncStatusText.textContent = running
-          ? (folderOk ? "同步运行中" : "同步运行中（文件夹配置中…）")
-          : "同步未开启";
-      }
-      if (el.syncDeviceIdRow) el.syncDeviceIdRow.hidden = !running;
-      if (el.syncDeviceId) el.syncDeviceId.textContent = deviceId || "";
-      if (el.syncPairRow) el.syncPairRow.hidden = !running;
-      if (el.syncToggleBtn) el.syncToggleBtn.textContent = running ? "停止同步" : "开启同步";
-      renderSyncDevices(devices || []);
-    }
-
-    function renderSyncDevices(devices) {
-      if (!el.syncDeviceList) return;
-      if (!devices.length) {
-        el.syncDeviceList.innerHTML = '<p class="sync-empty">尚未配对其他设备</p>';
-        return;
-      }
-      el.syncDeviceList.innerHTML = devices.map((dev) => {
-        const shortId = dev.id.length > 24 ? dev.id.slice(0, 24) + "…" : dev.id;
-        const statusCls = dev.connected ? "on" : "off";
-        const statusText = dev.connected ? "已连接" : "离线";
-        return `<div class="sync-device-item">`
-          + `<div><span class="dev-name">${escapeHtml(dev.name || "未命名设备")}</span>`
-          + ` <span class="dev-id">${escapeHtml(shortId)}</span></div>`
-          + `<div style="display:flex;align-items:center;gap:8px">`
-          + `<span class="dev-status ${statusCls}">${statusText}</span>`
-          + `<button class="dev-remove" data-device-id="${escapeHtml(dev.id)}">移除</button>`
-          + `</div></div>`;
-      }).join("");
-      el.syncDeviceList.querySelectorAll(".dev-remove").forEach((btn) => {
-        btn.addEventListener("click", () => removeSyncDevice(btn.dataset.deviceId));
-      });
-    }
-
-    async function toggleSync() {
-      if (!tauriInvoke) return;
-      const btn = el.syncToggleBtn;
-      if (btn) { btn.disabled = true; btn.textContent = "请稍候…"; }
-      try {
-        const status = await invoke("get_sync_status", {});
-        if (status.running) {
-          await invoke("stop_sync", {});
-        } else {
-          const settings = await invoke("get_vault_settings", {});
-          await invoke("start_sync", { vaultPath: settings.vault_dir });
+        if (el.syncDot) el.syncDot.classList.toggle("on", status.running);
+        if (el.syncStatusText) {
+          if (!status.running) {
+            el.syncStatusText.textContent = "同步未开启";
+          } else {
+            const st = status.folder_state || "";
+            if (st === "syncing") {
+              el.syncStatusText.textContent = `正在同步… 剩余 ${status.need_files || 0} 个文件`;
+            } else if (st === "scanning") {
+              el.syncStatusText.textContent = "正在扫描文件变更…";
+            } else {
+              el.syncStatusText.textContent = `已同步 · 共 ${status.in_sync_files || 0} 个文件`;
+            }
+          }
         }
-        await loadSyncSection();
-      } catch (err) {
-        setSettingsStatus("error", toErrorMessage(err));
-        await loadSyncSection();
-      } finally {
-        if (btn) btn.disabled = false;
+      } catch {
+        if (el.syncDot) el.syncDot.classList.remove("on");
+        if (el.syncStatusText) el.syncStatusText.textContent = "同步未开启";
       }
-    }
-
-    async function pairDevice() {
-      if (!tauriInvoke) return;
-      const input = el.syncPairInput;
-      const deviceId = (input?.value || "").trim();
-      if (!deviceId) { setSettingsStatus("error", "请输入对方设备码"); return; }
-      const btn = el.syncPairBtn;
-      if (btn) btn.disabled = true;
-      try {
-        const msg = await invoke("add_sync_device", { deviceId, deviceName: null });
-        setSettingsStatus("", msg);
-        if (input) input.value = "";
-        await loadSyncSection();
-      } catch (err) {
-        setSettingsStatus("error", toErrorMessage(err));
-      } finally {
-        if (btn) btn.disabled = false;
-      }
-    }
-
-    async function removeSyncDevice(deviceId) {
-      if (!tauriInvoke || !deviceId) return;
-      try {
-        const msg = await invoke("remove_sync_device", { deviceId });
-        setSettingsStatus("", msg);
-        await loadSyncSection();
-      } catch (err) {
-        setSettingsStatus("error", toErrorMessage(err));
-      }
-    }
-
-    async function copySyncDeviceId() {
-      const text = el.syncDeviceId?.textContent || "";
-      if (!text) return;
-      try {
-        await navigator.clipboard.writeText(text);
-        const btn = el.copyDeviceId;
-        if (btn) { btn.textContent = "已复制"; setTimeout(() => { btn.textContent = "复制"; }, 1500); }
-      } catch { /* 忽略剪贴板异常 */ }
     }
 
   </script>

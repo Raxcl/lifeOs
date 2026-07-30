@@ -348,6 +348,10 @@ if (-not (Test-Path $tauriExe)) {
     throw "未找到 Tauri 构建产物: $tauriExe"
 }
 
+# Syncthing sidecar（多设备同步功能依赖）
+$releaseDir = Split-Path $tauriExe
+$sidecarExe = Join-Path $releaseDir "syncthing.exe"
+
 # 还原 MicaSetup 工具
 $toolProjectFile = Join-Path $buildDir "MicaSetup.Tools.csproj"
 $micaTools = Restore-MicaSetupTools -ToolProjectFile $toolProjectFile
@@ -364,6 +368,10 @@ $archiveFile = Join-Path $buildDir "publish.7z"
 if (Test-Path $packageRoot) { Remove-Item $packageRoot -Recurse -Force }
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 Copy-Item -LiteralPath $tauriExe -Destination $packageRoot -Force
+if (Test-Path $sidecarExe) {
+    Copy-Item -LiteralPath $sidecarExe -Destination $packageRoot -Force
+    Write-Host "  已包含 Syncthing sidecar (多设备同步)" -ForegroundColor DarkGray
+}
 
 # 7z 压缩
 Write-Host "  压缩应用文件..." -ForegroundColor DarkGray
@@ -472,7 +480,9 @@ Write-Host "  已生成: $installerName" -ForegroundColor DarkGray
 # 绿色免安装版 (zip)
 $portableName = "$productName.$version.Portable.zip"
 $portableDest = Join-Path $distDir $portableName
-Compress-Archive -LiteralPath $tauriExe -DestinationPath $portableDest -Force
+$portableFiles = @($tauriExe)
+if (Test-Path $sidecarExe) { $portableFiles += $sidecarExe }
+Compress-Archive -LiteralPath $portableFiles -DestinationPath $portableDest -Force
 Write-Host "  已生成: $portableName（绿色免安装版）" -ForegroundColor DarkGray
 
 # 清理临时文件
