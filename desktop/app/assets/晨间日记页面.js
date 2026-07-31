@@ -576,20 +576,30 @@
         applyMonthlyBacklog(monthlyDb, monthlyBacklog, now);
         localStorage.setItem("lifeos-db:monthly-important", JSON.stringify(monthlyDb));
 
-        const goalItems = (annualGoals || []).map((item, index) => ({
-          id: item.id || createClientId("year"),
-          text: String(item.text || "").trim(),
-          done: Boolean(item.done),
-          created_at: item.created_at || now,
-          updated_at: now
-        })).filter((item) => item.text);
         let annualRecord = annualGoalsDb.years.find((record) => record.year === year);
         if (!annualRecord) {
           annualRecord = { year, items: [], updated_at: now };
           annualGoalsDb.years.push(annualRecord);
         }
+        let annualChanged = !annualRecord.items.length;
+        const goalItems = (annualGoals || []).map((item, index) => {
+          const text = String(item.text || "").trim();
+          const id = item.id || createClientId("year");
+          const prev = annualRecord.items.find((entry) => entry.id === id);
+          const changed = !prev || prev.text !== text || Boolean(prev.done) !== Boolean(item.done);
+          if (changed) annualChanged = true;
+          return {
+            id,
+            text,
+            done: Boolean(item.done),
+            created_at: item.created_at || (prev && prev.created_at) || now,
+            updated_at: changed ? now : (prev && prev.updated_at) || null
+          };
+        }).filter((item) => item.text);
         annualRecord.items = goalItems;
-        annualRecord.updated_at = now;
+        if (annualChanged) {
+          annualRecord.updated_at = now;
+        }
         annualGoalsDb.years = annualGoalsDb.years.filter((record) => record.items.length);
         annualGoalsDb.years.sort((a, b) => a.year.localeCompare(b.year));
         localStorage.setItem("lifeos-db:annual-goals", JSON.stringify(annualGoalsDb));
