@@ -549,30 +549,41 @@
         const monthlyDb = readFallbackDatabase("lifeos-db:monthly-important", { schema_version: 1, months: [] });
         const annualGoalsDb = readFallbackDatabase("lifeos-db:annual-goals", { schema_version: 1, years: [] });
 
-        const frogDay = {
-          date: valueDate,
-          items: normaliseFrogsForDatabase(frogs),
-          updated_at: now
-        };
-        frogsDb.days = [...frogsDb.days.filter((day) => day.date !== valueDate), frogDay].sort((a, b) => a.date.localeCompare(b.date));
+        const normalisedFrogs = normaliseFrogsForDatabase(frogs);
+        const hasFrogContent = normalisedFrogs.some((item) => item.text);
+        frogsDb.days = frogsDb.days.filter((day) => day.date !== valueDate);
+        if (hasFrogContent) {
+          const frogDay = {
+            date: valueDate,
+            items: normalisedFrogs,
+            updated_at: now
+          };
+          frogsDb.days.push(frogDay);
+        }
+        frogsDb.days.sort((a, b) => a.date.localeCompare(b.date));
         applyFrogBacklog(frogsDb, frogBacklog, now);
         localStorage.setItem("lifeos-db:frogs", JSON.stringify(frogsDb));
 
-        const habitDay = {
-          date: valueDate,
-          checks: habits,
-          updated_at: now
-        };
         habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
-        habitsDb.days = [...habitsDb.days.filter((day) => day.date !== valueDate), habitDay].sort((a, b) => a.date.localeCompare(b.date));
+        const hasHabitContent = Object.values(habits || {}).some(Boolean);
+        habitsDb.days = habitsDb.days.filter((day) => day.date !== valueDate);
+        if (hasHabitContent) {
+          const habitDay = {
+            date: valueDate,
+            checks: habits,
+            updated_at: now
+          };
+          habitsDb.days.push(habitDay);
+        }
+        habitsDb.days.sort((a, b) => a.date.localeCompare(b.date));
         localStorage.setItem("lifeos-db:habits", JSON.stringify(habitsDb));
 
-        const monthlyRecord = {
-          month,
-          items: normaliseMonthlyForDatabase(monthly, month, now),
-          updated_at: now
-        };
-        monthlyDb.months = [...monthlyDb.months.filter((record) => record.month !== month), monthlyRecord].sort((a, b) => a.month.localeCompare(b.month));
+        const monthlyItems = normaliseMonthlyForDatabase(monthly, month, now);
+        monthlyDb.months = monthlyDb.months.filter((record) => record.month !== month);
+        if (monthlyItems.length) {
+          monthlyDb.months.push({ month, items: monthlyItems, updated_at: now });
+        }
+        monthlyDb.months.sort((a, b) => a.month.localeCompare(b.month));
         applyMonthlyBacklog(monthlyDb, monthlyBacklog, now);
         localStorage.setItem("lifeos-db:monthly-important", JSON.stringify(monthlyDb));
 
