@@ -1081,15 +1081,21 @@ fn apply_frog_backlog(
         }
 
         if let Some(day) = days.iter_mut().find(|day| day.date == item.date) {
+            let note = item.note.trim().to_string();
             if let Some(frog) = day.items.iter_mut().find(|frog| frog.slot == item.slot) {
+                let changed = frog.text != text || frog.done != item.done || frog.note != note;
                 frog.text = text;
                 frog.done = item.done;
-                frog.note = item.note.trim().to_string();
+                frog.note = note;
                 if frog.created_at.is_none() {
                     frog.created_at = item.created_at;
                 }
+                if changed {
+                    day.updated_at = Some(now);
+                }
+            } else {
+                day.updated_at = Some(now);
             }
-            day.updated_at = Some(now);
         }
     }
 
@@ -1154,22 +1160,27 @@ fn apply_monthly_backlog(
                 item.id.clone()
             };
 
+            let note = item.note.trim().to_string();
             if let Some(existing) = record.items.iter_mut().find(|existing| existing.id == id) {
+                let changed = existing.text != text || existing.done != item.done || existing.note != note;
                 existing.text = text;
                 existing.done = item.done;
-                existing.note = item.note.trim().to_string();
-                existing.updated_at = Some(now);
+                existing.note = note;
+                if changed {
+                    existing.updated_at = Some(now);
+                    record.updated_at = Some(now);
+                }
             } else {
                 record.items.push(MonthlyItem {
                     id,
                     text,
                     done: item.done,
-                    note: item.note.trim().to_string(),
+                    note,
                     created_at: item.created_at.or(Some(now)),
                     updated_at: Some(now),
                 });
+                record.updated_at = Some(now);
             }
-            record.updated_at = Some(now);
         }
     }
 

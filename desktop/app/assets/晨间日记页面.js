@@ -621,10 +621,15 @@
           }
           const frog = day.items.find((record) => Number(record.slot) === slot);
           if (frog) {
+            const changed = frog.text !== text || Boolean(frog.done) !== Boolean(item.done);
             frog.text = text;
             frog.done = Boolean(item.done);
+            if (changed) {
+              day.updated_at = now;
+            }
+          } else {
+            day.updated_at = now;
           }
-          day.updated_at = now;
         });
         database.days.sort((left, right) => left.date.localeCompare(right.date));
       }
@@ -656,11 +661,15 @@
           if (!existing) {
             existing = { id, text, done: false, created_at: item.created_at || now, updated_at: now };
             record.items.push(existing);
+            record.updated_at = now;
           }
+          const changed = existing.text !== text || Boolean(existing.done) !== Boolean(item.done);
           existing.text = text;
           existing.done = Boolean(item.done);
-          existing.updated_at = now;
-          record.updated_at = now;
+          if (changed) {
+            existing.updated_at = now;
+            record.updated_at = now;
+          }
         });
         database.months.sort((left, right) => left.month.localeCompare(right.month));
       }
