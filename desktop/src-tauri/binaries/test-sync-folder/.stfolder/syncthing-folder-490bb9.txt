@@ -1,0 +1,5 @@
+# This directory is a Syncthing folder marker.
+# Do not delete.
+
+folderID: test-folder
+created: 2026-07-31T18:28:09+08:00

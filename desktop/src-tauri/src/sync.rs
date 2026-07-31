@@ -717,6 +717,8 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
     };
     let port = running.port;
     let key = running.api_key.clone();
+    let my_id = running.device_id.clone();
+    let folder_id = running.folder_id.clone();
     drop(guard);
 
     // 拉取最近事件（limit 调大，避免设备连接事件把文件事件挤出窗口）
@@ -726,17 +728,15 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
         None => return Ok(vec![]),
     };
 
-    // 第一遍：收集"从云端下载完成"的文件名。
-    // ItemFinished 只在真实下载/应用远端变更时触发（本地修改上传不会触发），且带文件名，
-    // 用于把"下载"从 LocalIndexUpdated（上传和下载都会触发）中区分出来。
-    let mut downloaded_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // 预扫描：收集所有有 ItemFinished 事件的文件名，LIU 兆底时跳过这些文件
+    let mut files_with_if: std::collections::HashSet<String> = std::collections::HashSet::new();
     for ev in arr.iter() {
         if ev.get("type").and_then(|t| t.as_str()) == Some("ItemFinished") {
             let data = ev.get("data").cloned().unwrap_or(serde_json::Value::Null);
             if is_successful_file_item(&data) {
                 if let Some(item) = data.get("item").and_then(|v| v.as_str()) {
                     if !is_ignorable_path(item) {
-                        downloaded_names.insert(file_name_from_path(item));
+                        files_with_if.insert(file_name_from_path(item));
                     }
                 }
             }
@@ -746,7 +746,7 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
     let mut result: Vec<SyncEvent> = Vec::new();
     // 记录上一条设备连接事件，用于去除频繁重连产生的刷屏
     let mut last_device_event: Option<(String, String)> = None;
-    // 已上报过的文件名：本机可能有多个文件夹监听同一日记本路径，同一文件会触发多次事件，需去重
+    // 已上报过的文件名：同一文件可能触发多次事件，需去重
     let mut reported_files: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for ev in arr.iter().rev() {
@@ -758,51 +758,47 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
         let data = ev.get("data").cloned().unwrap_or(serde_json::Value::Null);
 
         match ev_type {
-            // 远端文件下载完成 → 从云端同步到本机（ItemFinished 带文件名，最准确的下载信号）
+            // ItemFinished 只在本设备拉取（下载）文件时触发，上传侧不会产生此事件
             "ItemFinished" => {
                 if !is_successful_file_item(&data) {
                     continue;
                 }
                 let item = match data.get("item").and_then(|v| v.as_str()) {
-                    Some(i) if !is_ignorable_path(i) => file_name_from_path(i),
+                    Some(i) if !is_ignorable_path(i) => i,
                     _ => continue,
                 };
-                if !reported_files.insert(item.clone()) {
+                let name = file_name_from_path(item);
+                if reported_files.contains(&name) {
                     continue;
                 }
+                reported_files.insert(name.clone());
                 result.push(SyncEvent {
                     time,
                     kind: "file_synced".to_string(),
-                    description: format!("已从云端同步：{item}"),
+                    description: format!("已从云端同步：{name}"),
                 });
             }
-            // 本地文件变更并被索引 → 上传到云端（需排除刚下载的文件，下载也会触发此事件）
+            // 兜底：本地修改后 ItemFinished 尚未触发时，用 LocalIndexUpdated 给出即时反馈
+            // 仅当该文件没有任何 ItemFinished 事件时才会显示
+            // 后续会根据远端完成度将"本地变更"升级为"已同步到云端"
             "LocalIndexUpdated" => {
-                let names: Vec<String> = data
-                    .get("filenames")
-                    .and_then(|v| v.as_array())
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|n| n.as_str())
-                            .filter(|p| !is_ignorable_path(p))
-                            .map(|p| file_name_from_path(p))
-                            .filter(|n| !downloaded_names.contains(n) && !reported_files.contains(n))
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                if names.is_empty() {
-                    continue;
+                if let Some(filenames) = data.get("filenames").and_then(|v| v.as_array()) {
+                    for f in filenames.iter().filter_map(|n| n.as_str()) {
+                        if is_ignorable_path(f) {
+                            continue;
+                        }
+                        let name = file_name_from_path(f);
+                        if files_with_if.contains(&name) || reported_files.contains(&name) {
+                            continue;
+                        }
+                        reported_files.insert(name.clone());
+                        result.push(SyncEvent {
+                            time: time.clone(),
+                            kind: "file_synced".to_string(),
+                            description: format!("本地变更：{name}"),
+                        });
+                    }
                 }
-                for n in &names {
-                    reported_files.insert(n.clone());
-                }
-                let desc = if names.len() == 1 {
-                    format!("已上传：{}", names[0])
-                } else {
-                    let shown = names.iter().take(3).cloned().collect::<Vec<_>>().join("、");
-                    format!("已上传：{shown} 等 {} 个文件", names.len())
-                };
-                result.push(SyncEvent { time, kind: "file_synced".to_string(), description: desc });
             }
             "DeviceConnected" => {
                 let name = data.get("deviceName").and_then(|v| v.as_str()).unwrap_or("未知设备").to_string();
@@ -849,6 +845,23 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
         }
     }
 
+    // 根据远端同步完成度，将"本地变更"升级为更精确的描述
+    let has_local_changes = result.iter().any(|e| e.description.starts_with("本地变更"));
+    if has_local_changes {
+        let desc = match check_remote_fully_synced(port, &key, &my_id, &folder_id) {
+            Some(true) => "已同步到云端",
+            Some(false) => "本地变更（同步中）",
+            None => "本地变更",
+        };
+        for ev in &mut result {
+            if ev.description.starts_with("本地变更") {
+                // 提取文件名部分（"本地变更：xxx" → "xxx"）
+                let file_part = ev.description.trim_start_matches("本地变更：").to_string();
+                ev.description = format!("{desc}：{file_part}");
+            }
+        }
+    }
+
     Ok(result)
 }
 
@@ -869,6 +882,53 @@ fn is_successful_file_item(data: &serde_json::Value) -> bool {
 /// 判断路径是否为应忽略的同步标记/临时文件。
 fn is_ignorable_path(path: &str) -> bool {
     path.ends_with(SYNC_MARKER_FILE) || path.contains("~syncthing~")
+}
+
+/// 检查所有已连接的远端设备是否已 100% 同步完成（即本地文件已全部上传）。
+///
+/// 返回值：
+/// - `Some(true)`  — 所有已连接远端设备 completion = 100，上传已完成
+/// - `Some(false)` — 存在远端设备尚未同步完成
+/// - `None`        — 无法判断（无远端设备 / 未连接 / API 失败）
+fn check_remote_fully_synced(port: u16, key: &str, my_id: &str, folder_id: &str) -> Option<bool> {
+    let config = api_get(port, key, "/rest/config").ok()?;
+    let devices = config.get("devices")?.as_array()?;
+    let remote_ids: Vec<&str> = devices
+        .iter()
+        .filter_map(|d| d.get("deviceID").and_then(|id| id.as_str()))
+        .filter(|id| *id != my_id)
+        .collect();
+    if remote_ids.is_empty() {
+        return None;
+    }
+
+    let conns = api_get(port, key, "/rest/system/connections").ok()?;
+    let connections = conns.get("connections")?;
+
+    let mut checked_any = false;
+    for id in &remote_ids {
+        let connected = connections
+            .get(*id)
+            .and_then(|c| c.get("connected"))
+            .and_then(|c| c.as_bool())
+            .unwrap_or(false);
+        if !connected {
+            continue;
+        }
+        checked_any = true;
+        let comp = api_get(
+            port,
+            key,
+            &format!("/rest/db/completion?folder={folder_id}&device={id}"),
+        )
+        .ok()?;
+        let completion = comp.get("completion").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if completion < 100.0 {
+            return Some(false);
+        }
+    }
+
+    if checked_any { Some(true) } else { None }
 }
 
 // ---------------------------------------------------------------------------
@@ -1317,5 +1377,363 @@ fn configure_vault_folder(
             api_post(port, key, "/rest/config/folders", &new_folder)
         }
         Err(e) => Err(format!("请求 Syncthing API 失败：{e}")),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_file_name_from_path() {
+        assert_eq!(file_name_from_path("00-Databases/frogs.csv"), "frogs.csv");
+        assert_eq!(file_name_from_path("00-Databases\\frogs.csv"), "frogs.csv");
+        assert_eq!(file_name_from_path("frogs.csv"), "frogs.csv");
+    }
+
+    #[test]
+    fn test_is_ignorable_path() {
+        assert!(is_ignorable_path(".lifeos-sync"));
+        assert!(is_ignorable_path("sub/.lifeos-sync"));
+        assert!(is_ignorable_path("00-Databases/~syncthing~frogs.csv"));
+        assert!(!is_ignorable_path("00-Databases/frogs.csv"));
+    }
+
+    #[test]
+    fn test_is_successful_file_item() {
+        let ok = serde_json::json!({"action": "update", "type": "file", "error": null});
+        assert!(is_successful_file_item(&ok));
+
+        let dir = serde_json::json!({"action": "update", "type": "dir", "error": null});
+        assert!(!is_successful_file_item(&dir));
+
+        let err = serde_json::json!({"action": "update", "type": "file", "error": "some error"});
+        assert!(!is_successful_file_item(&err));
+    }
+
+    /// 模拟事件处理逻辑：本地编辑 frogs.csv 后应看到"本地变更"日志
+    #[test]
+    fn test_local_edit_shows_upload_log() {
+        // 实测：上传时只有 LIU，不会产生 ItemFinished
+        let events = vec![
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:00Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("本地变更") && e.description.contains("frogs.csv")),
+            "编辑设备应显示'本地变更：frogs.csv'，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+        let count = result.iter().filter(|e| e.description.contains("frogs.csv")).count();
+        assert_eq!(count, 1, "同一文件不应重复显示");
+    }
+
+    /// 模拟事件处理逻辑：远端下载 frogs.csv 后应看到"已从云端同步"日志
+    #[test]
+    fn test_remote_download_shows_sync_log() {
+        // 实测：下载时 IF 触发（无 local 字段），后跟 LIU
+        let events = vec![
+            serde_json::json!({
+                "type": "ItemFinished",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"action": "update", "type": "file", "item": "00-Databases/frogs.csv", "error": null}
+            }),
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:02Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("已从云端同步") && e.description.contains("frogs.csv")),
+            "接收设备应显示'已从云端同步：frogs.csv'，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+        assert!(
+            !result.iter().any(|e| e.description.contains("本地变更") && e.description.contains("frogs.csv")),
+            "接收设备不应显示'本地变更'");
+    }
+
+    /// 先下载后本地编辑：IF(下载) + LIU(本地编辑)，因文件有 IF 所以显示下载
+    #[test]
+    fn test_download_then_local_edit_shows_download() {
+        // 实测：有 IF 就意味着下载，LIU 被 files_with_if 拑制
+        let events = vec![
+            serde_json::json!({
+                "type": "ItemFinished",
+                "time": "2026-07-31T10:00:00Z",
+                "data": {"action": "update", "type": "file", "item": "00-Databases/frogs.csv", "error": null}
+            }),
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T11:00:00Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("已从云端同步") && e.description.contains("frogs.csv")),
+            "有 IF 事件时应显示下载，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+    }
+
+    /// 下载事件（IF 无 local 字段）应显示"已从云端同步"
+    #[test]
+    fn test_if_without_local_field_shows_download() {
+        // 实测：下载的 IF 事件没有 local 字段
+        let events = vec![
+            serde_json::json!({
+                "type": "ItemFinished",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"action": "update", "type": "file", "item": "00-Databases\\frogs.csv", "error": null}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("已从云端同步") && e.description.contains("frogs.csv")),
+            "IF 无 local 字段时应显示下载，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+    }
+
+    /// 同一文件多次编辑，只有 LIU 没有 IF，应只显示一条"本地变更"
+    #[test]
+    fn test_multiple_edits_same_file_shows_upload() {
+        // 实测：上传不会产生 IF，多次编辑只有多个 LIU
+        let events = vec![
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:10Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:15Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("本地变更") && e.description.contains("frogs.csv")),
+            "多次编辑同一文件应显示'本地变更'，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+        let count = result.iter().filter(|e| e.description.contains("frogs.csv")).count();
+        assert_eq!(count, 1, "同一文件不应重复显示");
+    }
+
+    /// 多次编辑，只有 LIU 没有 IF，应显示本地变更
+    #[test]
+    fn test_multiple_edits_last_sync_pending_shows_upload() {
+        // 实测：上传不会产生 IF，只有 LIU
+        let events = vec![
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:10Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:15Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("本地变更") && e.description.contains("frogs.csv")),
+            "只有 LIU 时应显示'本地变更'，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+    }
+
+    /// 只有 LocalIndexUpdated 没有 ItemFinished（同步尚未完成），应通过 LIU 兜底显示日志
+    #[test]
+    fn test_liu_only_no_if_shows_upload() {
+        let events = vec![
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("本地变更") && e.description.contains("frogs.csv")),
+            "同步未完成时应通过 LIU 兜底显示'本地变更'，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+    }
+
+    /// 远端已 100% 同步完成时，LIU 应显示"已同步到云端"
+    #[test]
+    fn test_liu_remote_synced_shows_uploaded() {
+        let events = vec![
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, Some(true));
+        assert!(
+            result.iter().any(|e| e.description.contains("已同步到云端") && e.description.contains("frogs.csv")),
+            "远端已同步完成时应显示'已同步到云端'，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+    }
+
+    /// 远端尚未同步完成时，LIU 应显示"本地变更（同步中）"
+    #[test]
+    fn test_liu_remote_syncing_shows_pending() {
+        let events = vec![
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, Some(false));
+        assert!(
+            result.iter().any(|e| e.description.contains("本地变更（同步中）") && e.description.contains("frogs.csv")),
+            "远端同步中时应显示'本地变更（同步中）'，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+    }
+
+    /// 下载事件不受远端同步状态影响，始终显示"已从云端同步"
+    #[test]
+    fn test_download_not_affected_by_remote_status() {
+        let events = vec![
+            serde_json::json!({
+                "type": "ItemFinished",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"action": "update", "type": "file", "item": "00-Databases/frogs.csv", "error": null}
+            }),
+        ];
+
+        // 即使远端同步中，下载事件仍显示"已从云端同步"
+        let result = simulate_event_processing(&events, Some(false));
+        assert!(
+            result.iter().any(|e| e.description.contains("已从云端同步") && e.description.contains("frogs.csv")),
+            "下载事件不应受远端状态影响，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+    }
+
+    /// 提取 get_sync_events 中的核心事件处理逻辑用于测试（无需 Tauri State）
+    /// `remote_fully_synced`: 模拟远端同步状态（Some(true)=已全部同步, Some(false)=同步中, None=无法判断）
+    fn simulate_event_processing(arr: &[serde_json::Value], remote_fully_synced: Option<bool>) -> Vec<SyncEvent> {
+        // 预扫描：收集所有有 ItemFinished 的文件名
+        let mut files_with_if: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for ev in arr.iter() {
+            if ev.get("type").and_then(|t| t.as_str()) == Some("ItemFinished") {
+                let data = ev.get("data").cloned().unwrap_or(serde_json::Value::Null);
+                if is_successful_file_item(&data) {
+                    if let Some(item) = data.get("item").and_then(|v| v.as_str()) {
+                        if !is_ignorable_path(item) {
+                            files_with_if.insert(file_name_from_path(item));
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut result: Vec<SyncEvent> = Vec::new();
+        let mut reported_files: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        for ev in arr.iter().rev() {
+            if result.len() >= 50 {
+                break;
+            }
+            let ev_type = ev.get("type").and_then(|t| t.as_str()).unwrap_or("");
+            let time = ev.get("time").and_then(|t| t.as_str()).unwrap_or("").to_string();
+            let data = ev.get("data").cloned().unwrap_or(serde_json::Value::Null);
+
+            if ev_type == "ItemFinished" {
+                if !is_successful_file_item(&data) {
+                    continue;
+                }
+                let item = match data.get("item").and_then(|v| v.as_str()) {
+                    Some(i) if !is_ignorable_path(i) => i,
+                    _ => continue,
+                };
+                let name = file_name_from_path(item);
+                if reported_files.contains(&name) {
+                    continue;
+                }
+                reported_files.insert(name.clone());
+                result.push(SyncEvent { time, kind: "file_synced".to_string(), description: format!("已从云端同步：{name}") });
+            } else if ev_type == "LocalIndexUpdated" {
+                if let Some(filenames) = data.get("filenames").and_then(|v| v.as_array()) {
+                    for f in filenames.iter().filter_map(|n| n.as_str()) {
+                        if is_ignorable_path(f) {
+                            continue;
+                        }
+                        let name = file_name_from_path(f);
+                        if files_with_if.contains(&name) || reported_files.contains(&name) {
+                            continue;
+                        }
+                        reported_files.insert(name.clone());
+                        result.push(SyncEvent {
+                            time: time.clone(),
+                            kind: "file_synced".to_string(),
+                            description: format!("本地变更：{name}"),
+                        });
+                    }
+                }
+            }
+        }
+
+        // 根据远端同步完成度升级"本地变更"描述
+        let has_local_changes = result.iter().any(|e| e.description.starts_with("本地变更"));
+        if has_local_changes {
+            let desc = match remote_fully_synced {
+                Some(true) => "已同步到云端",
+                Some(false) => "本地变更（同步中）",
+                None => "本地变更",
+            };
+            for ev in &mut result {
+                if ev.description.starts_with("本地变更") {
+                    let file_part = ev.description.trim_start_matches("本地变更：").to_string();
+                    ev.description = format!("{desc}：{file_part}");
+                }
+            }
+        }
+
+        result
     }
 }

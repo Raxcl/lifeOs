@@ -1862,7 +1862,7 @@ dependencies = [
 
 [[package]]
 name = "lifeos-morning-journal"
-version = "0.1.34"
+version = "0.1.41"
 dependencies = [
  "log",
  "serde",
