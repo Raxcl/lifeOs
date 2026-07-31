@@ -871,6 +871,16 @@ fn normalize_frog_items(items: Vec<FrogItem>) -> Vec<FrogItem> {
         .collect()
 }
 
+/// 比较两组青蛙条目是否有实质内容变化（忽略 created_at 等元数据）。
+fn frog_items_content_eq(a: &[FrogItem], b: &[FrogItem]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b.iter()).all(|(x, y)| {
+        x.slot == y.slot && x.text == y.text && x.done == y.done && x.note == y.note
+    })
+}
+
 fn normalize_habit_definitions(
     definitions: Vec<HabitDefinition>,
     now: u64,
@@ -901,34 +911,6 @@ fn normalize_habit_definitions(
     } else {
         normalized
     }
-}
-
-fn normalize_monthly_items(month: &str, items: Vec<MonthlyItem>, now: u64) -> Vec<MonthlyItem> {
-    items
-        .into_iter()
-        .enumerate()
-        .filter_map(|(index, item)| {
-            let text = item.text.trim().to_string();
-            if text.is_empty() {
-                return None;
-            }
-
-            let id = if item.id.trim().is_empty() {
-                format!("{month}-{}-{now}", index + 1)
-            } else {
-                item.id
-            };
-
-            Some(MonthlyItem {
-                id,
-                text,
-                done: item.done,
-                note: item.note,
-                created_at: item.created_at.or(Some(now)),
-                updated_at: Some(now),
-            })
-        })
-        .collect()
 }
 
 fn normalize_monthly_items_preserve(
@@ -1000,7 +982,8 @@ fn apply_frog_backlog(
     days: &mut Vec<FrogDay>,
     backlog: Vec<FrogBacklogItem>,
     now: u64,
-) -> Result<(), String> {
+) -> Result<bool, String> {
+    let mut any_changed = false;
     for item in backlog {
         parse_date(&item.date)?;
         if !(1..=3).contains(&item.slot) {
@@ -1021,26 +1004,30 @@ fn apply_frog_backlog(
         }
 
         if let Some(day) = days.iter_mut().find(|day| day.date == item.date) {
-            let note = item.note.trim().to_string();
             if let Some(frog) = day.items.iter_mut().find(|frog| frog.slot == item.slot) {
-                let changed = frog.text != text || frog.done != item.done || frog.note != note;
+                // 前端 backlog 不携带 note，空 note 表示“未提供”，保留已有值
+                let note = item.note.trim().to_string();
+                let effective_note = if note.is_empty() { frog.note.clone() } else { note };
+                let changed = frog.text != text || frog.done != item.done || frog.note != effective_note;
                 frog.text = text;
                 frog.done = item.done;
-                frog.note = note;
+                frog.note = effective_note;
                 if frog.created_at.is_none() {
                     frog.created_at = item.created_at;
                 }
                 if changed {
                     day.updated_at = Some(now);
+                    any_changed = true;
                 }
             } else {
                 day.updated_at = Some(now);
+                any_changed = true;
             }
         }
     }
 
     days.sort_by(|left, right| left.date.cmp(&right.date));
-    Ok(())
+    Ok(any_changed)
 }
 
 fn collect_monthly_backlog(records: &[MonthlyRecord]) -> Vec<MonthlyBacklogItem> {
@@ -1076,7 +1063,8 @@ fn apply_monthly_backlog(
     records: &mut Vec<MonthlyRecord>,
     backlog: Vec<MonthlyBacklogItem>,
     now: u64,
-) -> Result<(), String> {
+) -> Result<bool, String> {
+    let mut any_changed = false;
     for item in backlog {
         parse_month(&item.month)?;
 
@@ -1100,15 +1088,18 @@ fn apply_monthly_backlog(
                 item.id.clone()
             };
 
+            // 前端 backlog 不携带 note，空 note 表示“未提供”，保留已有值
             let note = item.note.trim().to_string();
             if let Some(existing) = record.items.iter_mut().find(|existing| existing.id == id) {
-                let changed = existing.text != text || existing.done != item.done || existing.note != note;
+                let effective_note = if note.is_empty() { existing.note.clone() } else { note };
+                let changed = existing.text != text || existing.done != item.done || existing.note != effective_note;
                 existing.text = text;
                 existing.done = item.done;
-                existing.note = note;
+                existing.note = effective_note;
                 if changed {
                     existing.updated_at = Some(now);
                     record.updated_at = Some(now);
+                    any_changed = true;
                 }
             } else {
                 record.items.push(MonthlyItem {
@@ -1120,12 +1111,13 @@ fn apply_monthly_backlog(
                     updated_at: Some(now),
                 });
                 record.updated_at = Some(now);
+                any_changed = true;
             }
         }
     }
 
     records.sort_by(|left, right| left.month.cmp(&right.month));
-    Ok(())
+    Ok(any_changed)
 }
 
 const FROG_CSV_HEADERS: &[&str] = &["date", "slot", "text", "done", "note", "created_at", "updated_at"];
@@ -2343,60 +2335,89 @@ async fn save_journal_databases(
     let mut frogs_db = read_frog_database(&frogs_path)?;
     let normalized_frogs = normalize_frog_items(frogs);
     let has_frog_content = normalized_frogs.iter().any(|item| !item.text.is_empty());
-    frogs_db.days.retain(|day| day.date != date);
-    if has_frog_content {
-        let frog_day = FrogDay {
-            date: date.clone(),
-            items: normalized_frogs,
-            updated_at: Some(now),
-        };
-        frogs_db.days.push(frog_day);
+    // 变更检测：比较传入数据与已存储数据，无变化则不写文件（避免触发无谓同步）
+    let existing_frog_day = frogs_db.days.iter().find(|day| day.date == date);
+    let frogs_changed = if has_frog_content {
+        match existing_frog_day {
+            Some(day) => !frog_items_content_eq(&day.items, &normalized_frogs),
+            None => true,
+        }
+    } else {
+        existing_frog_day.is_some()
+    };
+    if frogs_changed {
+        frogs_db.days.retain(|day| day.date != date);
+        if has_frog_content {
+            frogs_db.days.push(FrogDay {
+                date: date.clone(),
+                items: normalized_frogs,
+                updated_at: Some(now),
+            });
+        }
+        frogs_db.days.sort_by(|left, right| left.date.cmp(&right.date));
     }
-    frogs_db
-        .days
-        .sort_by(|left, right| left.date.cmp(&right.date));
-    apply_frog_backlog(&mut frogs_db.days, frog_backlog.unwrap_or_default(), now)?;
-    write_frog_database(&frogs_path, &frogs_db)?;
+    let backlog_items = frog_backlog.unwrap_or_default();
+    let backlog_changed = if backlog_items.is_empty() {
+        false
+    } else {
+        apply_frog_backlog(&mut frogs_db.days, backlog_items, now)?
+    };
+    if frogs_changed || backlog_changed {
+        write_frog_database(&frogs_path, &frogs_db)?;
+    }
 
     let mut habits_db = read_habit_database(&habits_path)?;
     if habits_db.definitions.is_empty() {
         habits_db.definitions = default_habit_definitions();
     }
     let has_habit_content = habits.values().any(|&checked| checked);
-    habits_db.days.retain(|day| day.date != date);
-    if has_habit_content {
-        let habit_day = HabitDay {
-            date: date.clone(),
-            checks: habits,
-            updated_at: Some(now),
-        };
-        habits_db.days.push(habit_day);
+    let existing_habit_day = habits_db.days.iter().find(|day| day.date == date);
+    let habits_changed = if has_habit_content {
+        match existing_habit_day {
+            Some(day) => day.checks != habits,
+            None => true,
+        }
+    } else {
+        existing_habit_day.is_some()
+    };
+    if habits_changed {
+        habits_db.days.retain(|day| day.date != date);
+        if has_habit_content {
+            habits_db.days.push(HabitDay {
+                date: date.clone(),
+                checks: habits,
+                updated_at: Some(now),
+            });
+        }
+        habits_db.days.sort_by(|left, right| left.date.cmp(&right.date));
+        write_habit_database(&habits_path, &habits_db)?;
     }
-    habits_db
-        .days
-        .sort_by(|left, right| left.date.cmp(&right.date));
-    write_habit_database(&habits_path, &habits_db)?;
 
     let mut monthly_db = read_monthly_database(&monthly_path)?;
-    let normalized_monthly = normalize_monthly_items(&month, monthly, now);
-    monthly_db.months.retain(|record| record.month != month);
-    if !normalized_monthly.is_empty() {
-        let monthly_record = MonthlyRecord {
-            month: month.clone(),
-            items: normalized_monthly,
-            updated_at: Some(now),
-        };
-        monthly_db.months.push(monthly_record);
+    let existing_monthly = monthly_db.months.iter().find(|r| r.month == month);
+    let normalized_monthly = normalize_monthly_items_preserve(&month, monthly, now, existing_monthly);
+    let monthly_changed = normalized_monthly.iter().any(|item| item.updated_at == Some(now));
+    let monthly_backlog_items = monthly_backlog.unwrap_or_default();
+    let monthly_backlog_changed = if monthly_backlog_items.is_empty() {
+        false
+    } else {
+        apply_monthly_backlog(&mut monthly_db.months, monthly_backlog_items, now)?
+    };
+    if monthly_changed {
+        monthly_db.months.retain(|record| record.month != month);
+        if !normalized_monthly.is_empty() {
+            let record_updated = normalized_monthly.iter().filter_map(|i| i.updated_at).max();
+            monthly_db.months.push(MonthlyRecord {
+                month: month.clone(),
+                items: normalized_monthly,
+                updated_at: record_updated,
+            });
+        }
+        monthly_db.months.sort_by(|left, right| left.month.cmp(&right.month));
     }
-    monthly_db
-        .months
-        .sort_by(|left, right| left.month.cmp(&right.month));
-    apply_monthly_backlog(
-        &mut monthly_db.months,
-        monthly_backlog.unwrap_or_default(),
-        now,
-    )?;
-    write_monthly_database(&monthly_path, &monthly_db)?;
+    if monthly_changed || monthly_backlog_changed {
+        write_monthly_database(&monthly_path, &monthly_db)?;
+    }
 
     let mut annual_goals_db = read_annual_goal_database(&annual_goals_path)?;
     let year = year_key(&date)?;
