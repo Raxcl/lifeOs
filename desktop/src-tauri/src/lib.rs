@@ -2674,6 +2674,32 @@ async fn save_journal(
     })
 }
 
+#[tauri::command]
+async fn delete_journal(app: tauri::AppHandle, date: String) -> Result<(), String> {
+    parse_date(&date)?;
+
+    let path = daily_path(&app, &date)?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|err| format!("删除日记失败：{err}"))?;
+    }
+
+    let (frogs_path, habits_path, _, _) = database_paths(&app)?;
+
+    let mut frogs_db = read_frog_database(&frogs_path)?;
+    if frogs_db.days.iter().any(|day| day.date == date) {
+        frogs_db.days.retain(|day| day.date != date);
+        write_frog_database(&frogs_path, &frogs_db)?;
+    }
+
+    let mut habits_db = read_habit_database(&habits_path)?;
+    if habits_db.days.iter().any(|day| day.date == date) {
+        habits_db.days.retain(|day| day.date != date);
+        write_habit_database(&habits_path, &habits_db)?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2921,6 +2947,7 @@ pub fn run() {
             open_or_create_journal,
             read_journal,
             save_journal,
+            delete_journal,
             sync::get_sync_status,
             sync::start_sync,
             sync::stop_sync,

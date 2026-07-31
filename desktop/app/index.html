@@ -501,6 +501,27 @@
       color: var(--ink);
     }
 
+    .btn.danger {
+      border-color: rgba(180, 60, 50, 0.35);
+      background: rgba(255, 248, 246, 0.8);
+      color: #a83a2e;
+    }
+
+    .btn.danger:hover {
+      border-color: rgba(180, 60, 50, 0.6);
+      background: rgba(255, 240, 236, 0.95);
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
     .view {
       display: none;
       min-height: 0;
@@ -1484,6 +1505,20 @@
       box-shadow: inset 0 -3px 0 rgba(117, 78, 18, 0.15);
     }
 
+    html[data-ui-theme="whimsy"] .btn.danger {
+      border-color: rgba(180, 60, 50, 0.35);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent),
+        rgba(255, 244, 240, 0.9);
+      color: #a83a2e;
+      box-shadow: none;
+    }
+
+    html[data-ui-theme="whimsy"] .btn.danger:hover {
+      border-color: rgba(180, 60, 50, 0.6);
+      background: rgba(255, 236, 230, 0.95);
+    }
+
     html[data-ui-theme="whimsy"] .btn.secondary {
       border-color: rgba(120, 89, 38, 0.20);
       background: rgba(255, 253, 244, 0.72);
@@ -2319,7 +2354,10 @@
             <section class="panel-block">
               <h3 id="selectedEntryTitle">新的一天</h3>
               <p id="selectedEntryMeta">准备写下这一天的开场。</p>
-              <button class="btn" type="button" id="openSelected">新的一天</button>
+              <div class="panel-actions">
+                <button class="btn" type="button" id="openSelected">新的一天</button>
+                <button class="btn danger" type="button" id="deleteSelected" hidden>删除</button>
+              </div>
             </section>
 
             <section class="panel-block">
@@ -2481,6 +2519,7 @@
       selectedEntryTitle: document.getElementById("selectedEntryTitle"),
       selectedEntryMeta: document.getElementById("selectedEntryMeta"),
       openSelected: document.getElementById("openSelected"),
+      deleteSelected: document.getElementById("deleteSelected"),
       databasePreviewPanel: document.getElementById("databasePreviewPanel"),
       frogPreviewList: document.getElementById("frogPreviewList"),
       frogPreviewMeta: document.getElementById("frogPreviewMeta"),
@@ -2556,6 +2595,7 @@
     document.getElementById("nextMonth").addEventListener("click", () => shiftMonth(1));
     document.getElementById("goToday").addEventListener("click", goToToday);
     document.getElementById("openSelected").addEventListener("click", () => openSelectedDate());
+    el.deleteSelected?.addEventListener("click", () => deleteSelectedDate());
     document.getElementById("calendarGrid").addEventListener("click", (event) => {
       const dayButton = event.target.closest("button.day[data-date]");
       if (dayButton) handleDayClick(dayButton.dataset.date);
@@ -2847,6 +2887,17 @@
           day_index: dayIndex,
           created: false
         };
+      }
+
+      if (command === "delete_journal") {
+        localStorage.removeItem(prefix + args.date);
+        const frogsDb = readFallbackDatabase(databaseFallbackKeys.frogs, defaultFrogDatabase());
+        frogsDb.days = (frogsDb.days || []).filter((day) => day.date !== args.date);
+        localStorage.setItem(databaseFallbackKeys.frogs, JSON.stringify(frogsDb));
+        const habitsDb = readFallbackDatabase(databaseFallbackKeys.habits, defaultHabitDatabase());
+        habitsDb.days = (habitsDb.days || []).filter((day) => day.date !== args.date);
+        localStorage.setItem(databaseFallbackKeys.habits, JSON.stringify(habitsDb));
+        return null;
       }
 
       throw new Error(`未知命令：${command}`);
@@ -3572,13 +3623,6 @@
       };
     }
 
-    function monthHolidayCount(year, month) {
-      const prefix = `${year}-${String(month).padStart(2, "0")}`;
-      return Array.from(officialHolidays.entries())
-        .filter(([date, meta]) => date.startsWith(prefix) && meta.type === "holiday")
-        .length;
-    }
-
     async function loadMonth() {
       const year = state.monthDate.getFullYear();
       const month = state.monthDate.getMonth() + 1;
@@ -3609,10 +3653,9 @@
       const lead = (first.getDay() + 6) % 7;
       const cells = [];
       const monthProgress = Math.round((state.entries.size / totalDays) * 100);
-      const holidayCount = monthHolidayCount(year, month);
 
       el.monthTitle.textContent = `${year} 年 ${String(month).padStart(2, "0")} 月`;
-      el.monthMeta.textContent = `本月 ${state.entries.size} 天 · 累计 ${state.totalEntries} 天 · 节假日 ${holidayCount} 天 · 进度 ${monthProgress}%`;
+      el.monthMeta.textContent = `本月 ${state.entries.size} 天 · 累计 ${state.totalEntries} 天 · 进度 ${monthProgress}%`;
       el.weekdayHeader.innerHTML = "";
       el.calendarGrid.innerHTML = "";
 
@@ -3742,12 +3785,33 @@
         el.selectedEntryTitle.textContent = entry.title;
         el.selectedEntryMeta.textContent = `${formatLongDate(date)} · 点击按钮打开`;
         el.openSelected.textContent = "打开日记";
+        el.deleteSelected.hidden = false;
       } else {
         el.selectedStatus.className = "status-chip empty";
         el.selectedStatus.textContent = "未创建";
         el.selectedEntryTitle.textContent = `第 ${state.nextDayIndex} 天`;
         el.selectedEntryMeta.textContent = isSameDate(date, today) ? "准备写下今天的开场。" : "为这个日期创建一篇新日记。";
         el.openSelected.textContent = isSameDate(date, today) ? "新的一天" : "创建这一天";
+        el.deleteSelected.hidden = true;
+      }
+    }
+
+    async function deleteSelectedDate() {
+      const date = state.selectedDate;
+      if (!state.entries.has(date)) return;
+      if (!window.confirm(`确定要删除 ${date} 的日记吗？\n相关的青蛙和习惯记录也会一并删除，此操作不可恢复。`)) return;
+
+      try {
+        el.deleteSelected.disabled = true;
+        await invoke("delete_journal", { date });
+        state.entries.delete(date);
+        renderCalendar();
+        updateSelectedPanel();
+        el.calendarNotice.textContent = `已删除 ${date} 的日记。`;
+      } catch (error) {
+        el.calendarNotice.textContent = toErrorMessage(error);
+      } finally {
+        el.deleteSelected.disabled = false;
       }
     }
 
