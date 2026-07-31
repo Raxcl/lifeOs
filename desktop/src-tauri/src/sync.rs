@@ -92,8 +92,35 @@ pub fn auto_start_if_configured(app: &tauri::AppHandle) {
     let has_local_config = config_dir.join("config.xml").exists();
     let has_sync_marker = vault_path.join(SYNC_MARKER_FILE).exists();
 
+    // 自愈逻辑：无有效服务器账号时，清理所有残留文件和进程，防止同步服务误启动
+    if read_sync_account(app).is_none() {
+        if has_local_config || has_sync_marker {
+            log::info!("无有效同步账号，清理残留的同步配置和进程");
+            // 先终止可能残留的 Syncthing 进程
+            #[cfg(target_os = "windows")]
+            {
+                use std::process::Command;
+                let _ = Command::new("taskkill")
+                    .args(["/F", "/IM", "syncthing.exe"])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = std::process::Command::new("pkill")
+                    .args(["-f", "syncthing"])
+                    .status();
+            }
+        }
+        let _ = fs::remove_file(config_dir.join("config.xml"));
+        let _ = fs::remove_file(config_dir.join("syncthing.lock"));
+        let _ = fs::remove_file(vault_path.join(SYNC_MARKER_FILE));
+        return;
+    }
+
     if !has_local_config && !has_sync_marker {
-        // 本机从未开启同步，且 Vault 中也没有同步标记 → 用户未使用过同步功能
+        // 有账号但无配置文件和标记，可能是首次登录，等待用户手动启动
         return;
     }
 
@@ -274,6 +301,27 @@ pub fn start_syncthing(
             }
         }
         // 已有实例无响应，删除锁文件以便重新启动
+        let _ = fs::remove_file(config_dir.join("syncthing.lock"));
+    } else if config_dir.join("syncthing.lock").exists() {
+        // config.xml 已被清理但锁文件残留 → 可能有旧的孤儿进程占用端口
+        // 尝试终止所有 Syncthing 进程以便重新启动
+        log::info!("检测到残留锁文件，尝试清理孤儿 Syncthing 进程");
+        #[cfg(target_os = "windows")]
+        {
+            use std::process::Command;
+            let _ = Command::new("taskkill")
+                .args(["/F", "/IM", "syncthing.exe"])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = std::process::Command::new("pkill")
+                .args(["-f", "syncthing"])
+                .status();
+        }
+        thread::sleep(Duration::from_millis(500));
         let _ = fs::remove_file(config_dir.join("syncthing.lock"));
     }
 
@@ -844,7 +892,7 @@ fn resolve_sync_folder_id(app: &tauri::AppHandle) -> String {
 }
 
 /// 从 settings.json 读取服务器 API 配置。
-fn read_sync_account(app: &tauri::AppHandle) -> Option<(String, String, String, String, String)> {
+fn read_sync_account(app: &tauri::AppHandle) -> Option<(String, String, String, String, String, String)> {
     let dir = app.path().app_config_dir().ok()?;
     let raw = fs::read_to_string(dir.join("settings.json")).ok()?;
     let json: serde_json::Value = serde_json::from_str(&raw).ok()?;
@@ -853,10 +901,11 @@ fn read_sync_account(app: &tauri::AppHandle) -> Option<(String, String, String, 
     let folder_id = json.get("sync_folder_id")?.as_str()?.to_string();
     let server_device_id = json.get("sync_server_device_id")?.as_str()?.to_string();
     let username = json.get("sync_username").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let password = json.get("sync_password").and_then(|v| v.as_str()).unwrap_or("").to_string();
     if url.is_empty() || token.is_empty() {
         return None;
     }
-    Some((url, token, folder_id, server_device_id, username))
+    Some((url, token, folder_id, server_device_id, username, password))
 }
 
 /// 将服务器配置写入 settings.json。
@@ -867,6 +916,7 @@ fn write_sync_account(
     folder_id: &str,
     server_device_id: &str,
     username: &str,
+    password: &str,
 ) -> Result<(), String> {
     let dir = app.path().app_config_dir().map_err(|e| format!("无法定位配置目录：{e}"))?;
     let path = dir.join("settings.json");
@@ -879,11 +929,12 @@ fn write_sync_account(
     json["sync_folder_id"] = serde_json::Value::String(folder_id.to_string());
     json["sync_server_device_id"] = serde_json::Value::String(server_device_id.to_string());
     json["sync_username"] = serde_json::Value::String(username.to_string());
+    json["sync_password"] = serde_json::Value::String(password.to_string());
     let content = serde_json::to_string_pretty(&json).map_err(|e| format!("序列化配置失败：{e}"))?;
     fs::write(&path, content).map_err(|e| format!("保存配置失败：{e}"))
 }
 
-/// 清除 settings.json 中的服务器配置。
+/// 清除 settings.json 中的同步连接信息，但保留用户名、密码和服务器地址以便下次快速登录。
 fn clear_sync_account(app: &tauri::AppHandle) -> Result<(), String> {
     let dir = app.path().app_config_dir().map_err(|e| format!("无法定位配置目录：{e}"))?;
     let path = dir.join("settings.json");
@@ -891,11 +942,33 @@ fn clear_sync_account(app: &tauri::AppHandle) -> Result<(), String> {
         .ok()
         .and_then(|raw| serde_json::from_str(&raw).ok())
         .unwrap_or_else(|| serde_json::json!({}));
-    for key in ["sync_server_url", "sync_token", "sync_folder_id", "sync_server_device_id", "sync_username"] {
+    // 只清除连接状态信息，保留用户名/密码/服务器地址供下次预填
+    for key in ["sync_token", "sync_folder_id", "sync_server_device_id"] {
         if let Some(obj) = json.as_object_mut() {
             obj.remove(key);
         }
     }
+    let content = serde_json::to_string_pretty(&json).map_err(|e| format!("序列化配置失败：{e}"))?;
+    fs::write(&path, content).map_err(|e| format!("保存配置失败：{e}"))
+}
+
+/// 保存登录凭证（用户名、密码、服务器地址）到 settings.json，供下次启动时预填。
+#[tauri::command]
+pub fn save_login_credentials(
+    app: tauri::AppHandle,
+    server_url: String,
+    username: String,
+    password: String,
+) -> Result<(), String> {
+    let dir = app.path().app_config_dir().map_err(|e| format!("无法定位配置目录：{e}"))?;
+    let path = dir.join("settings.json");
+    let mut json: serde_json::Value = fs::read_to_string(&path)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    json["sync_server_url"] = serde_json::Value::String(server_url);
+    json["sync_username"] = serde_json::Value::String(username);
+    json["sync_password"] = serde_json::Value::String(password);
     let content = serde_json::to_string_pretty(&json).map_err(|e| format!("序列化配置失败：{e}"))?;
     fs::write(&path, content).map_err(|e| format!("保存配置失败：{e}"))
 }
@@ -905,26 +978,29 @@ pub struct SyncAccount {
     pub connected: bool,
     pub server_url: String,
     pub username: String,
+    pub password: String,
     pub folder_id: String,
 }
 
-/// 查询当前服务器账号信息。
+/// 查询当前服务器账号信息。即使未连接也返回已保存的用户名/密码/服务器地址。
 #[tauri::command]
 pub fn get_sync_account(app: tauri::AppHandle) -> Result<SyncAccount, String> {
-    match read_sync_account(&app) {
-        Some((url, _token, folder_id, _sid, username)) => Ok(SyncAccount {
-            connected: true,
-            server_url: url,
-            username,
-            folder_id,
-        }),
-        None => Ok(SyncAccount {
-            connected: false,
-            server_url: String::new(),
-            username: String::new(),
-            folder_id: String::new(),
-        }),
-    }
+    let dir = app.path().app_config_dir().map_err(|e| format!("{e}"))?;
+    let raw = fs::read_to_string(dir.join("settings.json")).unwrap_or_default();
+    let json: serde_json::Value = serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}));
+    let url = json.get("sync_server_url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let token = json.get("sync_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let folder_id = json.get("sync_folder_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let username = json.get("sync_username").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let password = json.get("sync_password").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let connected = !url.is_empty() && !token.is_empty();
+    Ok(SyncAccount {
+        connected,
+        server_url: url,
+        username,
+        password,
+        folder_id,
+    })
 }
 
 /// 连接同步服务器：注册/登录 → 配置本地 Syncthing → 添加服务器设备 → 注册本机设备。
@@ -977,7 +1053,7 @@ pub fn connect_to_server(
     let server_device_id = account_json.get("server_device_id").and_then(|v| v.as_str()).ok_or("服务器未返回设备 ID")?;
 
     // 2. 保存到 settings.json
-    write_sync_account(&app, &server_url, token, folder_id, server_device_id, &username)?;
+    write_sync_account(&app, &server_url, token, folder_id, server_device_id, &username, &password)?;
 
     // 3. 启动本地 Syncthing
     let vault = Path::new(&vault_path);
@@ -1045,17 +1121,19 @@ pub fn connect_to_server(
         .timeout(Duration::from_secs(10))
         .send_string(&reg_device_body.to_string());
 
+    log::info!("已连接同步服务器，账号：{username}");
     Ok(format!("已连接服务器，账号「{username}」。数据将自动同步。"))
 }
 
-/// 断开服务器连接：移除服务器设备 + 清除配置。
+/// 断开服务器连接：停止同步 + 移除服务器设备 + 清除配置 + 删除本地 Syncthing 数据。
 #[tauri::command]
 pub fn disconnect_server(
     app: tauri::AppHandle,
     state: tauri::State<SyncState>,
 ) -> Result<String, String> {
-    // 读取服务器设备 ID
-    let server_device_id = read_sync_account(&app).map(|(_, _, _, sid, _)| sid);
+    // 读取服务器设备 ID 和 vault 路径（在停止同步前读取）
+    let server_device_id = read_sync_account(&app).map(|(_, _, _, sid, _, _)| sid);
+    let vault_path = resolve_vault_path(&app);
 
     // 从 Syncthing 移除服务器设备
     if let Some(sid) = &server_device_id {
@@ -1085,8 +1163,38 @@ pub fn disconnect_server(
         }
     }
 
-    // 清除配置
+    // 停止 Syncthing 进程
+    stop_syncthing(&state)?;
+
+    // 删除 Syncthing 的 config.xml，使 auto_start_if_configured 的 has_local_config 判断为 false。
+    // 保留 cert.pem / key.pem 等设备身份文件，重新登录时可保持同一设备 ID，无需重新配对。
+    if let Ok(config_dir) = app.path().app_config_dir() {
+        let config_xml = config_dir.join("syncthing").join("config.xml");
+        if config_xml.exists() {
+            if let Err(e) = fs::remove_file(&config_xml) {
+                log::warn!("删除 Syncthing config.xml 失败：{e}");
+            }
+        }
+        // 清理锁文件，避免残留
+        let lock_file = config_dir.join("syncthing").join("syncthing.lock");
+        if lock_file.exists() {
+            let _ = fs::remove_file(&lock_file);
+        }
+    }
+
+    // 删除 Vault 中的同步标记文件，使 auto_start_if_configured 的 has_sync_marker 判断为 false
+    if let Some(ref vp) = vault_path {
+        let marker = vp.join(SYNC_MARKER_FILE);
+        if marker.exists() {
+            if let Err(e) = fs::remove_file(&marker) {
+                log::warn!("删除同步标记文件失败：{e}");
+            }
+        }
+    }
+
+    // 清除 settings.json 中的服务器配置
     clear_sync_account(&app)?;
+    log::info!("已断开同步服务器连接，同步服务已停止");
     Ok("已断开服务器连接".to_string())
 }
 

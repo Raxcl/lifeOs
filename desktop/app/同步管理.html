@@ -588,6 +588,8 @@
           vaultPath: settings.vault_dir
         });
         showMessage("success", msg);
+        // 登录成功后保存凭证，供下次预填
+        await invoke("save_login_credentials", { serverUrl, username, password });
         if (el.syncPassword) el.syncPassword.value = "";
         if (el.syncConfirmPassword) el.syncConfirmPassword.value = "";
         await refresh();
@@ -759,6 +761,12 @@
       const hasAccount = account && account.connected;
       if (el.syncServerForm) el.syncServerForm.hidden = !!hasAccount;
       if (el.syncConnectedPanel) el.syncConnectedPanel.hidden = !hasAccount;
+      // 未连接时，预填已保存的凭证
+      if (!hasAccount && account) {
+        if (el.syncServerUrl && account.server_url) el.syncServerUrl.value = account.server_url;
+        if (el.syncUsername && account.username) el.syncUsername.value = account.username;
+        if (el.syncPassword && account.password) el.syncPassword.value = account.password;
+      }
       if (hasAccount && el.syncAccountText) {
         const host = (account.server_url || "").replace(/https?:\/\//, "").replace(/:\d+/, "");
         el.syncAccountText.textContent = `账号：${account.username} @ ${host}`;

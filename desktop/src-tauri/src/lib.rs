@@ -886,27 +886,6 @@ fn normalize_frog_items(items: Vec<FrogItem>) -> Vec<FrogItem> {
         .collect()
 }
 
-fn normalize_frog_days(days: Vec<FrogDay>, now: u64) -> Result<Vec<FrogDay>, String> {
-    let mut normalized = Vec::new();
-    let mut seen = HashSet::new();
-
-    for day in days {
-        parse_date(&day.date)?;
-        if !seen.insert(day.date.clone()) {
-            continue;
-        }
-
-        normalized.push(FrogDay {
-            date: day.date,
-            items: normalize_frog_items(day.items),
-            updated_at: Some(now),
-        });
-    }
-
-    normalized.sort_by(|left, right| left.date.cmp(&right.date));
-    Ok(normalized)
-}
-
 fn normalize_habit_definitions(
     definitions: Vec<HabitDefinition>,
     now: u64,
@@ -939,70 +918,6 @@ fn normalize_habit_definitions(
     }
 }
 
-fn normalize_habit_days(
-    days: Vec<HabitDay>,
-    definitions: &[HabitDefinition],
-    now: u64,
-) -> Result<Vec<HabitDay>, String> {
-    let definition_ids: HashSet<String> = definitions
-        .iter()
-        .map(|definition| definition.id.clone())
-        .collect();
-    let mut normalized = Vec::new();
-    let mut seen = HashSet::new();
-
-    for day in days {
-        parse_date(&day.date)?;
-        if !seen.insert(day.date.clone()) {
-            continue;
-        }
-
-        let checks = day
-            .checks
-            .into_iter()
-            .filter(|(id, _)| definition_ids.contains(id))
-            .collect();
-
-        normalized.push(HabitDay {
-            date: day.date,
-            checks,
-            updated_at: Some(now),
-        });
-    }
-
-    normalized.sort_by(|left, right| left.date.cmp(&right.date));
-    Ok(normalized)
-}
-
-fn normalize_monthly_records(
-    records: Vec<MonthlyRecord>,
-    now: u64,
-) -> Result<Vec<MonthlyRecord>, String> {
-    let mut normalized = Vec::new();
-    let mut seen = HashSet::new();
-
-    for record in records {
-        parse_month(&record.month)?;
-        if !seen.insert(record.month.clone()) {
-            continue;
-        }
-
-        let items = normalize_monthly_items(&record.month, record.items, now);
-        if items.is_empty() {
-            continue;
-        }
-
-        normalized.push(MonthlyRecord {
-            month: record.month,
-            items,
-            updated_at: Some(now),
-        });
-    }
-
-    normalized.sort_by(|left, right| left.month.cmp(&right.month));
-    Ok(normalized)
-}
-
 fn normalize_monthly_items(month: &str, items: Vec<MonthlyItem>, now: u64) -> Vec<MonthlyItem> {
     items
         .into_iter()
@@ -1026,6 +941,46 @@ fn normalize_monthly_items(month: &str, items: Vec<MonthlyItem>, now: u64) -> Ve
                 note: item.note,
                 created_at: item.created_at.or(Some(now)),
                 updated_at: Some(now),
+            })
+        })
+        .collect()
+}
+
+fn normalize_monthly_items_preserve(
+    month: &str,
+    items: Vec<MonthlyItem>,
+    now: u64,
+    existing: Option<&MonthlyRecord>,
+) -> Vec<MonthlyItem> {
+    items
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, item)| {
+            let text = item.text.trim().to_string();
+            if text.is_empty() {
+                return None;
+            }
+
+            let id = if item.id.trim().is_empty() {
+                format!("{month}-{}-{now}", index + 1)
+            } else {
+                item.id
+            };
+
+            let note = item.note.trim().to_string();
+            let prev = existing.and_then(|record| record.items.iter().find(|i| i.id == id));
+            let changed = match prev {
+                Some(p) => p.text != text || p.done != item.done || p.note != note,
+                None => true,
+            };
+
+            Some(MonthlyItem {
+                id,
+                text,
+                done: item.done,
+                note,
+                created_at: item.created_at.or(prev.and_then(|p| p.created_at)).or(Some(now)),
+                updated_at: if changed { Some(now) } else { prev.and_then(|p| p.updated_at) },
             })
         })
         .collect()
@@ -2189,9 +2144,38 @@ async fn save_frog_database(
     days: Vec<FrogDay>,
 ) -> Result<FrogDatabase, String> {
     let (frogs_path, _, _, _) = database_paths(&app)?;
+    let now = now_seconds();
+    let existing_db = read_frog_database(&frogs_path)?;
+    let mut normalized_days = Vec::new();
+    let mut seen = HashSet::new();
+
+    for day in days {
+        parse_date(&day.date)?;
+        if !seen.insert(day.date.clone()) {
+            continue;
+        }
+        let items = normalize_frog_items(day.items);
+        let prev = existing_db.days.iter().find(|d| d.date == day.date);
+        let changed = match prev {
+            Some(p) => {
+                p.items.len() != items.len()
+                    || p.items.iter().zip(items.iter()).any(|(a, b)| {
+                        a.text != b.text || a.done != b.done || a.note != b.note
+                    })
+            }
+            None => true,
+        };
+        normalized_days.push(FrogDay {
+            date: day.date,
+            items,
+            updated_at: if changed { Some(now) } else { prev.and_then(|p| p.updated_at) },
+        });
+    }
+
+    normalized_days.sort_by(|left, right| left.date.cmp(&right.date));
     let database = FrogDatabase {
         schema_version: 1,
-        days: normalize_frog_days(days, now_seconds())?,
+        days: normalized_days,
     };
     write_frog_database(&frogs_path, &database)?;
     Ok(database)
@@ -2205,10 +2189,38 @@ async fn save_habit_database(
 ) -> Result<HabitDatabase, String> {
     let (_, habits_path, _, _) = database_paths(&app)?;
     let now = now_seconds();
+    let existing_db = read_habit_database(&habits_path)?;
     let definitions = normalize_habit_definitions(definitions, now);
+    let definition_ids: HashSet<String> = definitions.iter().map(|d| d.id.clone()).collect();
+
+    let mut normalized_days = Vec::new();
+    let mut seen = HashSet::new();
+    for day in days {
+        parse_date(&day.date)?;
+        if !seen.insert(day.date.clone()) {
+            continue;
+        }
+        let checks: HashMap<String, bool> = day
+            .checks
+            .into_iter()
+            .filter(|(id, _)| definition_ids.contains(id))
+            .collect();
+        let prev = existing_db.days.iter().find(|d| d.date == day.date);
+        let changed = match prev {
+            Some(p) => p.checks != checks,
+            None => true,
+        };
+        normalized_days.push(HabitDay {
+            date: day.date,
+            checks,
+            updated_at: if changed { Some(now) } else { prev.and_then(|p| p.updated_at) },
+        });
+    }
+
+    normalized_days.sort_by(|left, right| left.date.cmp(&right.date));
     let database = HabitDatabase {
         schema_version: 1,
-        days: normalize_habit_days(days, &definitions, now)?,
+        days: normalized_days,
         definitions,
     };
     write_habit_database(&habits_path, &database)?;
@@ -2221,9 +2233,33 @@ async fn save_monthly_database(
     months: Vec<MonthlyRecord>,
 ) -> Result<MonthlyDatabase, String> {
     let (_, _, monthly_path, _) = database_paths(&app)?;
+    let now = now_seconds();
+    let existing_db = read_monthly_database(&monthly_path)?;
+    let mut normalized_months = Vec::new();
+    let mut seen = HashSet::new();
+
+    for record in months {
+        parse_month(&record.month)?;
+        if !seen.insert(record.month.clone()) {
+            continue;
+        }
+        let prev_record = existing_db.months.iter().find(|r| r.month == record.month);
+        let items = normalize_monthly_items_preserve(&record.month, record.items, now, prev_record);
+        if items.is_empty() {
+            continue;
+        }
+        let any_changed = items.iter().any(|item| item.updated_at == Some(now));
+        normalized_months.push(MonthlyRecord {
+            month: record.month,
+            items,
+            updated_at: if any_changed { Some(now) } else { prev_record.and_then(|r| r.updated_at) },
+        });
+    }
+
+    normalized_months.sort_by(|left, right| left.month.cmp(&right.month));
     let database = MonthlyDatabase {
         schema_version: 1,
-        months: normalize_monthly_records(months, now_seconds())?,
+        months: normalized_months,
     };
     write_monthly_database(&monthly_path, &database)?;
     Ok(database)
@@ -2368,19 +2404,23 @@ async fn save_journal_databases(
     let year = year_key(&date)?;
     log::info!("[save_journal_databases] annual_goals param: {:?} items", annual_goals.as_ref().map(|v| v.len()));
     if let Some(goal_items) = annual_goals {
-        let normalized = normalize_annual_goal_items(&year, goal_items, now);
-        log::info!("[save_journal_databases] normalized {} annual goal items for year {}", normalized.len(), year);
+        let existing_record = annual_goals_db.years.iter().find(|r| r.year == year);
+        let prev_updated_at = existing_record.and_then(|r| r.updated_at);
+        let (normalized, any_changed) = normalize_annual_goal_items(&year, goal_items, now, existing_record);
+        log::info!("[save_journal_databases] normalized {} annual goal items for year {}, changed={}", normalized.len(), year, any_changed);
         let record = AnnualGoalRecord {
             year: year.clone(),
             items: normalized,
-            updated_at: Some(now),
+            updated_at: if any_changed { Some(now) } else { prev_updated_at },
         };
         annual_goals_db.years.retain(|r| r.year != year);
         annual_goals_db.years.push(record);
         annual_goals_db
             .years
             .sort_by(|left, right| left.year.cmp(&right.year));
-        write_annual_goal_database(&annual_goals_path, &annual_goals_db)?;
+        if any_changed {
+            write_annual_goal_database(&annual_goals_path, &annual_goals_db)?;
+        }
     }
 
     let saved_frogs = frogs_db
@@ -2426,6 +2466,7 @@ async fn save_annual_goal_database(
 ) -> Result<AnnualGoalDatabase, String> {
     let (_, _, _, annual_goals_path) = database_paths(&app)?;
     let now = now_seconds();
+    let existing_db = read_annual_goal_database(&annual_goals_path)?;
     let mut normalized = Vec::new();
     let mut seen = HashSet::new();
     for record in years {
@@ -2433,11 +2474,13 @@ async fn save_annual_goal_database(
         if !seen.insert(record.year.clone()) {
             continue;
         }
-        let items = normalize_annual_goal_items(&record.year, record.items, now);
+        let existing_record = existing_db.years.iter().find(|r| r.year == record.year);
+        let prev_updated_at = existing_record.and_then(|r| r.updated_at);
+        let (items, any_changed) = normalize_annual_goal_items(&record.year, record.items, now, existing_record);
         normalized.push(AnnualGoalRecord {
             year: record.year,
             items,
-            updated_at: Some(now),
+            updated_at: if any_changed { Some(now) } else { prev_updated_at },
         });
     }
     normalized.sort_by(|left, right| left.year.cmp(&right.year));
@@ -2449,8 +2492,14 @@ async fn save_annual_goal_database(
     Ok(database)
 }
 
-fn normalize_annual_goal_items(year: &str, items: Vec<AnnualGoalItem>, now: u64) -> Vec<AnnualGoalItem> {
-    items
+fn normalize_annual_goal_items(
+    year: &str,
+    items: Vec<AnnualGoalItem>,
+    now: u64,
+    existing: Option<&AnnualGoalRecord>,
+) -> (Vec<AnnualGoalItem>, bool) {
+    let mut any_changed = existing.is_none();
+    let normalized: Vec<AnnualGoalItem> = items
         .into_iter()
         .enumerate()
         .filter_map(|(index, item)| {
@@ -2463,15 +2512,24 @@ fn normalize_annual_goal_items(year: &str, items: Vec<AnnualGoalItem>, now: u64)
             } else {
                 item.id
             };
+            let prev = existing.and_then(|record| record.items.iter().find(|i| i.id == id));
+            let changed = match prev {
+                Some(p) => p.text != text || p.done != item.done,
+                None => true,
+            };
+            if changed {
+                any_changed = true;
+            }
             Some(AnnualGoalItem {
                 id,
                 text,
                 done: item.done,
-                created_at: item.created_at.or(Some(now)),
-                updated_at: Some(now),
+                created_at: item.created_at.or(prev.and_then(|p| p.created_at)).or(Some(now)),
+                updated_at: if changed { Some(now) } else { prev.and_then(|p| p.updated_at) },
             })
         })
-        .collect()
+        .collect();
+    (normalized, any_changed)
 }
 
 #[tauri::command]
@@ -2793,6 +2851,7 @@ pub fn run() {
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()
                     .level(log::LevelFilter::Info)
+                    .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                     .build(),
             )?;
             let _ = ICON_STAMP;
@@ -2849,6 +2908,7 @@ pub fn run() {
             sync::remove_sync_device,
             sync::get_sync_events,
             sync::get_sync_account,
+            sync::save_login_credentials,
             sync::connect_to_server,
             sync::disconnect_server
         ])
