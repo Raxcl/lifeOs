@@ -728,15 +728,17 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
         None => return Ok(vec![]),
     };
 
-    // 预扫描：收集所有有 ItemFinished 事件的文件名，LIU 兆底时跳过这些文件
-    let mut files_with_if: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // 预扫描：收集所有 ItemFinished 事件的文件名及时间戳
+    // 用于判断 LIU 是否为下载触发的索引更新（时间间隔很短）还是真正的本地编辑
+    let mut if_times: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     for ev in arr.iter() {
         if ev.get("type").and_then(|t| t.as_str()) == Some("ItemFinished") {
             let data = ev.get("data").cloned().unwrap_or(serde_json::Value::Null);
             if is_successful_file_item(&data) {
                 if let Some(item) = data.get("item").and_then(|v| v.as_str()) {
                     if !is_ignorable_path(item) {
-                        files_with_if.insert(file_name_from_path(item));
+                        let time = ev.get("time").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                        if_times.insert(file_name_from_path(item), time);
                     }
                 }
             }
@@ -747,6 +749,7 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
     // 记录上一条设备连接事件，用于去除频繁重连产生的刷屏
     let mut last_device_event: Option<(String, String)> = None;
     // 已上报过的文件名：同一文件可能触发多次事件，需去重
+    // 事件从新到旧处理，先遇到的事件优先展示，后续同文件事件自然被抑制
     let mut reported_files: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for ev in arr.iter().rev() {
@@ -778,8 +781,9 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
                     description: format!("已从云端同步：{name}"),
                 });
             }
-            // 兜底：本地修改后 ItemFinished 尚未触发时，用 LocalIndexUpdated 给出即时反馈
-            // 仅当该文件没有任何 ItemFinished 事件时才会显示
+            // 兜底：本地修改后用 LocalIndexUpdated 给出即时反馈
+            // 如果同文件的 IF 事件与此 LIU 时间接近（≤10s），说明 LIU 是下载触发的索引更新，应抑制
+            // 否则说明是真正的本地编辑，显示"本地变更"
             // 后续会根据远端完成度将"本地变更"升级为"已同步到云端"
             "LocalIndexUpdated" => {
                 if let Some(filenames) = data.get("filenames").and_then(|v| v.as_array()) {
@@ -788,8 +792,14 @@ pub fn get_sync_events(state: tauri::State<SyncState>) -> Result<Vec<SyncEvent>,
                             continue;
                         }
                         let name = file_name_from_path(f);
-                        if files_with_if.contains(&name) || reported_files.contains(&name) {
+                        if reported_files.contains(&name) {
                             continue;
+                        }
+                        // 判断是否为下载触发的索引更新：同文件 IF 与此 LIU 时间差≤10秒
+                        if let Some(if_time) = if_times.get(&name) {
+                            if is_within_threshold(&time, if_time, 10) {
+                                continue;
+                            }
                         }
                         reported_files.insert(name.clone());
                         result.push(SyncEvent {
@@ -871,12 +881,44 @@ fn file_name_from_path(path: &str) -> String {
     if name.is_empty() { path.to_string() } else { name.to_string() }
 }
 
-/// 判断 ItemFinished 事件是否为一次成功的文件同步（动作为更新、类型为文件、无错误）。
+/// 判断 ItemFinished 事件是否为一次成功的文件同步（动作为更新或删除、类型为文件、无错误）。
 fn is_successful_file_item(data: &serde_json::Value) -> bool {
     let action = data.get("action").and_then(|v| v.as_str()).unwrap_or("");
     let ty = data.get("type").and_then(|v| v.as_str()).unwrap_or("");
     let error_ok = data.get("error").map(|e| e.is_null()).unwrap_or(true);
-    action == "update" && ty == "file" && error_ok
+    (action == "update" || action == "delete") && ty == "file" && error_ok
+}
+
+/// 判断两个 ISO 8601 时间戳的差值是否在 threshold_secs 秒内。
+/// 用于判断 LIU 是否为下载触发的索引更新（与 IF 时间接近）。
+/// 解析失败时保守返回 false（不抑制，显示为本地变更）。
+fn is_within_threshold(time_a: &str, time_b: &str, threshold_secs: i64) -> bool {
+    use std::str::FromStr;
+    // 尝试解析 ISO 8601 格式（如 "2026-07-31T10:00:01Z" 或带时区偏移）
+    let parse = |s: &str| -> Option<i64> {
+        // 简化解析：取日期时间部分转为秒数（不需要精确的日期库）
+        // 格式：YYYY-MM-DDTHH:MM:SS...
+        let s = s.trim();
+        let t_pos = s.find('T')?;
+        let date_part = &s[..t_pos];
+        let time_part = &s[t_pos + 1..];
+        let mut date_iter = date_part.split('-');
+        let year = i64::from_str(date_iter.next()?).ok()?;
+        let month = i64::from_str(date_iter.next()?).ok()?;
+        let day = i64::from_str(date_iter.next()?).ok()?;
+        // 提取 HH:MM:SS
+        let time_clean: String = time_part.chars().take_while(|c| *c != 'Z' && *c != '+' && *c != '.').collect();
+        let mut time_iter = time_clean.split(':');
+        let hour = i64::from_str(time_iter.next()?).ok()?;
+        let min = i64::from_str(time_iter.next()?).ok()?;
+        let sec = i64::from_str(time_iter.next().unwrap_or("0")).ok()?;
+        // 转为绝对秒数（简化计算，不考虑闰年等）
+        Some(((year * 366 + month * 31 + day) * 86400) + hour * 3600 + min * 60 + sec)
+    };
+    match (parse(time_a), parse(time_b)) {
+        (Some(a), Some(b)) => (a - b).abs() <= threshold_secs,
+        _ => false,
+    }
 }
 
 /// 判断路径是否为应忽略的同步标记/临时文件。
@@ -1408,11 +1450,30 @@ mod tests {
         let ok = serde_json::json!({"action": "update", "type": "file", "error": null});
         assert!(is_successful_file_item(&ok));
 
+        let del = serde_json::json!({"action": "delete", "type": "file", "error": null});
+        assert!(is_successful_file_item(&del));
+
         let dir = serde_json::json!({"action": "update", "type": "dir", "error": null});
         assert!(!is_successful_file_item(&dir));
 
         let err = serde_json::json!({"action": "update", "type": "file", "error": "some error"});
         assert!(!is_successful_file_item(&err));
+    }
+
+    #[test]
+    fn test_is_within_threshold() {
+        // 相差 1 秒 → 在阈值内
+        assert!(is_within_threshold("2026-07-31T10:00:02Z", "2026-07-31T10:00:01Z", 10));
+        // 相差 10 秒 → 刚好在阈值内
+        assert!(is_within_threshold("2026-07-31T10:00:11Z", "2026-07-31T10:00:01Z", 10));
+        // 相差 11 秒 → 超出阈值
+        assert!(!is_within_threshold("2026-07-31T10:00:12Z", "2026-07-31T10:00:01Z", 10));
+        // 相差 1 小时 → 超出阈值
+        assert!(!is_within_threshold("2026-07-31T11:00:00Z", "2026-07-31T10:00:00Z", 10));
+        // 解析失败 → 保守返回 false
+        assert!(!is_within_threshold("invalid", "2026-07-31T10:00:01Z", 10));
+        // 带小数秒和时区偏移
+        assert!(is_within_threshold("2026-07-31T10:00:02.5+08:00", "2026-07-31T10:00:01+08:00", 10));
     }
 
     /// 模拟事件处理逻辑：本地编辑 frogs.csv 后应看到"本地变更"日志
@@ -1465,10 +1526,10 @@ mod tests {
             "接收设备不应显示'本地变更'");
     }
 
-    /// 先下载后本地编辑：IF(下载) + LIU(本地编辑)，因文件有 IF 所以显示下载
+    /// 先下载后本地编辑：IF(下载@10:00) + LIU(编辑@11:00)，编辑更新所以显示本地变更
     #[test]
-    fn test_download_then_local_edit_shows_download() {
-        // 实测：有 IF 就意味着下载，LIU 被 files_with_if 拑制
+    fn test_download_then_local_edit_shows_edit() {
+        // LIU 比 IF 新，说明用户在下载后又编辑了，应显示最新操作（本地变更）
         let events = vec![
             serde_json::json!({
                 "type": "ItemFinished",
@@ -1489,10 +1550,66 @@ mod tests {
 
         let result = simulate_event_processing(&events, None);
         assert!(
-            result.iter().any(|e| e.description.contains("已从云端同步") && e.description.contains("frogs.csv")),
-            "有 IF 事件时应显示下载，实际事件：{:?}",
+            result.iter().any(|e| e.description.contains("本地变更") && e.description.contains("frogs.csv")),
+            "编辑比下载新时应显示本地变更，实际事件：{:?}",
             result.iter().map(|e| &e.description).collect::<Vec<_>>()
         );
+        let count = result.iter().filter(|e| e.description.contains("frogs.csv")).count();
+        assert_eq!(count, 1, "同一文件不应重复显示");
+    }
+
+    /// 先本地编辑后下载：LIU(编辑@10:00) + IF(下载@11:00)，下载更新所以显示已从云端同步
+    #[test]
+    fn test_local_edit_then_download_shows_download() {
+        // IF 比 LIU 新，说明文件先被编辑又被远端覆盖，应显示最新操作（下载）
+        let events = vec![
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:00Z",
+                "data": {"filenames": ["00-Databases/frogs.csv"]}
+            }),
+            serde_json::json!({
+                "type": "ItemFinished",
+                "time": "2026-07-31T11:00:00Z",
+                "data": {"action": "update", "type": "file", "item": "00-Databases/frogs.csv", "error": null}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("已从云端同步") && e.description.contains("frogs.csv")),
+            "下载比编辑新时应显示已从云端同步，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+        let count = result.iter().filter(|e| e.description.contains("frogs.csv")).count();
+        assert_eq!(count, 1, "同一文件不应重复显示");
+    }
+
+    /// 远端删除文件：IF(action=delete) 应显示"已从云端同步"
+    #[test]
+    fn test_remote_delete_shows_download() {
+        let events = vec![
+            serde_json::json!({
+                "type": "ItemFinished",
+                "time": "2026-07-31T10:00:01Z",
+                "data": {"action": "delete", "type": "file", "item": "晨间日记/2026-07-09.md", "error": null}
+            }),
+            serde_json::json!({
+                "type": "LocalIndexUpdated",
+                "time": "2026-07-31T10:00:02Z",
+                "data": {"filenames": ["晨间日记/2026-07-09.md"]}
+            }),
+        ];
+
+        let result = simulate_event_processing(&events, None);
+        assert!(
+            result.iter().any(|e| e.description.contains("已从云端同步") && e.description.contains("2026-07-09.md")),
+            "远端删除应显示'已从云端同步'，实际事件：{:?}",
+            result.iter().map(|e| &e.description).collect::<Vec<_>>()
+        );
+        assert!(
+            !result.iter().any(|e| e.description.contains("本地变更") && e.description.contains("2026-07-09.md")),
+            "远端删除不应显示'本地变更'");
     }
 
     /// 下载事件（IF 无 local 字段）应显示"已从云端同步"
@@ -1657,15 +1774,16 @@ mod tests {
     /// 提取 get_sync_events 中的核心事件处理逻辑用于测试（无需 Tauri State）
     /// `remote_fully_synced`: 模拟远端同步状态（Some(true)=已全部同步, Some(false)=同步中, None=无法判断）
     fn simulate_event_processing(arr: &[serde_json::Value], remote_fully_synced: Option<bool>) -> Vec<SyncEvent> {
-        // 预扫描：收集所有有 ItemFinished 的文件名
-        let mut files_with_if: std::collections::HashSet<String> = std::collections::HashSet::new();
+        // 预扫描：收集 IF 事件的文件名及时间戳
+        let mut if_times: std::collections::HashMap<String, String> = std::collections::HashMap::new();
         for ev in arr.iter() {
             if ev.get("type").and_then(|t| t.as_str()) == Some("ItemFinished") {
                 let data = ev.get("data").cloned().unwrap_or(serde_json::Value::Null);
                 if is_successful_file_item(&data) {
                     if let Some(item) = data.get("item").and_then(|v| v.as_str()) {
                         if !is_ignorable_path(item) {
-                            files_with_if.insert(file_name_from_path(item));
+                            let time = ev.get("time").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                            if_times.insert(file_name_from_path(item), time);
                         }
                     }
                 }
@@ -1704,8 +1822,14 @@ mod tests {
                             continue;
                         }
                         let name = file_name_from_path(f);
-                        if files_with_if.contains(&name) || reported_files.contains(&name) {
+                        if reported_files.contains(&name) {
                             continue;
+                        }
+                        // 同文件 IF 与此 LIU 时间差≤10秒 → 下载触发的索引更新，抑制
+                        if let Some(if_time) = if_times.get(&name) {
+                            if is_within_threshold(&time, if_time, 10) {
+                                continue;
+                            }
                         }
                         reported_files.insert(name.clone());
                         result.push(SyncEvent {
