@@ -591,14 +591,6 @@ fn ensure_database_parent(path: &Path) -> Result<(), String> {
     fs::create_dir_all(parent).map_err(|err| format!("创建数据库目录失败：{err}"))
 }
 
-fn backup_path(path: &Path) -> PathBuf {
-    let file_name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("lifeos-data");
-    path.with_file_name(format!("{file_name}.bak"))
-}
-
 fn temp_write_path(path: &Path) -> PathBuf {
     let file_name = path
         .file_name()
@@ -643,13 +635,6 @@ fn write_text_file_atomic(path: &Path, content: &str, context: &str) -> Result<(
         let _ = fs::remove_file(&temp_path);
         format!("{context}失败：写入临时文件失败：{err}")
     })?;
-
-    if path.exists() {
-        fs::copy(path, backup_path(path)).map_err(|err| {
-            let _ = fs::remove_file(&temp_path);
-            format!("{context}失败：创建备份失败：{err}")
-        })?;
-    }
 
     replace_file_with_temp(path, &temp_path, context)
 }
@@ -1212,6 +1197,9 @@ fn write_frog_database(path: &Path, database: &FrogDatabase) -> Result<(), Strin
     let mut rows = Vec::new();
     for day in &database.days {
         for item in normalize_frog_items(day.items.clone()) {
+            if item.text.is_empty() {
+                continue;
+            }
             rows.push(vec![
                 day.date.clone(),
                 item.slot.to_string(),
@@ -2353,13 +2341,17 @@ async fn save_journal_databases(
     let (frogs_path, habits_path, monthly_path, annual_goals_path) = database_paths(&app)?;
 
     let mut frogs_db = read_frog_database(&frogs_path)?;
-    let frog_day = FrogDay {
-        date: date.clone(),
-        items: normalize_frog_items(frogs),
-        updated_at: Some(now),
-    };
+    let normalized_frogs = normalize_frog_items(frogs);
+    let has_frog_content = normalized_frogs.iter().any(|item| !item.text.is_empty());
     frogs_db.days.retain(|day| day.date != date);
-    frogs_db.days.push(frog_day.clone());
+    if has_frog_content {
+        let frog_day = FrogDay {
+            date: date.clone(),
+            items: normalized_frogs,
+            updated_at: Some(now),
+        };
+        frogs_db.days.push(frog_day);
+    }
     frogs_db
         .days
         .sort_by(|left, right| left.date.cmp(&right.date));
@@ -2370,26 +2362,32 @@ async fn save_journal_databases(
     if habits_db.definitions.is_empty() {
         habits_db.definitions = default_habit_definitions();
     }
-    let habit_day = HabitDay {
-        date: date.clone(),
-        checks: habits,
-        updated_at: Some(now),
-    };
+    let has_habit_content = habits.values().any(|&checked| checked);
     habits_db.days.retain(|day| day.date != date);
-    habits_db.days.push(habit_day.clone());
+    if has_habit_content {
+        let habit_day = HabitDay {
+            date: date.clone(),
+            checks: habits,
+            updated_at: Some(now),
+        };
+        habits_db.days.push(habit_day);
+    }
     habits_db
         .days
         .sort_by(|left, right| left.date.cmp(&right.date));
     write_habit_database(&habits_path, &habits_db)?;
 
     let mut monthly_db = read_monthly_database(&monthly_path)?;
-    let monthly_record = MonthlyRecord {
-        month: month.clone(),
-        items: normalize_monthly_items(&month, monthly, now),
-        updated_at: Some(now),
-    };
+    let normalized_monthly = normalize_monthly_items(&month, monthly, now);
     monthly_db.months.retain(|record| record.month != month);
-    monthly_db.months.push(monthly_record.clone());
+    if !normalized_monthly.is_empty() {
+        let monthly_record = MonthlyRecord {
+            month: month.clone(),
+            items: normalized_monthly,
+            updated_at: Some(now),
+        };
+        monthly_db.months.push(monthly_record);
+    }
     monthly_db
         .months
         .sort_by(|left, right| left.month.cmp(&right.month));
@@ -2428,13 +2426,21 @@ async fn save_journal_databases(
         .iter()
         .find(|day| day.date == date)
         .cloned()
-        .unwrap_or(frog_day);
+        .unwrap_or(FrogDay {
+            date: date.clone(),
+            items: Vec::new(),
+            updated_at: None,
+        });
     let saved_monthly = monthly_db
         .months
         .iter()
         .find(|record| record.month == month)
         .cloned()
-        .unwrap_or(monthly_record);
+        .unwrap_or(MonthlyRecord {
+            month: month.clone(),
+            items: Vec::new(),
+            updated_at: None,
+        });
 
     let saved_annual_goals = annual_goals_db
         .years
@@ -2447,10 +2453,21 @@ async fn save_journal_databases(
             updated_at: None,
         });
 
+    let saved_habits = habits_db
+        .days
+        .iter()
+        .find(|day| day.date == date)
+        .cloned()
+        .unwrap_or(HabitDay {
+            date: date.clone(),
+            checks: HashMap::new(),
+            updated_at: None,
+        });
+
     Ok(JournalDatabases {
         frogs: saved_frogs,
         frog_backlog: collect_frog_backlog(&frogs_db.days),
-        habits: habit_day,
+        habits: saved_habits,
         habit_definitions: habits_db.definitions,
         monthly: saved_monthly,
         monthly_backlog: collect_monthly_backlog(&monthly_db.months),
@@ -2690,7 +2707,7 @@ mod tests {
     }
 
     #[test]
-    fn atomic_write_replaces_file_and_keeps_backup() {
+    fn atomic_write_replaces_file() {
         let dir = temp_dir("atomic-write");
         let path = dir.join("2026-06-08.md");
 
@@ -2698,7 +2715,6 @@ mod tests {
         write_text_file_atomic(&path, "second", "测试写入").expect("second write");
 
         assert_eq!(fs::read_to_string(&path).unwrap(), "second");
-        assert_eq!(fs::read_to_string(backup_path(&path)).unwrap(), "first");
 
         let temp_files = fs::read_dir(&dir)
             .unwrap()
@@ -2753,6 +2769,7 @@ mod tests {
                 text: "整理开源清单".to_string(),
                 done: false,
                 note: String::new(),
+                created_at: None,
             }]),
             updated_at: Some(1),
         }];
@@ -2766,6 +2783,7 @@ mod tests {
                 done: true,
                 updated_at: Some(1),
                 note: String::new(),
+                created_at: None,
             }],
             2,
         )
@@ -2785,6 +2803,7 @@ mod tests {
                 id: "may-open-source".to_string(),
                 text: "准备开源发布".to_string(),
                 done: false,
+                note: String::new(),
                 created_at: Some(1),
                 updated_at: Some(1),
             }],
@@ -2798,6 +2817,7 @@ mod tests {
                 id: "may-open-source".to_string(),
                 text: "准备开源发布".to_string(),
                 done: true,
+                note: String::new(),
                 created_at: Some(1),
                 updated_at: Some(1),
             }],
