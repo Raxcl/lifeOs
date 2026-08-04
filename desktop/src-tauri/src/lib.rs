@@ -584,6 +584,59 @@ fn database_path_labels(frogs: &Path, habits: &Path, monthly: &Path, annual_goal
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct AnchorCopy {
+    title: String,
+    lines: Vec<String>,
+}
+
+fn anchor_copy_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(databases_dir(app)?.join("anchor.json"))
+}
+
+fn sanitize_anchor_copy(title: &str, lines: &[String]) -> AnchorCopy {
+    let title = title.trim().to_string();
+    let lines: Vec<String> = lines
+        .iter()
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect();
+    AnchorCopy {
+        title: if title.is_empty() { "今日心锚".to_string() } else { title },
+        lines,
+    }
+}
+
+#[tauri::command]
+async fn get_anchor_copy(app: tauri::AppHandle) -> Result<Option<AnchorCopy>, String> {
+    let path = anchor_copy_path(&app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path).map_err(|err| format!("读取心锚文字失败：{err}"))?;
+    if raw.trim().is_empty() {
+        return Ok(None);
+    }
+    let parsed: AnchorCopy =
+        serde_json::from_str(&raw).map_err(|err| format!("解析心锚文字失败：{err}"))?;
+    Ok(Some(sanitize_anchor_copy(&parsed.title, &parsed.lines)))
+}
+
+#[tauri::command]
+async fn save_anchor_copy(
+    app: tauri::AppHandle,
+    title: String,
+    lines: Vec<String>,
+) -> Result<AnchorCopy, String> {
+    let path = anchor_copy_path(&app)?;
+    let copy = sanitize_anchor_copy(&title, &lines);
+    let output = serde_json::to_string_pretty(&copy)
+        .map_err(|err| format!("序列化心锚文字失败：{err}"))?;
+    ensure_database_parent(&path)?;
+    write_text_file_atomic(&path, &output, "保存心锚文字")?;
+    Ok(copy)
+}
+
 fn ensure_database_parent(path: &Path) -> Result<(), String> {
     let parent = path
         .parent()
@@ -3058,6 +3111,8 @@ pub fn run() {
             save_habit_database,
             save_monthly_database,
             save_annual_goal_database,
+            get_anchor_copy,
+            save_anchor_copy,
             get_journal_databases,
             save_journal_databases,
             get_journal_month,

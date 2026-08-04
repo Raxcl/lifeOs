@@ -2688,7 +2688,7 @@
 
     el.anchorEditorCancel?.addEventListener("click", () => setAnchorEditing(false));
 
-    el.anchorEditorSave?.addEventListener("click", () => {
+    el.anchorEditorSave?.addEventListener("click", async () => {
       const copy = {
         title: el.anchorEditorTitle?.value.trim() || "今日心锚",
         lines: (el.anchorEditorLines?.value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
@@ -2696,9 +2696,38 @@
       localStorage.setItem(ANCHOR_COPY_KEY, JSON.stringify(copy));
       applyAnchorCopy();
       setAnchorEditing(false);
+      // 同步写入日记本的 00-Databases/anchor.json，跟随多设备同步
+      if (tauriInvoke) {
+        try {
+          const saved = await invoke("save_anchor_copy", copy);
+          if (saved) {
+            localStorage.setItem(ANCHOR_COPY_KEY, JSON.stringify(saved));
+            applyAnchorCopy();
+          }
+        } catch {}
+      }
     });
 
+    // 启动时优先从日记本读取心锚文字；localStorage 仅作为缓存/浏览器兜底
+    async function loadAnchorCopy() {
+      if (!tauriInvoke) return;
+      try {
+        const copy = await invoke("get_anchor_copy", {});
+        if (copy && typeof copy.title === "string" && Array.isArray(copy.lines)) {
+          localStorage.setItem(ANCHOR_COPY_KEY, JSON.stringify(copy));
+          applyAnchorCopy();
+          return;
+        }
+        // 日记本里还没有时，把本机已有的编辑迁移过去
+        const local = readAnchorCopy();
+        if (local) {
+          await invoke("save_anchor_copy", local);
+        }
+      } catch {}
+    }
+
     applyAnchorCopy();
+    loadAnchorCopy();
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !el.settingsOverlay?.hidden) closeSettings();
     });
@@ -3470,6 +3499,7 @@
         updateSettingsFields(settings);
         await loadMonth();
         await loadDatabasePreview();
+        await loadAnchorCopy();
         updateSelectedPanel();
         setSettingsStatus("", settings.env_override ? "已保存，但当前环境变量仍在覆盖此设置。" : "已保存。");
       } catch (error) {
@@ -3499,6 +3529,7 @@
         updateSettingsFields(settings);
         await loadMonth();
         await loadDatabasePreview();
+        await loadAnchorCopy();
         updateSelectedPanel();
         setSettingsStatus("", "已恢复默认位置。");
       } catch (error) {
