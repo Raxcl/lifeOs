@@ -3034,7 +3034,8 @@
         let id = String(definition?.id || "").trim() || `habit-${index + 1}`;
         if (seen.has(id)) id = `${id}-${index + 1}`;
         seen.add(id);
-        rows.push({ id, label });
+        // 保留 created_at，避免保存时被后端当成新习惯回填当前时间，导致整个 CSV 被重写
+        rows.push({ id, label, created_at: definition?.created_at || null });
       });
       return rows.length ? rows : defaultHabitDefinitions();
     }

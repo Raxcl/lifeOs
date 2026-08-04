@@ -392,6 +392,41 @@ a {
   white-space: nowrap;
 }
 
+.th-copy {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 5px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  vertical-align: -4px;
+  opacity: 0;
+  transition: opacity 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.data-table th:hover .th-copy,
+.th-copy:focus-visible,
+.th-copy.copied {
+  opacity: 1;
+}
+
+.th-copy:hover {
+  background: color-mix(in oklch, var(--leaf) 12%, white);
+  color: var(--leaf);
+  border-color: color-mix(in oklch, var(--leaf) 36%, transparent);
+}
+
+.th-copy.copied {
+  color: var(--leaf);
+  border-color: color-mix(in oklch, var(--leaf) 42%, transparent);
+  background: color-mix(in oklch, var(--leaf) 14%, white);
+}
+
 .table-area {
   display: flex;
   gap: 0;

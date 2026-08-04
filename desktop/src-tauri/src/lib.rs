@@ -122,7 +122,7 @@ struct FrogDatabase {
     days: Vec<FrogDay>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 struct HabitDefinition {
     id: String,
     label: String,
@@ -1234,10 +1234,10 @@ fn read_habit_database(path: &Path) -> Result<HabitDatabase, String> {
         }
 
         parse_date(&date)?;
-        day_map
-            .entry(date.clone())
-            .or_default()
-            .insert(habit_id, parse_csv_bool(&csv_cell(&row, "checked")));
+        // 稀疏存储：只保留勾选记录，历史遗留的 No 行不再入库
+        if parse_csv_bool(&csv_cell(&row, "checked")) {
+            day_map.entry(date.clone()).or_default().insert(habit_id, true);
+        }
 
         if let Some(timestamp) = parse_optional_u64(&csv_cell(&row, "updated_at")) {
             updated_at
@@ -1284,12 +1284,16 @@ fn write_habit_database(path: &Path, database: &HabitDatabase) -> Result<(), Str
     }
 
     for day in &database.days {
+        // 稀疏存储：只写勾选过的习惯，打一个卡只占一行
         for definition in &database.definitions {
+            if !day.checks.get(&definition.id).copied().unwrap_or(false) {
+                continue;
+            }
             rows.push(vec![
                 day.date.clone(),
                 definition.id.clone(),
                 definition.label.clone(),
-                bool_csv(day.checks.get(&definition.id).copied().unwrap_or(false)),
+                bool_csv(true),
                 timestamp_csv(definition.created_at),
                 timestamp_csv(day.updated_at),
             ]);
@@ -2170,11 +2174,30 @@ async fn save_habit_database(
     let (_, habits_path, _, _) = database_paths(&app)?;
     let now = now_seconds();
     let existing_db = read_habit_database(&habits_path)?;
+    // 前端可能不传 created_at，优先沿用磁盘上已有的创建时间，
+    // 避免把它回填成当前时间后导致整个 CSV 每一行都被重写。
+    let definitions = definitions
+        .into_iter()
+        .map(|definition| {
+            if definition.created_at.is_none() {
+                let existing = existing_db
+                    .definitions
+                    .iter()
+                    .find(|item| item.id == definition.id)
+                    .and_then(|item| item.created_at);
+                if let Some(created_at) = existing {
+                    return HabitDefinition { created_at: Some(created_at), ..definition };
+                }
+            }
+            definition
+        })
+        .collect();
     let definitions = normalize_habit_definitions(definitions, now);
     let definition_ids: HashSet<String> = definitions.iter().map(|d| d.id.clone()).collect();
 
     let mut normalized_days = Vec::new();
     let mut seen = HashSet::new();
+    let mut any_day_changed = false;
     for day in days {
         parse_date(&day.date)?;
         if !seen.insert(day.date.clone()) {
@@ -2183,13 +2206,20 @@ async fn save_habit_database(
         let checks: HashMap<String, bool> = day
             .checks
             .into_iter()
-            .filter(|(id, _)| definition_ids.contains(id))
+            .filter(|(id, checked)| *checked && definition_ids.contains(id))
             .collect();
+        // 全部取消勾选时这一天不再入库
+        if checks.is_empty() {
+            continue;
+        }
         let prev = existing_db.days.iter().find(|d| d.date == day.date);
         let changed = match prev {
             Some(p) => p.checks != checks,
             None => true,
         };
+        if changed {
+            any_day_changed = true;
+        }
         normalized_days.push(HabitDay {
             date: day.date,
             checks,
@@ -2203,7 +2233,17 @@ async fn save_habit_database(
         days: normalized_days,
         definitions,
     };
-    write_habit_database(&habits_path, &database)?;
+    // 无实质变化则不落盘，避免整文件重写触发无谓同步
+    let definitions_changed = existing_db.definitions.len() != database.definitions.len()
+        || existing_db
+            .definitions
+            .iter()
+            .zip(&database.definitions)
+            .any(|(old, new)| old != new);
+    let days_removed = existing_db.days.len() != database.days.len();
+    if definitions_changed || days_removed || any_day_changed {
+        write_habit_database(&habits_path, &database)?;
+    }
     Ok(database)
 }
 
@@ -2370,7 +2410,9 @@ async fn save_journal_databases(
     if habits_db.definitions.is_empty() {
         habits_db.definitions = default_habit_definitions();
     }
-    let has_habit_content = habits.values().any(|&checked| checked);
+    // 稀疏存储：只保留勾选的习惯，未勾选不入库
+    let habits: HashMap<String, bool> = habits.into_iter().filter(|(_, checked)| *checked).collect();
+    let has_habit_content = !habits.is_empty();
     let existing_habit_day = habits_db.days.iter().find(|day| day.date == date);
     let habits_changed = if has_habit_content {
         match existing_habit_day {
@@ -2749,6 +2791,60 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].get("name").unwrap(), "三只青蛙, 第一只");
         assert_eq!(rows[0].get("note").unwrap(), "跨行\n备注和\"引号\"");
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn habit_database_stores_only_checked_rows() {
+        let dir = temp_dir("habit-sparse");
+        let path = dir.join("habits.csv");
+        let database = HabitDatabase {
+            schema_version: 1,
+            definitions: vec![
+                HabitDefinition {
+                    id: "habit-a".to_string(),
+                    label: "喝水".to_string(),
+                    created_at: Some(100),
+                },
+                HabitDefinition {
+                    id: "habit-b".to_string(),
+                    label: "健身".to_string(),
+                    created_at: Some(100),
+                },
+            ],
+            days: vec![HabitDay {
+                date: "2026-08-04".to_string(),
+                checks: HashMap::from([
+                    ("habit-a".to_string(), true),
+                    ("habit-b".to_string(), false),
+                ]),
+                updated_at: Some(200),
+            }],
+        };
+        write_habit_database(&path, &database).expect("write habits");
+
+        let raw = fs::read_to_string(&path).expect("read raw");
+        let data_rows: Vec<&str> = raw
+            .lines()
+            .skip(1)
+            .filter(|line| !line.trim().is_empty())
+            .collect();
+        // 2 条定义行 + 当天仅 1 条打卡行（未勾选的习惯不入库）
+        assert_eq!(data_rows.len(), 3);
+        assert!(data_rows
+            .iter()
+            .any(|row| row.starts_with("2026-08-04,habit-a,") && row.contains(",Yes,")));
+        assert!(!data_rows.iter().any(|row| row.starts_with("2026-08-04,habit-b,")));
+
+        let loaded = read_habit_database(&path).expect("read habits");
+        let day = loaded
+            .days
+            .iter()
+            .find(|day| day.date == "2026-08-04")
+            .expect("day exists");
+        assert_eq!(day.checks.get("habit-a"), Some(&true));
+        assert_eq!(day.checks.get("habit-b"), None);
 
         let _ = fs::remove_dir_all(dir);
     }
