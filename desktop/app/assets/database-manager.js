@@ -162,6 +162,7 @@
     } else {
       renderFrogs();
     }
+    initColumnCopy();
     initColumnResize();
   }
 
@@ -615,7 +616,65 @@
       }
       requestSave({ rerenderAfterSave: true });
     }
+    if (action === "copy-column") {
+      copyColumn(button);
+    }
   });
+
+  /* ── Column copy ── */
+
+  function initColumnCopy() {
+    const table = el.list.querySelector(".data-table");
+    const headRow = table?.tHead?.rows[0];
+    if (!headRow) return;
+    [...headRow.cells].forEach((th) => {
+      if (th.querySelector(".th-copy")) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "th-copy";
+      button.dataset.action = "copy-column";
+      button.title = "复制本列当前显示的行";
+      button.setAttribute("aria-label", `复制「${th.textContent.trim()}」列当前显示的行`);
+      button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="12" height="12"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      th.appendChild(button);
+    });
+  }
+
+  function readCellCopyValue(cell) {
+    const checkbox = cell.querySelector('input[type="checkbox"]');
+    if (checkbox) return checkbox.checked ? "已完成" : "未完成";
+    const input = cell.querySelector("input, textarea, select");
+    if (input) return input.value || "";
+    return (cell.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
+  async function copyColumn(button) {
+    const th = button.closest("th");
+    const table = th?.closest("table");
+    if (!th || !table) return;
+    const columnIndex = [...table.tHead.rows[0].cells].indexOf(th);
+    const rows = [...table.querySelectorAll("tbody tr")].filter((row) => !row.hidden);
+    if (!rows.length) {
+      setNotice("当前没有可复制的行。", "error");
+      return;
+    }
+    const text = rows
+      .map((row) => readCellCopyValue(row.cells[columnIndex]))
+      .filter((value) => value.trim())
+      .join("\n");
+    if (!text) {
+      setNotice("这一列当前显示的行没有内容。", "error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice(`已复制 ${text.split("\n").length} 行到剪贴板。`, "saved");
+      button.classList.add("copied");
+      setTimeout(() => button.classList.remove("copied"), 1200);
+    } catch (error) {
+      setNotice(toErrorMessage(error), "error");
+    }
+  }
 
   /* ── Undo delete ── */
 
@@ -691,6 +750,7 @@
         applyCurrentFilters();
         const sidebarList = el.list.querySelector(".action-sidebar-list");
         if (sidebarList) sidebarList.insertAdjacentHTML("afterbegin", '<div class="action-sidebar-item"><button class="btn danger compact" type="button" data-action="delete-row">删除</button></div>');
+        initColumnCopy();
         initColumnResize();
       }
     }
@@ -729,6 +789,7 @@
         applyCurrentFilters();
         const sidebarList = el.list.querySelector(".action-sidebar-list");
         if (sidebarList) sidebarList.insertAdjacentHTML("afterbegin", '<div class="action-sidebar-item"><button class="btn danger compact" type="button" data-action="delete-row">删除</button></div>');
+        initColumnCopy();
       }
     }
 
@@ -750,6 +811,7 @@
         applyCurrentFilters();
         const sidebarList = el.list.querySelector(".action-sidebar-list");
         if (sidebarList) sidebarList.insertAdjacentHTML("afterbegin", '<div class="action-sidebar-item"><button class="btn danger compact" type="button" data-action="delete-row">删除</button></div>');
+        initColumnCopy();
       }
     }
   });

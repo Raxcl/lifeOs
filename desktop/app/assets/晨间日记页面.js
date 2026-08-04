@@ -1663,7 +1663,9 @@
         const seen = new Set();
         const result = (definitions || []).map((definition) => ({
           id: String(definition.id || "").trim(),
-          label: String(definition.label || "").trim()
+          label: String(definition.label || "").trim(),
+          // 保留 created_at，避免保存时被当成新习惯回填当前时间，导致整个数据库被重写
+          created_at: definition.created_at || null
         })).filter((definition) => {
           if (!definition.id || !definition.label || seen.has(definition.id)) return false;
           seen.add(definition.id);
