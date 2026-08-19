@@ -11,54 +11,21 @@ LifeOS 是一个本地优先的人生管理系统。它把晨间日记、三只�
 ### 一键启动（开发）
 
 ```powershell
-# Windows
-.\run.ps1
+.\run.ps1    # Windows
 ```
 
 ```bash
-# macOS / Linux
-./run.sh
+./run.sh     # macOS / Linux
 ```
 
-脚本会自动安装依赖并启动开发模式。
-
-### 一键打包（生成安装包）
+### 一键打包
 
 ```powershell
-# Windows（生成 .exe 安装包）
-.\build.ps1
+.\build.ps1  # Windows → dist/ 生成 .exe 安装包
 ```
 
 ```bash
-# macOS（生成 .app 和 .dmg）
-./build.sh
-```
-
-构建完成后，安装包会自动复制到仓库根目录的 **`dist/`** 文件夹并打开。
-
-### 手动操作（可选）
-
-```powershell
-# Windows
-cd desktop
-npm install
-npm run tauri:dev    # 开发模式
-npm run tauri:build  # 打包（产物在 src-tauri/target/release/bundle/nsis/）
-```
-
-```bash
-# macOS / Linux
-cd desktop
-npm install
-npm run tauri:dev:mac   # 开发模式
-npm run tauri:build:mac # 打包（产物在 src-tauri/target/release/bundle/dmg/）
-```
-
-Tauri 环境检查：
-
-```bash
-cd desktop
-npx tauri info
+./build.sh   # macOS → dist/ 生成 .app 和 .dmg
 ```
 
 ### 环境要求
