@@ -1,9 +1,69 @@
-### 注：想要一起讨论或共建，欢迎联系 Q：2407414779
+# LifeOS
 
+LifeOS 是一个本地优先的人生管理系统。它把晨间日记、三只青蛙、习惯坚持、本月重要事项、长期领域和阶段复盘放到同一套 Markdown + CSV 工作流里，方便用桌面应用记录，也方便用 Obsidian、编辑器或 AI 工具做回顾。
+
+当前仓库主要包含一个 Tauri v2 桌面应用：**LifeOS Morning Journal**。
+
+> 想要一起讨论或共建，欢迎联系 Q：2407414779
 
 ## 快速开始
 
+### 一键启动（开发）
+
+```powershell
+# Windows
+.\run.ps1
+```
+
+```bash
+# macOS / Linux
+./run.sh
+```
+
+脚本会自动安装依赖并启动开发模式。
+
+### 一键打包（生成安装包）
+
+```powershell
+# Windows（生成 .exe 安装包）
+.\build.ps1
+```
+
+```bash
+# macOS（生成 .app 和 .dmg）
+./build.sh
+```
+
+构建完成后，安装包会自动复制到仓库根目录的 **`dist/`** 文件夹并打开。
+
+### 手动操作（可选）
+
+```powershell
+# Windows
+cd desktop
+npm install
+npm run tauri:dev    # 开发模式
+npm run tauri:build  # 打包（产物在 src-tauri/target/release/bundle/nsis/）
+```
+
+```bash
+# macOS / Linux
+cd desktop
+npm install
+npm run tauri:dev:mac   # 开发模式
+npm run tauri:build:mac # 打包（产物在 src-tauri/target/release/bundle/dmg/）
+```
+
+Tauri 环境检查：
+
+```bash
+cd desktop
+npx tauri info
+```
+
 ### 环境要求
+
+#### Windows
 
 | 工具 | 下载地址 | 安装说明 |
 |------|----------|----------|
@@ -11,56 +71,20 @@
 | Rust | https://rustup.rs/ | 下载并运行 `rustup-init.exe`，按提示完成安装 |
 | Visual Studio Build Tools | https://visualstudio.microsoft.com/zh-hans/visual-cpp-build-tools/ | 安装时勾选「使用 C++ 的桌面开发」工作负载 |
 
+#### macOS
+
+| 工具 | 下载地址 | 安装说明 |
+|------|----------|----------|
+| Node.js (LTS) | https://nodejs.org/zh-cn/download | 推荐用 Homebrew：`brew install node` |
+| Rust | https://rustup.rs/ | 终端执行 `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| Xcode Command Line Tools | — | 终端执行 `xcode-select --install`（Tauri 编译需要） |
+
 安装完成后重启终端，验证环境：
 
-```powershell
+```bash
 node --version
 rustc --version
 ```
-
-### 一键启动（开发）
-
-在仓库根目录执行：
-
-```powershell
-# 启动已编译好的
-.\run.ps1
-
-# 启动未编译的
-.\run.ps1 -Dev
-```
-
-脚本会自动安装依赖并启动应用。如果已经构建过 release 版本，会直接启动 release。
-
-### 一键打包（生成安装包）
-
-```powershell
-.\build.ps1
-```
-
-构建完成后，安装包会自动复制到仓库根目录的 **`dist/`** 文件夹并打开资源管理器。
-
-### 手动操作（可选）
-
-```powershell
-cd desktop
-npm install
-npm run tauri:dev    # 开发模式
-npm run tauri:build  # 打包（产物在 src-tauri/target/release/bundle/nsis/）
-```
-
-Tauri 环境检查：
-
-```powershell
-cd desktop
-npx tauri info
-```
-
-# LifeOS
-
-LifeOS 是一个本地优先的人生管理系统。它把晨间日记、三只青蛙、习惯坚持、本月重要事项、长期领域和阶段复盘放到同一套 Markdown + CSV 工作流里，方便用桌面应用记录，也方便用 Obsidian、编辑器或 AI 工具做回顾。
-
-当前仓库主要包含一个 Tauri v2 桌面应用：**LifeOS Morning Journal**。
 
 ## 适合用来做什么
 
@@ -102,8 +126,8 @@ LifeOS 是一个本地优先的人生管理系统。它把晨间日记、三只�
 ├── desktop/          # Tauri v2 桌面应用
 ├── scripts/          # 辅助脚本（图标生成、版本升级等）
 ├── dist/             # 构建产物（安装包，自动生成）
-├── build.ps1         # 一键打包脚本
-├── run.ps1           # 一键启动脚本
+├── build.ps1 / build.sh     # 一键打包脚本（Windows / macOS）
+├── run.ps1 / run.sh         # 一键启动脚本（Windows / macOS）
 ├── 人生管理记录/     # 可复制使用的 Markdown 人生管理模板
 ├── 应用截图/         # README 中展示的应用界面截图
 ├── LICENSE
@@ -128,9 +152,17 @@ LifeOS 是一个本地优先的人生管理系统。它把晨间日记、三只�
 可以用环境变量覆盖：
 
 ```powershell
+# Windows
 $env:LIFEOS_VAULT_DIR="$env:USERPROFILE\Documents\LifeOS-Vault"
 cd desktop
 npm run tauri:dev
+```
+
+```bash
+# macOS / Linux
+export LIFEOS_VAULT_DIR="$HOME/Documents/LifeOS-Vault"
+cd desktop
+npm run tauri:dev:mac
 ```
 
 Vault 结构：
@@ -156,14 +188,27 @@ LifeOS 默认只读写本地文件，不需要登录账号，也不会把日记�
 桌面应用图标可以在应用设置里选择，也可以用脚本生成：
 
 ```powershell
+# Windows
 .\scripts\apply-app-icon.ps1 -SourcePath "$env:USERPROFILE\Pictures\lifeos-icon.png"
 ```
 
-PNG / JPG / JPEG 会作为源图生成整套 Tauri 图标资源；ICO 会作为 Windows 图标使用。生成后重新打包：
+```bash
+# macOS
+bash scripts/apply-app-icon.sh --source ~/Pictures/lifeos-icon.png
+```
+
+PNG / JPG / JPEG 会作为源图生成整套 Tauri 图标资源。生成后重新打包：
 
 ```powershell
+# Windows
 cd desktop
 npm run tauri:build
+```
+
+```bash
+# macOS
+cd desktop
+npm run tauri:build:mac
 ```
 
 ## License

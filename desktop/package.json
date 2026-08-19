@@ -4,11 +4,13 @@
   "private": true,
   "description": "Tauri desktop app for 时光手帐.",
   "scripts": {
-    "pretauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\scripts\\apply-app-icon.ps1 -SkipWhenUnconfigured",
+    "pretauri:dev": "node -e \"if(process.platform==='win32')require('child_process').execSync('powershell -NoProfile -ExecutionPolicy Bypass -File ..\\\\scripts\\\\apply-app-icon.ps1 -SkipWhenUnconfigured',{stdio:'inherit'})\"",
     "tauri:dev": "tauri dev --no-dev-server",
-    "pretauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\scripts\\bump-version.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ..\\scripts\\apply-app-icon.ps1 -SkipWhenUnconfigured",
+    "pretauri:build": "node -e \"if(process.platform==='win32'){require('child_process').execSync('powershell -NoProfile -ExecutionPolicy Bypass -File ..\\\\scripts\\\\bump-version.ps1',{stdio:'inherit'});require('child_process').execSync('powershell -NoProfile -ExecutionPolicy Bypass -File ..\\\\scripts\\\\apply-app-icon.ps1 -SkipWhenUnconfigured',{stdio:'inherit'})}\"",
     "tauri:build": "tauri build",
-    "tauri:icon": "tauri icon"
+    "tauri:icon": "tauri icon",
+    "tauri:dev:mac": "bash ../scripts/apply-app-icon.sh --skip-when-unconfigured && tauri dev --no-dev-server",
+    "tauri:build:mac": "bash ../scripts/bump-version.sh && bash ../scripts/apply-app-icon.sh --skip-when-unconfigured && tauri build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.2"

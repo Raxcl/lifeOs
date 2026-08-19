@@ -6,9 +6,11 @@
 
 1. 前往 [Syncthing 官方发布页](https://github.com/syncthing/syncthing/releases/latest)
 2. 下载对应平台的压缩包：
+   - **macOS ARM (M 系列)**：`syncthing-macos-arm64-v*.zip`
+   - **macOS x64 (Intel)**：`syncthing-macos-amd64-v*.zip`
    - **Windows x64**：`syncthing-windows-amd64-v*.zip`
-3. 解压后得到 `syncthing.exe`
-4. 将文件重命名为 **`syncthing-x86_64-pc-windows-msvc.exe`** 并放入本目录
+3. 解压后得到可执行文件
+4. 将文件重命名为下表对应名称并放入本目录
 
 ## 命名规则
 
@@ -28,7 +30,12 @@ Tauri sidecar 要求二进制文件以 **目标平台三元组** 为后缀：
 
 放置完成后运行：
 
-```powershell
+```bash
+# macOS / Linux
+cd desktop
+npm run tauri:dev:mac
+
+# Windows (PowerShell)
 cd desktop
 npm run tauri:dev
 ```
