@@ -1,4 +1,8 @@
 (() => {
+  // 平台检测：macOS 使用原生标题栏，隐藏自定义按钮
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  document.body.classList.toggle("platform-mac", isMac);
+
   const getWindow = () => {
     const tauriWindow = window.__TAURI__?.window;
     try {

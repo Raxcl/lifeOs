@@ -26,6 +26,8 @@
   white-space: nowrap;
 }
 
+/* ---- Windows / Linux 右侧按钮 ---- */
+
 .window-controls {
   height: 100%;
   display: flex;
@@ -54,4 +56,18 @@
 .window-control.close:hover {
   background: #c94f4f;
   color: #fff;
+}
+
+/* ---- macOS：原生标题栏已提供红绿灯，隐藏自定义按钮 ---- */
+
+body.platform-mac .window-controls { display: none; }
+
+/* macOS 原生标题栏比自定义标题栏矮，缩小高度以避免浪费空间 */
+body.platform-mac .window-frame {
+  height: 32px;
+  --window-frame-h: 32px;
+}
+
+body.platform-mac .window-title {
+  font-size: 12px;
 }
