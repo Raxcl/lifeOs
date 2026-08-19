@@ -10,6 +10,59 @@ use std::{
 use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
+#[cfg(target_os = "macos")]
+fn build_macos_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{MenuBuilder, SubmenuBuilder};
+
+    let app_submenu = SubmenuBuilder::new(app, "时光手帐")
+        .about(None)
+        .separator()
+        .services()
+        .separator()
+        .hide()
+        .hide_others()
+        .show_all()
+        .separator()
+        .quit()
+        .build()?;
+
+    let file_submenu = SubmenuBuilder::new(app, "文件")
+        .text("new_journal", "新建日记")
+        .separator()
+        .close_window()
+        .build()?;
+
+    let edit_submenu = SubmenuBuilder::new(app, "编辑")
+        .undo()
+        .redo()
+        .separator()
+        .cut()
+        .copy()
+        .paste()
+        .select_all()
+        .build()?;
+
+    let view_submenu = SubmenuBuilder::new(app, "视图")
+        .text("reload", "重新加载")
+        .separator()
+        .fullscreen()
+        .build()?;
+
+    let window_submenu = SubmenuBuilder::new(app, "窗口")
+        .minimize()
+        .separator()
+        .close_window()
+        .build()?;
+
+    MenuBuilder::new(app)
+        .item(&app_submenu)
+        .item(&file_submenu)
+        .item(&edit_submenu)
+        .item(&view_submenu)
+        .item(&window_submenu)
+        .build()
+}
+
 const VAULT_ENV_VAR: &str = "LIFEOS_VAULT_DIR";
 const DEFAULT_VISUAL_TEMPLATE_ID: &str = "template-1";
 const APP_ICON: tauri::image::Image<'static> = tauri::include_image!("icons/icon.png");
@@ -3072,10 +3125,23 @@ pub fn run() {
             )?;
             let _ = ICON_STAMP;
             if let Some(window) = app.get_webview_window("main") {
+                // macOS: 启用原生标题栏（红绿灯按钮）
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = window.set_decorations(true);
+                }
                 if let Err(err) = window.set_icon(APP_ICON) {
                     log::warn!("failed to set main window icon: {err}");
                 }
                 let _ = window.show();
+            }
+
+            // macOS: 设置中文菜单栏
+            #[cfg(target_os = "macos")]
+            {
+                if let Ok(menu) = build_macos_menu(app.handle()) {
+                    let _ = app.handle().set_menu(menu);
+                }
             }
 
             // 自动恢复同步服务：如果之前配置过 Syncthing，应用启动时自动拉起
