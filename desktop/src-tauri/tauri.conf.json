@@ -38,7 +38,9 @@
   "bundle": {
     "active": true,
     "targets": [
-      "nsis"
+      "nsis",
+      "dmg",
+      "app"
     ],
     "externalBin": [
       "binaries/syncthing"
@@ -50,6 +52,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "macOS": {},
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
