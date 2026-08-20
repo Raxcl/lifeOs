@@ -12,24 +12,28 @@ use tauri_plugin_dialog::{DialogExt, FilePath};
 
 #[cfg(target_os = "macos")]
 fn build_macos_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
-    use tauri::menu::{MenuBuilder, SubmenuBuilder};
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
     let app_submenu = SubmenuBuilder::new(app, "时光手帐")
-        .about(None)
+        .text("about", "关于时光手帐")
         .separator()
-        .services()
+        .text("services", "服务")
         .separator()
-        .hide()
-        .hide_others()
-        .show_all()
+        .item(&MenuItemBuilder::with_id("hide", "隐藏时光手帐")
+            .accelerator("CmdOrCtrl+H")
+            .build(app)?)
+        .text("hide_others", "隐藏其他")
+        .text("show_all", "全部显示")
         .separator()
-        .quit()
+        .item(&MenuItemBuilder::with_id("quit", "退出时光手帐")
+            .accelerator("CmdOrCtrl+Q")
+            .build(app)?)
         .build()?;
 
     let file_submenu = SubmenuBuilder::new(app, "文件")
         .text("new_journal", "新建日记")
         .separator()
-        .close_window()
+        .text("close_window", "关闭窗口")
         .build()?;
 
     let edit_submenu = SubmenuBuilder::new(app, "编辑")
@@ -45,13 +49,13 @@ fn build_macos_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<t
     let view_submenu = SubmenuBuilder::new(app, "视图")
         .text("reload", "重新加载")
         .separator()
-        .fullscreen()
+        .text("fullscreen", "全屏")
         .build()?;
 
     let window_submenu = SubmenuBuilder::new(app, "窗口")
-        .minimize()
+        .text("minimize", "最小化")
         .separator()
-        .close_window()
+        .text("close_window", "关闭窗口")
         .build()?;
 
     MenuBuilder::new(app)
@@ -3142,6 +3146,49 @@ pub fn run() {
                 if let Ok(menu) = build_macos_menu(app.handle()) {
                     let _ = app.handle().set_menu(menu);
                 }
+                let handle = app.handle().clone();
+                app.handle().on_menu_event(move |app, event| {
+                    match event.id.as_ref() {
+                        "about" => {
+                            let version = env!("CARGO_PKG_VERSION");
+                            app.dialog()
+                                .message(format!("版本 {}\n\n一款本地优先的晨间日记与人生管理工具。\n\n基于 Tauri 构建，数据存储在你的设备上。", version))
+                                .title("关于时光手帐")
+                                .show(|_| {});
+                        }
+                        "hide" => { let _ = app.hide(); }
+                        "quit" => { std::process::exit(0); }
+                        "hide_others" => {
+                            #[cfg(target_os = "macos")]
+                            { use std::process::Command; let _ = Command::new("osascript").args(["-e", "tell application \"System Events\" to set visible of every process whose frontmost is false to false"]).output(); }
+                        }
+                        "show_all" => {
+                            #[cfg(target_os = "macos")]
+                            { use std::process::Command; let _ = Command::new("osascript").args(["-e", "tell application \"System Events\" to set visible of every process to true"]).output(); }
+                        }
+                        "close_window" => {
+                            if let Some(w) = app.get_webview_window("main") { let _ = w.close(); }
+                        }
+                        "minimize" => {
+                            if let Some(w) = app.get_webview_window("main") { let _ = w.minimize(); }
+                        }
+                        "fullscreen" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.set_fullscreen(!w.is_fullscreen().unwrap_or(false));
+                            }
+                        }
+                        "reload" => {
+                            if let Some(w) = app.get_webview_window("main") { let _ = w.eval("location.reload()"); }
+                        }
+                        "new_journal" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.eval("window.dispatchEvent(new CustomEvent('lifeos:new-journal'))");
+                            }
+                        }
+                        _ => {}
+                    }
+                });
+                let _ = handle;
             }
 
             // 自动恢复同步服务：如果之前配置过 Syncthing，应用启动时自动拉起
