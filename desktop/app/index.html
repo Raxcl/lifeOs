@@ -2641,6 +2641,12 @@
     el.syncPageButton?.addEventListener("click", () => { window.location.href = "同步管理.html"; });
     el.openSyncPageBtn?.addEventListener("click", () => { window.location.href = "同步管理.html"; });
 
+    // macOS 菜单栏「新建日记」事件
+    window.addEventListener("lifeos:new-journal", async () => {
+      const today = formatDate(new Date());
+      await openOrCreate(today);
+    });
+
     const ANCHOR_COPY_KEY = "lifeos-anchor-copy";
 
     function readAnchorCopy() {
