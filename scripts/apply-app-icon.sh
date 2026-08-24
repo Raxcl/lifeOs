@@ -92,11 +92,28 @@ if ! $FORCE && [[ -f "$FINGERPRINT_FILE" && -f "$ICONS_DIR/icon.icns" ]]; then
   fi
 fi
 
-# 生成归一化 1024x1024 PNG（使用 macOS 内置 sips）
+# 归一化图标：缩放到 1024x1024，添加 macOS 规范内边距，消除半透明像素。
+# - 主要内容区域占 ~83%（四周 ~8.5% padding），与系统图标视觉大小一致
+# - 保持 RGBA 格式，Tauri 的 include_image! 宏要求 PNG 带 alpha 通道
+# - 所有像素 alpha=255，确保 macOS Dock 正确应用 squircle 蒙版
 TMP_PNG="$(mktemp /tmp/lifeos-app-icon-XXXXXX.png)"
 trap 'rm -f "$TMP_PNG"' EXIT
 
-sips -z 1024 1024 "$SOURCE_PATH" --out "$TMP_PNG" >/dev/null 2>&1
+python3 -c "
+from PIL import Image
+src = Image.open('$SOURCE_PATH').convert('RGBA')
+target = 1024
+content_size = int(target * 0.83)  # ~850px
+offset = (target - content_size) // 2
+content = src.resize((content_size, content_size), Image.LANCZOS)
+canvas = Image.new('RGBA', (target, target), (255,255,255,255))
+canvas.paste(content, (offset, offset), content)
+canvas.save('$TMP_PNG', 'PNG')
+" 2>/dev/null || {
+  # Pillow 不可用时回退到 sips
+  sips -z 1024 1024 "$SOURCE_PATH" --out "$TMP_PNG" >/dev/null 2>&1
+  echo "Warning: Pillow not available; icon generated without padding." >&2
+}
 
 # 调用 Tauri icon 生成
 pushd "$DESKTOP_DIR" > /dev/null
