@@ -44,13 +44,13 @@ fn build_macos_menu(app: &tauri::AppHandle) -> tauri::Result<(tauri::menu::Menu<
         .build()?;
 
     let edit_submenu = SubmenuBuilder::new(app, "编辑")
-        .undo()
-        .redo()
+        .undo_with_text("撤销")
+        .redo_with_text("重做")
         .separator()
-        .cut()
-        .copy()
-        .paste()
-        .select_all()
+        .cut_with_text("剪切")
+        .copy_with_text("复制")
+        .paste_with_text("粘贴")
+        .select_all_with_text("全选")
         .build()?;
 
     let fullscreen_item = MenuItemBuilder::with_id("fullscreen", "进入全屏幕")
