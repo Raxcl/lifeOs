@@ -11,19 +11,22 @@ use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
 #[cfg(target_os = "macos")]
-fn build_macos_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+fn build_macos_menu(app: &tauri::AppHandle) -> tauri::Result<(tauri::menu::Menu<tauri::Wry>, tauri::menu::MenuItem<tauri::Wry>)> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
     let app_submenu = SubmenuBuilder::new(app, "时光手帐")
         .text("about", "关于时光手帐")
         .separator()
-        .text("services", "服务")
+        .services()
         .separator()
         .item(&MenuItemBuilder::with_id("hide", "隐藏时光手帐")
             .accelerator("CmdOrCtrl+H")
             .build(app)?)
-        .text("hide_others", "隐藏其他")
-        .text("show_all", "全部显示")
+        .item(&MenuItemBuilder::with_id("hide_others", "隐藏其他")
+            .accelerator("CmdOrCtrl+Alt+H")
+            .build(app)?)
+        .item(&MenuItemBuilder::with_id("show_all", "全部显示")
+            .build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id("quit", "退出时光手帐")
             .accelerator("CmdOrCtrl+Q")
@@ -31,9 +34,13 @@ fn build_macos_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<t
         .build()?;
 
     let file_submenu = SubmenuBuilder::new(app, "文件")
-        .text("new_journal", "新建日记")
+        .item(&MenuItemBuilder::with_id("new_journal", "新建日记")
+            .accelerator("CmdOrCtrl+N")
+            .build(app)?)
         .separator()
-        .text("close_window", "关闭窗口")
+        .item(&MenuItemBuilder::with_id("close_window", "关闭窗口")
+            .accelerator("CmdOrCtrl+W")
+            .build(app)?)
         .build()?;
 
     let edit_submenu = SubmenuBuilder::new(app, "编辑")
@@ -46,31 +53,81 @@ fn build_macos_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<t
         .select_all()
         .build()?;
 
+    let fullscreen_item = MenuItemBuilder::with_id("fullscreen", "进入全屏幕")
+        .accelerator("CmdOrCtrl+Control+F")
+        .build(app)?;
     let view_submenu = SubmenuBuilder::new(app, "视图")
-        .text("reload", "重新加载")
+        .item(&MenuItemBuilder::with_id("reload", "重新加载")
+            .accelerator("CmdOrCtrl+R")
+            .build(app)?)
         .separator()
-        .text("fullscreen", "全屏")
+        .item(&fullscreen_item)
         .build()?;
 
     let window_submenu = SubmenuBuilder::new(app, "窗口")
-        .text("minimize", "最小化")
+        .item(&MenuItemBuilder::with_id("minimize", "最小化")
+            .accelerator("CmdOrCtrl+M")
+            .build(app)?)
         .separator()
-        .text("close_window", "关闭窗口")
+        .item(&MenuItemBuilder::with_id("close_window_2", "关闭窗口")
+            .accelerator("CmdOrCtrl+W")
+            .build(app)?)
         .build()?;
 
-    MenuBuilder::new(app)
+    let menu = MenuBuilder::new(app)
         .item(&app_submenu)
         .item(&file_submenu)
         .item(&edit_submenu)
         .item(&view_submenu)
         .item(&window_submenu)
-        .build()
+        .build()?;
+
+    Ok((menu, fullscreen_item))
 }
 
 const VAULT_ENV_VAR: &str = "LIFEOS_VAULT_DIR";
 const DEFAULT_VISUAL_TEMPLATE_ID: &str = "template-1";
 const APP_ICON: tauri::image::Image<'static> = tauri::include_image!("icons/icon.png");
 const ICON_STAMP: &str = env!("LIFEOS_ICON_STAMP");
+
+/// macOS: 通过 NSApplication API 设置 Dock 图标，系统会自动应用 squircle 蒙版。
+/// window.set_icon() 只设置窗口图标，不会触发 Dock 图标的 squircle 裁切。
+#[cfg(target_os = "macos")]
+fn set_macos_dock_icon(image: &tauri::image::Image) {
+    use objc2::{AnyThread, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSBitmapImageRep, NSDeviceRGBColorSpace, NSImage};
+    use objc2_foundation::NSSize;
+
+    let rgba = image.rgba();
+    let width = image.width() as isize;
+    let height = image.height() as isize;
+
+    unsafe {
+        let rep = NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
+            NSBitmapImageRep::alloc(),
+            std::ptr::null_mut(),
+            width,
+            height,
+            8,
+            4,
+            true,
+            false,
+            NSDeviceRGBColorSpace,
+            4 * width,
+            32,
+        ).expect("Failed to create NSBitmapImageRep");
+
+        let planes = rep.bitmapData();
+        std::ptr::copy_nonoverlapping(rgba.as_ptr(), planes, rgba.len());
+
+        let ns_image = NSImage::initWithSize(NSImage::alloc(), NSSize::new(width as f64, height as f64));
+        ns_image.addRepresentation(rep.as_ref());
+
+        let mtm = MainThreadMarker::new_unchecked();
+        let app = NSApplication::sharedApplication(mtm);
+        app.setApplicationIconImage(Some(&ns_image));
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 struct VisualTemplate {
@@ -3116,6 +3173,14 @@ day_index: 42
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // 已有实例运行时，聚焦到现有窗口
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -3137,14 +3202,34 @@ pub fn run() {
                 if let Err(err) = window.set_icon(APP_ICON) {
                     log::warn!("failed to set main window icon: {err}");
                 }
+                // macOS: 通过 NSApplication API 设置 Dock 图标（自动应用 squircle 蒙版）
+                #[cfg(target_os = "macos")]
+                set_macos_dock_icon(&APP_ICON);
                 let _ = window.show();
             }
 
             // macOS: 设置中文菜单栏
             #[cfg(target_os = "macos")]
             {
-                if let Ok(menu) = build_macos_menu(app.handle()) {
+                if let Ok((menu, fullscreen_item)) = build_macos_menu(app.handle()) {
                     let _ = app.handle().set_menu(menu);
+
+                    // 监听窗口大小变化事件，同步更新全屏菜单项文本
+                    // 覆盖通过菜单点击和 macOS 绿色按钮两种入口
+                    let app_for_fs = app.handle().clone();
+                    let fs_item = fullscreen_item.clone();
+                    if let Some(window) = app.get_webview_window("main") {
+                        window.on_window_event(move |event| {
+                            if let tauri::WindowEvent::Resized(_) = event {
+                                if let Some(w) = app_for_fs.get_webview_window("main") {
+                                    let is_fs = w.is_fullscreen().unwrap_or(false);
+                                    let _ = fs_item.set_text(
+                                        if is_fs { "退出全屏幕" } else { "进入全屏幕" }
+                                    );
+                                }
+                            }
+                        });
+                    }
                 }
                 let handle = app.handle().clone();
                 app.handle().on_menu_event(move |app, event| {
@@ -3166,7 +3251,7 @@ pub fn run() {
                             #[cfg(target_os = "macos")]
                             { use std::process::Command; let _ = Command::new("osascript").args(["-e", "tell application \"System Events\" to set visible of every process to true"]).output(); }
                         }
-                        "close_window" => {
+                        "close_window" | "close_window_2" => {
                             if let Some(w) = app.get_webview_window("main") { let _ = w.close(); }
                         }
                         "minimize" => {
