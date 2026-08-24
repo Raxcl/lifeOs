@@ -52,7 +52,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "macOS": {},
+    "macOS": {
+      "files": {
+        "Resources/zh-Hans.lproj": "locales/zh-Hans.lproj",
+        "Resources/en.lproj": "locales/en.lproj"
+      }
+    },
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
