@@ -1,6 +1,6 @@
 [package]
 name = "lifeos-morning-journal"
-version = "0.1.49"
+version = "0.1.54"
 description = "Local-first Tauri desktop app for the LifeOS morning journal."
 authors = ["LifeOS contributors"]
 edition = "2021"

@@ -105,7 +105,7 @@ if [[ -x "$RELEASE_BIN" ]]; then
   pushd "$(dirname "$RELEASE_BIN")" > /dev/null
   zip -r "$DIST_DIR/$PORTABLE_NAME" "$(basename "$RELEASE_BIN")" -x '*.d' 2>/dev/null
   popd > /dev/null
-  echo "  已生成: $PORTABLE_NAME（绿色免安装版）"
+  echo "  已生成: ${PORTABLE_NAME} (绿色免安装版)"
 fi
 
 echo ""
