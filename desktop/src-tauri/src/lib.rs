@@ -90,44 +90,7 @@ const DEFAULT_VISUAL_TEMPLATE_ID: &str = "template-1";
 const APP_ICON: tauri::image::Image<'static> = tauri::include_image!("icons/icon.png");
 const ICON_STAMP: &str = env!("LIFEOS_ICON_STAMP");
 
-/// macOS: 通过 NSApplication API 设置 Dock 图标，系统会自动应用 squircle 蒙版。
-/// window.set_icon() 只设置窗口图标，不会触发 Dock 图标的 squircle 裁切。
-#[cfg(target_os = "macos")]
-fn set_macos_dock_icon(image: &tauri::image::Image) {
-    use objc2::{AnyThread, MainThreadMarker};
-    use objc2_app_kit::{NSApplication, NSBitmapImageRep, NSDeviceRGBColorSpace, NSImage};
-    use objc2_foundation::NSSize;
 
-    let rgba = image.rgba();
-    let width = image.width() as isize;
-    let height = image.height() as isize;
-
-    unsafe {
-        let rep = NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
-            NSBitmapImageRep::alloc(),
-            std::ptr::null_mut(),
-            width,
-            height,
-            8,
-            4,
-            true,
-            false,
-            NSDeviceRGBColorSpace,
-            4 * width,
-            32,
-        ).expect("Failed to create NSBitmapImageRep");
-
-        let planes = rep.bitmapData();
-        std::ptr::copy_nonoverlapping(rgba.as_ptr(), planes, rgba.len());
-
-        let ns_image = NSImage::initWithSize(NSImage::alloc(), NSSize::new(width as f64, height as f64));
-        ns_image.addRepresentation(rep.as_ref());
-
-        let mtm = MainThreadMarker::new_unchecked();
-        let app = NSApplication::sharedApplication(mtm);
-        app.setApplicationIconImage(Some(&ns_image));
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone)]
 struct VisualTemplate {
@@ -3202,9 +3165,7 @@ pub fn run() {
                 if let Err(err) = window.set_icon(APP_ICON) {
                     log::warn!("failed to set main window icon: {err}");
                 }
-                // macOS: 通过 NSApplication API 设置 Dock 图标（自动应用 squircle 蒙版）
-                #[cfg(target_os = "macos")]
-                set_macos_dock_icon(&APP_ICON);
+
                 let _ = window.show();
             }
 
