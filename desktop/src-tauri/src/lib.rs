@@ -221,42 +221,6 @@ struct HabitDatabase {
     days: Vec<HabitDay>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-struct MonthlyItem {
-    id: String,
-    text: String,
-    done: bool,
-    #[serde(default)]
-    note: String,
-    created_at: Option<u64>,
-    updated_at: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-struct MonthlyRecord {
-    month: String,
-    items: Vec<MonthlyItem>,
-    updated_at: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct MonthlyBacklogItem {
-    month: String,
-    id: String,
-    text: String,
-    done: bool,
-    #[serde(default)]
-    note: String,
-    created_at: Option<u64>,
-    updated_at: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct MonthlyDatabase {
-    schema_version: u8,
-    months: Vec<MonthlyRecord>,
-}
-
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 struct PlanItem {
     id: String,
@@ -309,7 +273,7 @@ struct AnnualGoalDatabase {
 struct DatabasePaths {
     frogs: String,
     habits: String,
-    monthly: String,
+    items: String,
     annual_goals: String,
 }
 
@@ -319,8 +283,7 @@ struct JournalDatabases {
     frog_backlog: Vec<FrogBacklogItem>,
     habits: HabitDay,
     habit_definitions: Vec<HabitDefinition>,
-    monthly: MonthlyRecord,
-    monthly_backlog: Vec<MonthlyBacklogItem>,
+    plan_items: Vec<PlanItem>,
     annual_goals: AnnualGoalRecord,
     paths: DatabasePaths,
 }
@@ -329,7 +292,7 @@ struct JournalDatabases {
 struct JournalDatabaseManager {
     frogs: FrogDatabase,
     habits: HabitDatabase,
-    monthly: MonthlyDatabase,
+    items: PlanItemDatabase,
     annual_goals: AnnualGoalDatabase,
     paths: DatabasePaths,
 }
@@ -356,15 +319,6 @@ impl Default for HabitDatabase {
             schema_version: 1,
             definitions: default_habit_definitions(),
             days: Vec::new(),
-        }
-    }
-}
-
-impl Default for MonthlyDatabase {
-    fn default() -> Self {
-        Self {
-            schema_version: 1,
-            months: Vec::new(),
         }
     }
 }
@@ -673,16 +627,16 @@ fn database_paths(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf, PathBuf, 
     Ok((
         dir.join("frogs.csv"),
         dir.join("habits.csv"),
-        dir.join("monthly-important.csv"),
+        dir.join("items.csv"),
         dir.join("annual-goals.csv"),
     ))
 }
 
-fn database_path_labels(frogs: &Path, habits: &Path, monthly: &Path, annual_goals: &Path) -> DatabasePaths {
+fn database_path_labels(frogs: &Path, habits: &Path, items: &Path, annual_goals: &Path) -> DatabasePaths {
     DatabasePaths {
         frogs: frogs.display().to_string(),
         habits: habits.display().to_string(),
-        monthly: monthly.display().to_string(),
+        items: items.display().to_string(),
         annual_goals: annual_goals.display().to_string(),
     }
 }
@@ -1122,46 +1076,6 @@ fn normalize_habit_definitions(
     }
 }
 
-fn normalize_monthly_items_preserve(
-    month: &str,
-    items: Vec<MonthlyItem>,
-    now: u64,
-    existing: Option<&MonthlyRecord>,
-) -> Vec<MonthlyItem> {
-    items
-        .into_iter()
-        .enumerate()
-        .filter_map(|(index, item)| {
-            let text = item.text.trim().to_string();
-            if text.is_empty() {
-                return None;
-            }
-
-            let id = if item.id.trim().is_empty() {
-                format!("{month}-{}-{now}", index + 1)
-            } else {
-                item.id
-            };
-
-            let note = item.note.trim().to_string();
-            let prev = existing.and_then(|record| record.items.iter().find(|i| i.id == id));
-            let changed = match prev {
-                Some(p) => p.text != text || p.done != item.done || p.note != note,
-                None => true,
-            };
-
-            Some(MonthlyItem {
-                id,
-                text,
-                done: item.done,
-                note,
-                created_at: item.created_at.or(prev.and_then(|p| p.created_at)).or(Some(now)),
-                updated_at: if changed { Some(now) } else { prev.and_then(|p| p.updated_at) },
-            })
-        })
-        .collect()
-}
-
 fn collect_frog_backlog(days: &[FrogDay]) -> Vec<FrogBacklogItem> {
     let mut backlog = Vec::new();
     for day in days {
@@ -1239,107 +1153,8 @@ fn apply_frog_backlog(
     Ok(any_changed)
 }
 
-fn collect_monthly_backlog(records: &[MonthlyRecord]) -> Vec<MonthlyBacklogItem> {
-    let mut backlog = Vec::new();
-    for record in records {
-        for item in &record.items {
-            let text = item.text.trim();
-            if text.is_empty() || item.done {
-                continue;
-            }
-
-            backlog.push(MonthlyBacklogItem {
-                month: record.month.clone(),
-                id: item.id.clone(),
-                text: text.to_string(),
-                done: false,
-                note: item.note.clone(),
-                created_at: item.created_at,
-                updated_at: item.updated_at.or(record.updated_at),
-            });
-        }
-    }
-
-    backlog.sort_by(|left, right| {
-        left.month
-            .cmp(&right.month)
-            .then(left.text.cmp(&right.text))
-    });
-    backlog
-}
-
-fn apply_monthly_backlog(
-    records: &mut Vec<MonthlyRecord>,
-    backlog: Vec<MonthlyBacklogItem>,
-    now: u64,
-) -> Result<bool, String> {
-    let mut any_changed = false;
-    for item in backlog {
-        parse_month(&item.month)?;
-
-        let text = item.text.trim().to_string();
-        if text.is_empty() {
-            continue;
-        }
-
-        if !records.iter().any(|record| record.month == item.month) {
-            records.push(MonthlyRecord {
-                month: item.month.clone(),
-                items: Vec::new(),
-                updated_at: Some(now),
-            });
-        }
-
-        if let Some(record) = records.iter_mut().find(|record| record.month == item.month) {
-            let id = if item.id.trim().is_empty() {
-                format!("{}-{}-{now}", item.month, record.items.len() + 1)
-            } else {
-                item.id.clone()
-            };
-
-            // 前端 backlog 不携带 note，空 note 表示“未提供”，保留已有值
-            let note = item.note.trim().to_string();
-            if let Some(existing) = record.items.iter_mut().find(|existing| existing.id == id) {
-                let effective_note = if note.is_empty() { existing.note.clone() } else { note };
-                let changed = existing.text != text || existing.done != item.done || existing.note != effective_note;
-                existing.text = text;
-                existing.done = item.done;
-                existing.note = effective_note;
-                if changed {
-                    existing.updated_at = Some(now);
-                    record.updated_at = Some(now);
-                    any_changed = true;
-                }
-            } else {
-                record.items.push(MonthlyItem {
-                    id,
-                    text,
-                    done: item.done,
-                    note,
-                    created_at: item.created_at.or(Some(now)),
-                    updated_at: Some(now),
-                });
-                record.updated_at = Some(now);
-                any_changed = true;
-            }
-        }
-    }
-
-    records.sort_by(|left, right| left.month.cmp(&right.month));
-    Ok(any_changed)
-}
-
 const FROG_CSV_HEADERS: &[&str] = &["date", "slot", "text", "done", "note", "created_at", "updated_at"];
 const HABIT_CSV_HEADERS: &[&str] = &["date", "habit_id", "habit_name", "checked", "created_at", "updated_at"];
-const MONTHLY_CSV_HEADERS: &[&str] = &[
-    "month",
-    "item_id",
-    "text",
-    "done",
-    "note",
-    "created_at",
-    "updated_at",
-];
 const ANNUAL_GOAL_CSV_HEADERS: &[&str] = &[
     "year",
     "item_id",
@@ -1519,82 +1334,6 @@ fn write_habit_database(path: &Path, database: &HabitDatabase) -> Result<(), Str
     write_csv(path, HABIT_CSV_HEADERS, rows)
 }
 
-fn read_monthly_database(path: &Path) -> Result<MonthlyDatabase, String> {
-    let rows = read_csv(path, MONTHLY_CSV_HEADERS)?;
-    let now = now_seconds();
-    let mut by_month: HashMap<String, Vec<MonthlyItem>> = HashMap::new();
-    let mut updated_at: HashMap<String, u64> = HashMap::new();
-
-    for (index, row) in rows.into_iter().enumerate() {
-        let month = csv_cell(&row, "month");
-        parse_month(&month)?;
-        let text = csv_cell(&row, "text");
-        if text.is_empty() {
-            continue;
-        }
-
-        let updated = parse_optional_u64(&csv_cell(&row, "updated_at"));
-        if let Some(timestamp) = updated {
-            updated_at
-                .entry(month.clone())
-                .and_modify(|value| *value = (*value).max(timestamp))
-                .or_insert(timestamp);
-        }
-
-        by_month
-            .entry(month.clone())
-            .or_default()
-            .push(MonthlyItem {
-                id: {
-                    let id = csv_cell(&row, "item_id");
-                    if id.is_empty() {
-                        format!("{month}-{}-{now}", index + 1)
-                    } else {
-                        id
-                    }
-                },
-                text,
-                done: parse_csv_bool(&csv_cell(&row, "done")),
-                note: csv_cell(&row, "note"),
-                created_at: parse_optional_u64(&csv_cell(&row, "created_at")).or(Some(now)),
-                updated_at: updated.or(Some(now)),
-            });
-    }
-
-    let mut months = by_month
-        .into_iter()
-        .map(|(month, items)| MonthlyRecord {
-            updated_at: updated_at.get(&month).copied(),
-            month,
-            items,
-        })
-        .collect::<Vec<_>>();
-    months.sort_by(|left, right| left.month.cmp(&right.month));
-
-    Ok(MonthlyDatabase {
-        schema_version: 1,
-        months,
-    })
-}
-
-fn write_monthly_database(path: &Path, database: &MonthlyDatabase) -> Result<(), String> {
-    let mut rows = Vec::new();
-    for record in &database.months {
-        for item in &record.items {
-            rows.push(vec![
-                record.month.clone(),
-                item.id.clone(),
-                item.text.clone(),
-                bool_csv(item.done),
-                item.note.clone(),
-                timestamp_csv(item.created_at),
-                timestamp_csv(item.updated_at.or(record.updated_at)),
-            ]);
-        }
-    }
-    write_csv(path, MONTHLY_CSV_HEADERS, rows)
-}
-
 fn year_key(date: &str) -> Result<String, String> {
     let (year, _, _) = parse_date(date)?;
     Ok(year)
@@ -1646,6 +1385,76 @@ fn migrate_monthly_to_items(legacy: &Path, target: &Path) -> Result<(), String> 
     }
     sort_plan_items(&mut items);
     write_plan_item_database(target, &PlanItemDatabase { schema_version: 1, items })
+}
+
+fn upsert_plan_items(items: &mut Vec<PlanItem>, incoming: Vec<PlanItem>, now: u64) -> Result<bool, String> {
+    let mut changed = false;
+    for item in incoming {
+        let text = item.text.trim().to_string();
+        if text.is_empty() {
+            continue;
+        }
+        let note = item.note.trim().to_string();
+        let scope = {
+            let s = item.scope.trim();
+            if s.is_empty() { "inbox".to_string() } else { s.to_string() }
+        };
+        let period = item.period.trim().to_string();
+        validate_plan_item_scope(&scope, &period)?;
+        let parent_id = item.parent_id.trim().to_string();
+        let id = {
+            let raw = item.id.trim();
+            if raw.is_empty() { format!("item-{now}-{}", items.len() + 1) } else { raw.to_string() }
+        };
+
+        if let Some(existing) = items.iter_mut().find(|e| e.id == id) {
+            let differs = existing.text != text
+                || existing.done != item.done
+                || existing.note != note
+                || existing.scope != scope
+                || existing.period != period
+                || existing.parent_id != parent_id;
+            if differs {
+                existing.text = text;
+                existing.done = item.done;
+                existing.note = note;
+                existing.scope = scope;
+                existing.period = period;
+                existing.parent_id = parent_id;
+                existing.updated_at = Some(now);
+                changed = true;
+            }
+        } else {
+            items.push(PlanItem {
+                id,
+                text,
+                done: item.done,
+                note,
+                scope,
+                period,
+                parent_id,
+                created_at: item.created_at.or(Some(now)),
+                updated_at: Some(now),
+            });
+            changed = true;
+        }
+    }
+    if changed {
+        sort_plan_items(items);
+    }
+    Ok(changed)
+}
+
+fn select_journal_plan_items(items: &[PlanItem], week: &str, month: &str) -> Vec<PlanItem> {
+    let mut picked: Vec<PlanItem> = items
+        .iter()
+        .filter(|item| {
+            (item.scope == "week" && item.period == week) || (item.scope == "month" && item.period == month)
+        })
+        .cloned()
+        .collect();
+    sort_plan_items(&mut picked);
+    picked
 }
 
 fn read_plan_item_database(path: &Path) -> Result<PlanItemDatabase, String> {
@@ -2418,7 +2227,7 @@ fn add_visual_template(
 
 #[tauri::command]
 async fn get_database_manager(app: tauri::AppHandle) -> Result<JournalDatabaseManager, String> {
-    let (frogs_path, habits_path, monthly_path, annual_goals_path) = database_paths(&app)?;
+    let (frogs_path, habits_path, items_path, annual_goals_path) = database_paths(&app)?;
     let mut habits = read_habit_database(&habits_path)?;
     if habits.definitions.is_empty() {
         habits.definitions = default_habit_definitions();
@@ -2428,9 +2237,9 @@ async fn get_database_manager(app: tauri::AppHandle) -> Result<JournalDatabaseMa
     Ok(JournalDatabaseManager {
         frogs: read_frog_database(&frogs_path)?,
         habits,
-        monthly: read_monthly_database(&monthly_path)?,
+        items: read_plan_item_database(&items_path)?,
         annual_goals: read_annual_goal_database(&annual_goals_path)?,
-        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path, &annual_goals_path),
+        paths: database_path_labels(&frogs_path, &habits_path, &items_path, &annual_goals_path),
     })
 }
 
@@ -2560,40 +2369,58 @@ async fn save_habit_database(
 }
 
 #[tauri::command]
-async fn save_monthly_database(
+async fn save_plan_item_database(
     app: tauri::AppHandle,
-    months: Vec<MonthlyRecord>,
-) -> Result<MonthlyDatabase, String> {
-    let (_, _, monthly_path, _) = database_paths(&app)?;
+    items: Vec<PlanItem>,
+) -> Result<PlanItemDatabase, String> {
+    let (_, _, items_path, _) = database_paths(&app)?;
     let now = now_seconds();
-    let existing_db = read_monthly_database(&monthly_path)?;
-    let mut normalized_months = Vec::new();
+    let existing = read_plan_item_database(&items_path)?;
+    let mut normalized: Vec<PlanItem> = Vec::new();
     let mut seen = HashSet::new();
 
-    for record in months {
-        parse_month(&record.month)?;
-        if !seen.insert(record.month.clone()) {
+    for item in items {
+        let text = item.text.trim().to_string();
+        if text.is_empty() {
             continue;
         }
-        let prev_record = existing_db.months.iter().find(|r| r.month == record.month);
-        let items = normalize_monthly_items_preserve(&record.month, record.items, now, prev_record);
-        if items.is_empty() {
+        let scope = {
+            let s = item.scope.trim();
+            if s.is_empty() { "inbox".to_string() } else { s.to_string() }
+        };
+        let period = item.period.trim().to_string();
+        validate_plan_item_scope(&scope, &period)?;
+        let id = {
+            let raw = item.id.trim();
+            if raw.is_empty() { format!("item-{now}-{}", normalized.len() + 1) } else { raw.to_string() }
+        };
+        if !seen.insert(id.clone()) {
             continue;
         }
-        let any_changed = items.iter().any(|item| item.updated_at == Some(now));
-        normalized_months.push(MonthlyRecord {
-            month: record.month,
-            items,
-            updated_at: if any_changed { Some(now) } else { prev_record.and_then(|r| r.updated_at) },
+        let note = item.note.trim().to_string();
+        let parent_id = item.parent_id.trim().to_string();
+        let prev = existing.items.iter().find(|p| p.id == id);
+        let differs = match prev {
+            Some(p) => p.text != text || p.done != item.done || p.note != note
+                || p.scope != scope || p.period != period || p.parent_id != parent_id,
+            None => true,
+        };
+        normalized.push(PlanItem {
+            id,
+            text,
+            done: item.done,
+            note,
+            scope,
+            period,
+            parent_id,
+            created_at: prev.and_then(|p| p.created_at).or(item.created_at).or(Some(now)),
+            updated_at: if differs { Some(now) } else { prev.and_then(|p| p.updated_at) },
         });
     }
 
-    normalized_months.sort_by(|left, right| left.month.cmp(&right.month));
-    let database = MonthlyDatabase {
-        schema_version: 1,
-        months: normalized_months,
-    };
-    write_monthly_database(&monthly_path, &database)?;
+    sort_plan_items(&mut normalized);
+    let database = PlanItemDatabase { schema_version: 1, items: normalized };
+    write_plan_item_database(&items_path, &database)?;
     Ok(database)
 }
 
@@ -2605,11 +2432,12 @@ async fn get_journal_databases(
     parse_date(&date)?;
     let month = month_key(&date)?;
     let year = year_key(&date)?;
-    let (frogs_path, habits_path, monthly_path, annual_goals_path) = database_paths(&app)?;
+    let week = week_key(&date)?;
+    let (frogs_path, habits_path, items_path, annual_goals_path) = database_paths(&app)?;
 
     let frogs_db = read_frog_database(&frogs_path)?;
     let habits_db = read_habit_database(&habits_path)?;
-    let monthly_db = read_monthly_database(&monthly_path)?;
+    let items_db = read_plan_item_database(&items_path)?;
 
     let frogs = frogs_db
         .days
@@ -2633,17 +2461,6 @@ async fn get_journal_databases(
             updated_at: None,
         });
 
-    let monthly = monthly_db
-        .months
-        .iter()
-        .find(|record| record.month == month)
-        .cloned()
-        .unwrap_or(MonthlyRecord {
-            month,
-            items: Vec::new(),
-            updated_at: None,
-        });
-
     let annual_goals_db = read_annual_goal_database(&annual_goals_path)?;
     let annual_goals = annual_goals_db
         .years
@@ -2661,10 +2478,9 @@ async fn get_journal_databases(
         frog_backlog: collect_frog_backlog(&frogs_db.days),
         habits,
         habit_definitions: habits_db.definitions,
-        monthly,
-        monthly_backlog: collect_monthly_backlog(&monthly_db.months),
+        plan_items: select_journal_plan_items(&items_db.items, &week, &month),
         annual_goals,
-        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path, &annual_goals_path),
+        paths: database_path_labels(&frogs_path, &habits_path, &items_path, &annual_goals_path),
     })
 }
 
@@ -2674,15 +2490,15 @@ async fn save_journal_databases(
     date: String,
     frogs: Vec<FrogItem>,
     habits: HashMap<String, bool>,
-    monthly: Vec<MonthlyItem>,
+    plan_items: Vec<PlanItem>,
     frog_backlog: Option<Vec<FrogBacklogItem>>,
-    monthly_backlog: Option<Vec<MonthlyBacklogItem>>,
     annual_goals: Option<Vec<AnnualGoalItem>>,
 ) -> Result<JournalDatabases, String> {
     parse_date(&date)?;
     let month = month_key(&date)?;
+    let week = week_key(&date)?;
     let now = now_seconds();
-    let (frogs_path, habits_path, monthly_path, annual_goals_path) = database_paths(&app)?;
+    let (frogs_path, habits_path, items_path, annual_goals_path) = database_paths(&app)?;
 
     let mut frogs_db = read_frog_database(&frogs_path)?;
     let normalized_frogs = normalize_frog_items(frogs);
@@ -2747,30 +2563,9 @@ async fn save_journal_databases(
         write_habit_database(&habits_path, &habits_db)?;
     }
 
-    let mut monthly_db = read_monthly_database(&monthly_path)?;
-    let existing_monthly = monthly_db.months.iter().find(|r| r.month == month);
-    let normalized_monthly = normalize_monthly_items_preserve(&month, monthly, now, existing_monthly);
-    let monthly_changed = normalized_monthly.iter().any(|item| item.updated_at == Some(now));
-    let monthly_backlog_items = monthly_backlog.unwrap_or_default();
-    let monthly_backlog_changed = if monthly_backlog_items.is_empty() {
-        false
-    } else {
-        apply_monthly_backlog(&mut monthly_db.months, monthly_backlog_items, now)?
-    };
-    if monthly_changed {
-        monthly_db.months.retain(|record| record.month != month);
-        if !normalized_monthly.is_empty() {
-            let record_updated = normalized_monthly.iter().filter_map(|i| i.updated_at).max();
-            monthly_db.months.push(MonthlyRecord {
-                month: month.clone(),
-                items: normalized_monthly,
-                updated_at: record_updated,
-            });
-        }
-        monthly_db.months.sort_by(|left, right| left.month.cmp(&right.month));
-    }
-    if monthly_changed || monthly_backlog_changed {
-        write_monthly_database(&monthly_path, &monthly_db)?;
+    let mut items_db = read_plan_item_database(&items_path)?;
+    if upsert_plan_items(&mut items_db.items, plan_items, now)? {
+        write_plan_item_database(&items_path, &items_db)?;
     }
 
     let mut annual_goals_db = read_annual_goal_database(&annual_goals_path)?;
@@ -2806,17 +2601,6 @@ async fn save_journal_databases(
             items: Vec::new(),
             updated_at: None,
         });
-    let saved_monthly = monthly_db
-        .months
-        .iter()
-        .find(|record| record.month == month)
-        .cloned()
-        .unwrap_or(MonthlyRecord {
-            month: month.clone(),
-            items: Vec::new(),
-            updated_at: None,
-        });
-
     let saved_annual_goals = annual_goals_db
         .years
         .iter()
@@ -2844,10 +2628,9 @@ async fn save_journal_databases(
         frog_backlog: collect_frog_backlog(&frogs_db.days),
         habits: saved_habits,
         habit_definitions: habits_db.definitions,
-        monthly: saved_monthly,
-        monthly_backlog: collect_monthly_backlog(&monthly_db.months),
+        plan_items: select_journal_plan_items(&items_db.items, &week, &month),
         annual_goals: saved_annual_goals,
-        paths: database_path_labels(&frogs_path, &habits_path, &monthly_path, &annual_goals_path),
+        paths: database_path_labels(&frogs_path, &habits_path, &items_path, &annual_goals_path),
     })
 }
 
@@ -3251,49 +3034,6 @@ mod tests {
     }
 
     #[test]
-    fn monthly_backlog_updates_original_month_item() {
-        let mut records = vec![MonthlyRecord {
-            month: "2026-05".to_string(),
-            items: vec![MonthlyItem {
-                id: "may-open-source".to_string(),
-                text: "准备开源发布".to_string(),
-                done: false,
-                note: String::new(),
-                created_at: Some(1),
-                updated_at: Some(1),
-            }],
-            updated_at: Some(1),
-        }];
-
-        apply_monthly_backlog(
-            &mut records,
-            vec![MonthlyBacklogItem {
-                month: "2026-05".to_string(),
-                id: "may-open-source".to_string(),
-                text: "准备开源发布".to_string(),
-                done: true,
-                note: String::new(),
-                created_at: Some(1),
-                updated_at: Some(1),
-            }],
-            2,
-        )
-        .expect("apply monthly backlog");
-
-        let record = records
-            .iter()
-            .find(|record| record.month == "2026-05")
-            .unwrap();
-        let item = record
-            .items
-            .iter()
-            .find(|item| item.id == "may-open-source")
-            .unwrap();
-        assert!(item.done);
-        assert!(collect_monthly_backlog(&records).is_empty());
-    }
-
-    #[test]
     fn markdown_frontmatter_drives_day_index_and_title() {
         let content = r#"---
 type: daily
@@ -3393,6 +3133,65 @@ day_index: 42
         let again = read_plan_item_database(&items_path).unwrap();
         assert_eq!(again.items.len(), 2);
         let _ = fs::remove_dir_all(dir);
+    }
+
+    fn sample_item(id: &str, scope: &str, period: &str, done: bool) -> PlanItem {
+        PlanItem {
+            id: id.into(), text: format!("事项 {id}"), done, note: String::new(),
+            scope: scope.into(), period: period.into(), parent_id: String::new(),
+            created_at: Some(1), updated_at: Some(1),
+        }
+    }
+
+    #[test]
+    fn upsert_only_touches_changed_items() {
+        let mut items = vec![
+            sample_item("a", "month", "2026-10", false),
+            sample_item("b", "month", "2026-10", false),
+        ];
+        let mut incoming = sample_item("a", "month", "2026-10", true);
+        incoming.created_at = None;
+        let changed = upsert_plan_items(&mut items, vec![incoming], 999).unwrap();
+        assert!(changed);
+        let a = items.iter().find(|i| i.id == "a").unwrap();
+        assert!(a.done);
+        assert_eq!(a.updated_at, Some(999));
+        assert_eq!(a.created_at, Some(1), "created_at 保留原值");
+        let b = items.iter().find(|i| i.id == "b").unwrap();
+        assert_eq!(b.updated_at, Some(1), "未传入的不动");
+    }
+
+    #[test]
+    fn upsert_with_empty_payload_deletes_nothing() {
+        let mut items = vec![sample_item("a", "week", "2026-10-26", false)];
+        let changed = upsert_plan_items(&mut items, vec![], 5).unwrap();
+        assert!(!changed);
+        assert_eq!(items.len(), 1);
+    }
+
+    #[test]
+    fn upsert_adds_new_and_rejects_bad_period() {
+        let mut items = vec![];
+        let changed = upsert_plan_items(&mut items, vec![sample_item("n", "week", "2026-10-26", false)], 7).unwrap();
+        assert!(changed);
+        assert_eq!(items[0].created_at, Some(1));
+        assert_eq!(items[0].updated_at, Some(7));
+        assert!(upsert_plan_items(&mut items, vec![sample_item("x", "week", "2026-10-27", false)], 8).is_err());
+        assert_eq!(items.len(), 1);
+    }
+
+    #[test]
+    fn select_journal_plan_items_filters_by_current_week_and_month() {
+        let items = vec![
+            sample_item("w1", "week", "2026-10-26", false),
+            sample_item("w0", "week", "2026-10-19", false),
+            sample_item("m1", "month", "2026-10", true),
+            sample_item("m0", "month", "2026-09", false),
+            sample_item("i", "inbox", "", false),
+        ];
+        let picked = select_journal_plan_items(&items, "2026-10-26", "2026-10");
+        let ids: Vec<&str> = picked.iter().map(|i| i.id.as_str()).collect();
+        assert_eq!(ids, vec!["m1", "w1"]);
     }
 }
 
@@ -3531,7 +3330,7 @@ pub fn run() {
             get_database_manager,
             save_frog_database,
             save_habit_database,
-            save_monthly_database,
+            save_plan_item_database,
             save_annual_goal_database,
             get_anchor_copy,
             save_anchor_copy,
