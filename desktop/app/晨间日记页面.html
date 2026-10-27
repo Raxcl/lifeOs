@@ -282,7 +282,29 @@
             <strong>看见未来</strong>
             <span>FUTURE</span>
           </div>
-          <div class="future-content nine-grid duo">
+          <div class="future-content nine-grid">
+            <article class="journal-panel path-card soft-rose" data-od-id="week-plan">
+              <div class="panel-title">
+                <h2><span class="flower-dot" aria-hidden="true"></span>本周推进</h2>
+                <span class="panel-action" id="weekRange">WEEK</span>
+              </div>
+              <div class="todo-database">
+                <div class="database-heading">
+                  <span>本周事项</span>
+                  <span class="database-view">表格 · 本周</span>
+                </div>
+                <ul class="todo-list" id="weekList"></ul>
+                <div class="todo-entry">
+                  <input class="mini-input" id="weekInput" autocomplete="off" placeholder="添加本周要推进的事" />
+                  <button class="btn btn-icon" id="addWeekItem" type="button" aria-label="添加本周事项">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </article>
+
             <article class="journal-panel path-card soft-green" data-od-id="month-important">
               <div class="panel-title">
                 <h2><span class="flower-dot" aria-hidden="true"></span>本月重要几件事</h2>
@@ -290,8 +312,8 @@
               </div>
               <div class="todo-database">
                 <div class="database-heading">
-                  <span>未完成事项</span>
-                  <span class="database-view">表格 · 月度</span>
+                  <span>本月事项</span>
+                  <span class="database-view">表格 · 本月</span>
                 </div>
                 <ul class="todo-list" id="todoList"></ul>
                 <div class="todo-entry">
