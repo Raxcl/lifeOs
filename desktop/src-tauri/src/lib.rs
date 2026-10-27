@@ -257,6 +257,32 @@ struct MonthlyDatabase {
     months: Vec<MonthlyRecord>,
 }
 
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct PlanItem {
+    id: String,
+    text: String,
+    #[serde(default)]
+    done: bool,
+    #[serde(default)]
+    note: String,
+    #[serde(default)]
+    scope: String,
+    #[serde(default)]
+    period: String,
+    #[serde(default)]
+    parent_id: String,
+    #[serde(default)]
+    created_at: Option<u64>,
+    #[serde(default)]
+    updated_at: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct PlanItemDatabase {
+    schema_version: u8,
+    items: Vec<PlanItem>,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct AnnualGoalItem {
     id: String,
@@ -919,6 +945,59 @@ fn write_nonce() -> String {
     format!("{}-{nanos}", std::process::id())
 }
 
+fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = (if y >= 0 { y } else { y - 399 }) / 400;
+    let yoe = y - era * 400;
+    let mp = (month + 9) % 12;
+    let doy = (153 * mp as i64 + 2) / 5 + day as i64 - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
+}
+
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719468;
+    let era = (if z >= 0 { z } else { z - 146096 }) / 146097;
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let year = yoe + era * 400 + if month <= 2 { 1 } else { 0 };
+    (year, month, day)
+}
+
+fn week_key(date: &str) -> Result<String, String> {
+    let (year, month, day) = parse_date(date)?;
+    let invalid = || "日期格式应为 YYYY-MM-DD".to_string();
+    let year: i64 = year.parse().map_err(|_| invalid())?;
+    let month: u32 = month.parse().map_err(|_| invalid())?;
+    let day: u32 = day.parse().map_err(|_| invalid())?;
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return Err(invalid());
+    }
+    let days = days_from_civil(year, month, day);
+    // 1970-01-01 是周四，+3 后对 7 取模使周一为 0
+    let offset_from_monday = (days + 3).rem_euclid(7);
+    let (y, m, d) = civil_from_days(days - offset_from_monday);
+    Ok(format!("{y:04}-{m:02}-{d:02}"))
+}
+
+fn validate_plan_item_scope(scope: &str, period: &str) -> Result<(), String> {
+    match scope {
+        "inbox" => {
+            if period.is_empty() { Ok(()) } else { Err("收集箱事项不能带归属期".to_string()) }
+        }
+        "week" => {
+            if week_key(period)? == period { Ok(()) } else { Err("周归属必须是周一日期".to_string()) }
+        }
+        "month" => parse_month(period),
+        "year" => parse_year(period),
+        other => Err(format!("未知的事项范围：{other}")),
+    }
+}
+
 fn month_key(date: &str) -> Result<String, String> {
     let (year, month, _) = parse_date(date)?;
     Ok(format!("{year}-{month}"))
@@ -1270,6 +1349,13 @@ const ANNUAL_GOAL_CSV_HEADERS: &[&str] = &[
     "updated_at",
 ];
 
+const PLAN_ITEM_CSV_HEADERS: &[&str] = &[
+    "item_id", "text", "done", "note", "scope", "period", "parent_id", "created_at", "updated_at",
+];
+const LEGACY_MONTHLY_CSV_HEADERS: &[&str] = &[
+    "month", "item_id", "text", "done", "note", "created_at", "updated_at",
+];
+
 fn read_frog_database(path: &Path) -> Result<FrogDatabase, String> {
     let rows = read_csv(path, FROG_CSV_HEADERS)?;
     let mut by_date: HashMap<String, Vec<FrogItem>> = HashMap::new();
@@ -1519,6 +1605,102 @@ fn parse_year(year: &str) -> Result<(), String> {
         return Err("年份格式应为 YYYY".to_string());
     }
     Ok(())
+}
+
+fn scope_rank(scope: &str) -> u8 {
+    match scope { "year" => 0, "month" => 1, "week" => 2, _ => 3 }
+}
+
+fn sort_plan_items(items: &mut Vec<PlanItem>) {
+    items.sort_by(|a, b| {
+        scope_rank(&a.scope)
+            .cmp(&scope_rank(&b.scope))
+            .then(a.period.cmp(&b.period))
+            .then(a.created_at.cmp(&b.created_at))
+            .then(a.id.cmp(&b.id))
+    });
+}
+
+fn migrate_monthly_to_items(legacy: &Path, target: &Path) -> Result<(), String> {
+    let rows = read_csv(legacy, LEGACY_MONTHLY_CSV_HEADERS)?;
+    let now = now_seconds();
+    let mut items = Vec::new();
+    for (index, row) in rows.into_iter().enumerate() {
+        let text = csv_cell(&row, "text");
+        let month = csv_cell(&row, "month");
+        if text.is_empty() || parse_month(&month).is_err() {
+            continue;
+        }
+        let id = csv_cell(&row, "item_id");
+        items.push(PlanItem {
+            id: if id.is_empty() { format!("{month}-{}-{now}", index + 1) } else { id },
+            text,
+            done: parse_csv_bool(&csv_cell(&row, "done")),
+            note: csv_cell(&row, "note"),
+            scope: "month".to_string(),
+            period: month,
+            parent_id: String::new(),
+            created_at: parse_optional_u64(&csv_cell(&row, "created_at")).or(Some(now)),
+            updated_at: parse_optional_u64(&csv_cell(&row, "updated_at")).or(Some(now)),
+        });
+    }
+    sort_plan_items(&mut items);
+    write_plan_item_database(target, &PlanItemDatabase { schema_version: 1, items })
+}
+
+fn read_plan_item_database(path: &Path) -> Result<PlanItemDatabase, String> {
+    let legacy = path.with_file_name("monthly-important.csv");
+    if !path.exists() && legacy.exists() {
+        migrate_monthly_to_items(&legacy, path)?;
+    }
+    let rows = read_csv(path, PLAN_ITEM_CSV_HEADERS)?;
+    let now = now_seconds();
+    let mut items = Vec::new();
+    for (index, row) in rows.into_iter().enumerate() {
+        let text = csv_cell(&row, "text");
+        if text.is_empty() {
+            continue;
+        }
+        let scope = {
+            let s = csv_cell(&row, "scope");
+            if s.is_empty() { "inbox".to_string() } else { s }
+        };
+        let period = csv_cell(&row, "period");
+        validate_plan_item_scope(&scope, &period)?;
+        let id = csv_cell(&row, "item_id");
+        items.push(PlanItem {
+            id: if id.is_empty() { format!("item-{}-{now}", index + 1) } else { id },
+            text,
+            done: parse_csv_bool(&csv_cell(&row, "done")),
+            note: csv_cell(&row, "note"),
+            scope,
+            period,
+            parent_id: csv_cell(&row, "parent_id"),
+            created_at: parse_optional_u64(&csv_cell(&row, "created_at")).or(Some(now)),
+            updated_at: parse_optional_u64(&csv_cell(&row, "updated_at")).or(Some(now)),
+        });
+    }
+    sort_plan_items(&mut items);
+    Ok(PlanItemDatabase { schema_version: 1, items })
+}
+
+fn write_plan_item_database(path: &Path, database: &PlanItemDatabase) -> Result<(), String> {
+    let rows = database
+        .items
+        .iter()
+        .map(|item| vec![
+            item.id.clone(),
+            item.text.clone(),
+            bool_csv(item.done),
+            item.note.clone(),
+            item.scope.clone(),
+            item.period.clone(),
+            item.parent_id.clone(),
+            timestamp_csv(item.created_at),
+            timestamp_csv(item.updated_at),
+        ])
+        .collect();
+    write_csv(path, PLAN_ITEM_CSV_HEADERS, rows)
 }
 
 fn read_annual_goal_database(path: &Path) -> Result<AnnualGoalDatabase, String> {
@@ -3130,6 +3312,87 @@ day_index: 42
             title_from_content("# 2026-06-08 晨间日记\n", "2026-06-08", 42),
             "第 42 天"
         );
+    }
+
+    #[test]
+    fn week_key_snaps_to_monday() {
+        assert_eq!(week_key("2026-10-26").unwrap(), "2026-10-26");
+        assert_eq!(week_key("2026-10-27").unwrap(), "2026-10-26");
+        assert_eq!(week_key("2026-11-01").unwrap(), "2026-10-26");
+        assert_eq!(week_key("2027-01-01").unwrap(), "2026-12-28");
+        assert!(week_key("2026-13-01").is_err());
+    }
+
+    #[test]
+    fn plan_item_scope_validation() {
+        assert!(validate_plan_item_scope("inbox", "").is_ok());
+        assert!(validate_plan_item_scope("inbox", "2026-10").is_err());
+        assert!(validate_plan_item_scope("week", "2026-10-26").is_ok());
+        assert!(validate_plan_item_scope("week", "2026-10-27").is_err());
+        assert!(validate_plan_item_scope("month", "2026-10").is_ok());
+        assert!(validate_plan_item_scope("month", "2026-10-26").is_err());
+        assert!(validate_plan_item_scope("year", "2026").is_ok());
+        assert!(validate_plan_item_scope("quarter", "2026-Q4").is_err());
+    }
+
+    #[test]
+    fn plan_item_database_round_trip() {
+        let dir = temp_dir("plan-items-rt");
+        let path = dir.join("items.csv");
+        let db = PlanItemDatabase {
+            schema_version: 1,
+            items: vec![
+                PlanItem {
+                    id: "a".into(), text: "周事".into(), done: false, note: "".into(),
+                    scope: "week".into(), period: "2026-10-26".into(), parent_id: "m1".into(),
+                    created_at: Some(10), updated_at: Some(20),
+                },
+                PlanItem {
+                    id: "b".into(), text: "收集箱".into(), done: true, note: "备注, 带逗号".into(),
+                    scope: "inbox".into(), period: "".into(), parent_id: "".into(),
+                    created_at: Some(1), updated_at: Some(2),
+                },
+            ],
+        };
+        write_plan_item_database(&path, &db).unwrap();
+        let read = read_plan_item_database(&path).unwrap();
+        assert_eq!(read.items.len(), 2);
+        let a = read.items.iter().find(|i| i.id == "a").unwrap();
+        assert_eq!(a.scope, "week");
+        assert_eq!(a.period, "2026-10-26");
+        assert_eq!(a.parent_id, "m1");
+        assert_eq!(a.updated_at, Some(20));
+        let b = read.items.iter().find(|i| i.id == "b").unwrap();
+        assert_eq!(b.note, "备注, 带逗号");
+        assert!(b.done);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn plan_item_database_migrates_legacy_monthly() {
+        let dir = temp_dir("plan-items-migrate");
+        let legacy = dir.join("monthly-important.csv");
+        write_csv(
+            &legacy,
+            &["month", "item_id", "text", "done", "note", "created_at", "updated_at"],
+            vec![
+                vec!["2026-09".into(), "m-1".into(), "九月事".into(), "false".into(), "".into(), "100".into(), "200".into()],
+                vec!["2026-10".into(), "m-2".into(), "十月事".into(), "true".into(), "n".into(), "300".into(), "400".into()],
+                vec!["2026-10".into(), "m-3".into(), "".into(), "false".into(), "".into(), "".into(), "".into()],
+            ],
+        ).unwrap();
+        let items_path = dir.join("items.csv");
+        let db = read_plan_item_database(&items_path).unwrap();
+        assert_eq!(db.items.len(), 2);
+        assert!(db.items.iter().all(|i| i.scope == "month"));
+        let m1 = db.items.iter().find(|i| i.id == "m-1").unwrap();
+        assert_eq!(m1.period, "2026-09");
+        assert_eq!(m1.created_at, Some(100));
+        assert!(items_path.exists());
+        assert!(legacy.exists(), "老文件应原地保留");
+        let again = read_plan_item_database(&items_path).unwrap();
+        assert_eq!(again.items.len(), 2);
+        let _ = fs::remove_dir_all(dir);
     }
 }
 
