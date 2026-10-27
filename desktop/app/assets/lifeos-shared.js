@@ -22,6 +22,21 @@
     return /^\d{4}-\d{2}$/.test(String(value || ""));
   }
 
+  function weekKey(value) {
+    const date = parseDateKey(value);
+    const offsetFromMonday = (date.getDay() + 6) % 7;
+    date.setDate(date.getDate() - offsetFromMonday);
+    return formatDate(date);
+  }
+
+  function weekRangeLabel(mondayKey) {
+    const start = parseDateKey(mondayKey);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const short = (d) => `${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+    return `${short(start)}–${short(end)}`;
+  }
+
   function normaliseDate(value) {
     return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : "";
   }
@@ -79,6 +94,8 @@
     parseDateKey,
     isDateKey,
     isMonthKey,
+    weekKey,
+    weekRangeLabel,
     normaliseDate,
     weekdayLabel,
     nowSeconds,
