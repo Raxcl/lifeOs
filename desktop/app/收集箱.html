@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>本月重要几件事管理 | LifeOS</title>
+  <title>收集箱 | LifeOS</title>
   <link rel="stylesheet" href="assets/window-frame.css" />
   <link rel="stylesheet" href="assets/database-manager.css" />
 </head>
-<body data-manager="monthly">
+<body data-manager="items">
   <div class="window-frame" data-tauri-drag-region>
-    <div class="window-title" data-tauri-drag-region>本月重要几件事管理 | LifeOS</div>
+    <div class="window-title" data-tauri-drag-region>收集箱 | LifeOS</div>
     <div class="window-controls">
       <button class="window-control" type="button" data-window-control="minimize" aria-label="最小化">─</button>
       <button class="window-control" type="button" data-window-control="maximize" aria-label="最大化">□</button>
@@ -30,7 +30,7 @@
         <div class="brand">
           <div class="brand-mark" id="managerMark">月</div>
           <div>
-            <h1 id="managerTitle">本月重要几件事管理</h1>
+            <h1 id="managerTitle">收集箱</h1>
             <p id="managerSubtitle">按事项管理月度目标，未完成优先。</p>
           </div>
         </div>
@@ -41,7 +41,7 @@
           <div id="summaryGrid"></div>
           <div>
             <p class="notice">数据库文件</p>
-            <div class="path" id="databasePath">monthly-important.csv</div>
+            <div class="path" id="databasePath">items.csv</div>
           </div>
           <div class="notice" id="notice"></div>
         </aside>
@@ -49,7 +49,7 @@
         <section class="workspace">
           <div class="section-head">
             <div>
-              <h2 id="workspaceTitle">本月重要几件事</h2>
+              <h2 id="workspaceTitle">收集箱</h2>
               <p id="workspaceSubtitle">月份只是归属字段，管理主视角是事项本身。</p>
             </div>
             <div class="toolbar" id="toolbar"></div>

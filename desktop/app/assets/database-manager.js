@@ -8,6 +8,7 @@
     defaultHabitDefinitions
   } = window.LifeOSShared;
   const isDate = window.LifeOSShared.isDateKey;
+  const weekKeyOf = window.LifeOSShared.weekKey;
   const isMonth = window.LifeOSShared.isMonthKey;
   const isYear = (value) => /^\d{4}$/.test(String(value || ""));
   const managerType = document.body.dataset.manager;
@@ -15,11 +16,12 @@
   const currentDate = formatDate(today);
   const currentMonth = currentDate.slice(0, 7);
   const currentYear = currentDate.slice(0, 4);
+  const currentWeek = weekKeyOf(currentDate);
   const tauriInvoke = window.__TAURI__?.core?.invoke;
   const fallbackKeys = {
     frogs: "lifeos-db:frogs",
     habits: "lifeos-db:habits",
-    monthly: "lifeos-db:monthly-important",
+    items: "lifeos-db:items",
     annualGoals: "lifeos-db:annual-goals"
   };
 
@@ -40,13 +42,13 @@
       saveCommand: "save_habit_database",
       fileName: "habits.csv"
     },
-    monthly: {
-      mark: "月",
-      title: "本月重要几件事管理",
-      subtitle: "按事项管理月度目标；未完成优先，月份只是归属字段。",
-      pathKey: "monthly",
-      saveCommand: "save_monthly_database",
-      fileName: "monthly-important.csv"
+    items: {
+      mark: "收",
+      title: "收集箱",
+      subtitle: "未归属 + 过期未完成；在这里决定它属于哪一周、哪个月。",
+      pathKey: "items",
+      saveCommand: "save_plan_item_database",
+      fileName: "items.csv"
     },
     "annual-goals": {
       mark: "年",
@@ -108,12 +110,12 @@
       return {
         frogs: readFallback(fallbackKeys.frogs, defaultFrogs()),
         habits: readFallback(fallbackKeys.habits, defaultHabits()),
-        monthly: readFallback(fallbackKeys.monthly, defaultMonthly()),
+        items: readFallback(fallbackKeys.items, defaultItems()),
         annual_goals: readFallback(fallbackKeys.annualGoals, defaultAnnualGoals()),
         paths: {
           frogs: `本机预览 / LifeOS-Vault / 00-Databases / ${config.frogs.fileName}`,
           habits: `本机预览 / LifeOS-Vault / 00-Databases / ${config.habits.fileName}`,
-          monthly: `本机预览 / LifeOS-Vault / 00-Databases / ${config.monthly.fileName}`,
+          items: `本机预览 / LifeOS-Vault / 00-Databases / ${config.items.fileName}`,
           annual_goals: `本机预览 / LifeOS-Vault / 00-Databases / ${config["annual-goals"].fileName}`
         }
       };
@@ -136,9 +138,9 @@
       return database;
     }
 
-    if (command === "save_monthly_database") {
-      const database = { schema_version: 1, months: normalizeMonths(args.months || []) };
-      localStorage.setItem(fallbackKeys.monthly, JSON.stringify(database));
+    if (command === "save_plan_item_database") {
+      const database = { schema_version: 1, items: normalizeItems(args.items || []) };
+      localStorage.setItem(fallbackKeys.items, JSON.stringify(database));
       return database;
     }
 
@@ -155,8 +157,8 @@
     el.path.textContent = state.snapshot.paths?.[view.pathKey] || view.fileName;
     if (managerType === "habits") {
       renderHabits();
-    } else if (managerType === "monthly") {
-      renderMonthly();
+    } else if (managerType === "items") {
+      renderItems();
     } else if (managerType === "annual-goals") {
       renderAnnualGoals();
     } else {
@@ -397,22 +399,82 @@
     return streak;
   }
 
-  function renderMonthly() {
-    const months = [...state.snapshot.monthly.months].sort((a, b) => b.month.localeCompare(a.month));
-    const items = sortMonthItems(flattenMonthItems(months));
-    const doneItems = items.filter((item) => item.done).length;
-    const openItems = items.length - doneItems;
+  const SCOPE_LABEL = { inbox: "收集箱", week: "周", month: "月", year: "年" };
+
+  function isOverdue(scope, period) {
+    if (scope === "week") return period < currentWeek;
+    if (scope === "month") return period < currentMonth;
+    if (scope === "year") return period < currentYear;
+    return false;
+  }
+
+  function matchesView(view, scope, period, done) {
+    if (!view || view === "all") return true;
+    if (view === "inbox") return scope === "inbox" || (!done && isOverdue(scope, period));
+    if (view === "week") return scope === "week" && period === currentWeek;
+    if (view === "month") return scope === "month" && period === currentMonth;
+    return true;
+  }
+
+  function periodLabel(scope, period) {
+    if (scope === "week") return `${period.slice(5).replace("-", ".")} 周`;
+    if (scope === "month") return `${period} 月`;
+    if (scope === "year") return `${period} 年`;
+    return "";
+  }
+
+  function originBadge(item) {
+    if (item.scope === "inbox" || item.done || !isOverdue(item.scope, item.period)) return '<span class="muted">—</span>';
+    return `<span class="status-pill" data-done="false">${escapeHtml(periodLabel(item.scope, item.period))} · 未完成</span>`;
+  }
+
+  function parentOptionsFor(scope, selected) {
+    let candidates = [];
+    if (scope === "week") {
+      candidates = state.snapshot.items.items
+        .filter((item) => item.scope === "month" && item.period >= currentMonth)
+        .map((item) => ({ id: item.id, label: `${item.period} · ${item.text}` }));
+    } else if (scope === "month") {
+      const record = state.snapshot.annual_goals.years.find((year) => year.year === currentYear);
+      candidates = (record?.items || []).map((item) => ({ id: item.id, label: `${currentYear} · ${item.text}` }));
+    }
+    const known = candidates.some((c) => c.id === selected);
+    const options = [`<option value="">—</option>`]
+      .concat(candidates.map((c) => `<option value="${escapeAttr(c.id)}" ${c.id === selected ? "selected" : ""}>${escapeHtml(c.label)}</option>`));
+    if (selected && !known) options.push(`<option value="${escapeAttr(selected)}" selected>（已删除的上级）</option>`);
+    return options.join("");
+  }
+
+  function periodInputHtml(scope, period) {
+    if (scope === "week") return `<input type="date" data-field="item-period" value="${escapeAttr(period)}" aria-label="归属周（任意一天，自动回退到周一）">`;
+    if (scope === "month") return `<input type="month" data-field="item-period" value="${escapeAttr(period)}" aria-label="归属月份">`;
+    return `<input type="text" data-field="item-period" value="" disabled aria-label="收集箱无归属期">`;
+  }
+
+  function renderItems() {
+    const items = [...state.snapshot.items.items];
+    const inboxCount = items.filter((item) => matchesView("inbox", item.scope, item.period, item.done)).length;
+    const weekCount = items.filter((item) => matchesView("week", item.scope, item.period, item.done) && !item.done).length;
+    const monthCount = items.filter((item) => matchesView("month", item.scope, item.period, item.done) && !item.done).length;
     setSummary([
-      ["记录月份", `${months.length} 个`],
-      ["待推进", `${openItems} 件`],
-      ["已完成", `${doneItems} 件`]
+      ["待归属", `${inboxCount} 件`],
+      ["本周未完成", `${weekCount} 件`],
+      ["本月未完成", `${monthCount} 件`]
     ]);
-    const monthOptions = ["", ...months.map((record) => record.month)];
     el.toolbar.innerHTML = `
       <div class="toolbar-group filter-group" aria-label="筛选条件">
+        <label class="toolbar-field">
+          <span>视图</span>
+          <select id="viewFilter" data-filter="view" aria-label="视图">
+            <option value="inbox" selected>收集箱</option>
+            <option value="week">本周</option>
+            <option value="month">本月</option>
+            <option value="all">全部</option>
+          </select>
+        </label>
         <label class="toolbar-field search-field">
           <span>搜索</span>
-          <input type="search" id="searchQuery" data-filter="search" placeholder="事项关键词" aria-label="搜索月度事项">
+          <input type="search" id="searchQuery" data-filter="search" placeholder="事项关键词" aria-label="搜索事项">
         </label>
         <label class="toolbar-field">
           <span>状态</span>
@@ -422,33 +484,30 @@
             <option value="done">已完成</option>
           </select>
         </label>
-        <label class="toolbar-field">
-          <span>月份</span>
-          <select id="monthFilter" data-filter="month" aria-label="月份筛选">
-            ${monthOptions.map((month) => `<option value="${escapeAttr(month)}">${month ? escapeHtml(month) : "不限月份"}</option>`).join("")}
-          </select>
-        </label>
       </div>
       <div class="toolbar-group create-group" aria-label="新增记录">
-        <button class="btn secondary" type="button" data-action="add-month-item-row">新增事项</button>
+        <button class="btn secondary" type="button" data-action="add-plan-item-row">新增事项</button>
       </div>
     `;
     el.list.innerHTML = items.length ? `
       <div class="table-area">
         <div class="table-scroll">
-          <table class="data-table" aria-label="月度事项表">
+          <table class="data-table" aria-label="事项表">
             <thead>
               <tr>
                 <th>完成</th>
                 <th>事项</th>
-                <th>描述</th>
-                <th>月份</th>
+                <th>归属</th>
+                <th>期</th>
+                <th>上级</th>
+                <th>来源</th>
+                <th>备注</th>
                 <th>创建时间</th>
                 <th>状态</th>
               </tr>
             </thead>
             <tbody>
-              ${items.map(renderMonthItemRow).join("")}
+              ${items.map(renderPlanItemRow).join("")}
             </tbody>
           </table>
         </div>
@@ -457,8 +516,8 @@
           <div class="action-sidebar-list"></div>
         </div>
       </div>
-      <p class="table-note">事项按对象维护；月份只是归属字段，历史未完成项会排在前面。</p>
-    ` : emptyState("还没有月度事项。可以先新增一件事项，再选择归属月份。");
+      <p class="table-note">「收集箱」视图 = 未归属 + 过期未完成。给它选一个周或月，就是一次重新决定。</p>
+    ` : emptyState("收集箱是空的。先新增一件事项，再决定它属于哪一周、哪个月。");
     applyCurrentFilters();
     if (items.length) initActionSidebar(items.length);
     applyCurrentFilters();
@@ -546,13 +605,21 @@
     `;
   }
 
-  function renderMonthItemRow(item) {
+  function renderPlanItemRow(item) {
+    const scope = item.scope || "inbox";
     return `
-      <tr class="data-row" data-kind="month-item" data-row data-done="${item.done ? "true" : "false"}" data-month="${escapeAttr(item.month)}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}">
-        <td><input type="checkbox" data-field="month-done" ${item.done ? "checked" : ""} aria-label="完成状态"></td>
-        <td><input type="text" data-field="month-text" value="${escapeAttr(item.text)}" placeholder="月度重要事项"></td>
-        <td><input type="text" data-field="month-note" value="${escapeAttr(item.note || "")}"></td>
-        <td><input type="month" data-field="month-value" value="${escapeAttr(item.month)}" aria-label="归属月份"></td>
+      <tr class="data-row" data-kind="plan-item" data-row data-done="${item.done ? "true" : "false"}" data-scope="${escapeAttr(scope)}" data-period="${escapeAttr(item.period || "")}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}">
+        <td><input type="checkbox" data-field="item-done" ${item.done ? "checked" : ""} aria-label="完成状态"></td>
+        <td><input type="text" data-field="item-text" value="${escapeAttr(item.text)}" placeholder="事项"></td>
+        <td>
+          <select data-field="item-scope" aria-label="归属">
+            ${["inbox", "week", "month"].map((s) => `<option value="${s}" ${s === scope ? "selected" : ""}>${SCOPE_LABEL[s]}</option>`).join("")}
+          </select>
+        </td>
+        <td data-cell="period">${periodInputHtml(scope, item.period || "")}</td>
+        <td><select data-field="item-parent" aria-label="上级" ${scope === "inbox" ? "disabled" : ""}>${parentOptionsFor(scope, item.parent_id || "")}</select></td>
+        <td data-cell="origin">${originBadge(item)}</td>
+        <td><input type="text" data-field="item-note" value="${escapeAttr(item.note || "")}"></td>
         <td class="readonly-cell">${formatTimestamp(item.created_at) || '<span class="muted">—</span>'}</td>
         <td>${statusPill(item.done)}</td>
       </tr>
@@ -574,6 +641,18 @@
     requestSave();
   });
   el.list.addEventListener("change", (event) => {
+    if (event.target.matches('[data-field="item-scope"]')) {
+      const row = event.target.closest("[data-row]");
+      const scope = event.target.value;
+      const period = scope === "week" ? currentWeek : scope === "month" ? currentMonth : "";
+      row.querySelector('[data-cell="period"]').innerHTML = periodInputHtml(scope, period);
+      const parent = row.querySelector('[data-field="item-parent"]');
+      parent.disabled = scope === "inbox";
+      parent.innerHTML = parentOptionsFor(scope, "");
+    }
+    if (event.target.matches('[data-field="item-period"]') && event.target.type === "date" && isDate(event.target.value)) {
+      event.target.value = weekKeyOf(event.target.value);
+    }
     updateRowMeta(event.target.closest("[data-row]"));
     requestSave();
   });
@@ -793,21 +872,17 @@
       }
     }
 
-    if (action === "add-month-item-row") {
-      const month = currentMonth;
+    if (action === "add-plan-item-row") {
       resetObjectFilters();
-      const tbody = ensureMonthlyTbody();
+      const viewSelect = document.getElementById("viewFilter");
+      if (viewSelect) viewSelect.value = "all";
+      const tbody = ensureItemsTbody();
       if (tbody) {
-        tbody.insertAdjacentHTML("afterbegin", renderMonthItemRow({
-          month,
-          id: uid("month"),
-          text: "",
-          done: false,
-          note: "",
-          created_at: nowSeconds(),
-          updated_at: null
+        tbody.insertAdjacentHTML("afterbegin", renderPlanItemRow({
+          id: uid("item"), text: "", done: false, note: "", scope: "inbox", period: "", parent_id: "",
+          created_at: nowSeconds(), updated_at: null
         }));
-        tbody.querySelector('[data-field="month-text"]')?.focus();
+        tbody.querySelector('[data-field="item-text"]')?.focus();
         applyCurrentFilters();
         const sidebarList = el.list.querySelector(".action-sidebar-list");
         if (sidebarList) sidebarList.insertAdjacentHTML("afterbegin", '<div class="action-sidebar-item"><button class="btn danger compact" type="button" data-action="delete-row">删除</button></div>');
@@ -830,10 +905,9 @@
         const habits = collectHabits();
         const saved = await invoke(view.saveCommand, habits);
         state.snapshot.habits = saved;
-      } else if (managerType === "monthly") {
-        const monthly = collectMonthly();
-        const saved = await invoke(view.saveCommand, { months: monthly.months });
-        state.snapshot.monthly = saved;
+      } else if (managerType === "items") {
+        const saved = await invoke(view.saveCommand, { items: collectItems() });
+        state.snapshot.items = { schema_version: 1, items: normalizeItems(saved.items || []) };
       } else if (managerType === "annual-goals") {
         const annualGoals = collectAnnualGoals();
         const saved = await invoke(view.saveCommand, { years: annualGoals.years });
@@ -890,26 +964,23 @@
     return { definitions: validDefinitions, days };
   }
 
-  function collectMonthly() {
-    const grouped = new Map();
-    [...el.list.querySelectorAll('[data-kind="month-item"]')].forEach((row) => {
-      const month = row.querySelector('[data-field="month-value"]')?.value || "";
-      if (!isMonth(month)) return;
-      const text = row.querySelector('[data-field="month-text"]')?.value || "";
-      if (!text.trim()) return;
-      const note = row.querySelector('[data-field="month-note"]')?.value || "";
-      if (!grouped.has(month)) grouped.set(month, []);
-      grouped.get(month).push({
-        id: row.dataset.itemId || uid("month"),
-        text,
-        done: Boolean(row.querySelector('[data-field="month-done"]')?.checked),
-        note,
+  function collectItems() {
+    return [...el.list.querySelectorAll('[data-kind="plan-item"]')].map((row) => {
+      const scope = row.querySelector('[data-field="item-scope"]')?.value || "inbox";
+      const rawPeriod = row.querySelector('[data-field="item-period"]')?.value || "";
+      const period = scope === "week" && isDate(rawPeriod) ? weekKeyOf(rawPeriod) : scope === "inbox" ? "" : rawPeriod;
+      return {
+        id: row.dataset.itemId || uid("item"),
+        text: row.querySelector('[data-field="item-text"]')?.value || "",
+        done: Boolean(row.querySelector('[data-field="item-done"]')?.checked),
+        note: row.querySelector('[data-field="item-note"]')?.value || "",
+        scope,
+        period,
+        parent_id: scope === "inbox" ? "" : (row.querySelector('[data-field="item-parent"]')?.value || ""),
         created_at: Number(row.dataset.createdAt) || nowSeconds(),
         updated_at: null
-      });
-    });
-    const months = [...grouped.entries()].map(([month, items]) => ({ month, items, updated_at: null }));
-    return { schema_version: 1, months };
+      };
+    }).filter((item) => item.text.trim());
   }
 
   function updateRowMeta(row) {
@@ -929,12 +1000,15 @@
       const status = row.querySelector(".status-pill");
       if (status) status.outerHTML = statusPill(row.dataset.done === "true");
     }
-    if (row.dataset.kind === "month-item") {
-      row.dataset.done = row.querySelector('[data-field="month-done"]')?.checked ? "true" : "false";
-      row.dataset.month = row.querySelector('[data-field="month-value"]')?.value || "";
-      row.dataset.search = row.querySelector('[data-field="month-text"]')?.value || "";
+    if (row.dataset.kind === "plan-item") {
+      row.dataset.done = row.querySelector('[data-field="item-done"]')?.checked ? "true" : "false";
+      row.dataset.scope = row.querySelector('[data-field="item-scope"]')?.value || "inbox";
+      row.dataset.period = row.querySelector('[data-field="item-period"]')?.value || "";
+      row.dataset.search = row.querySelector('[data-field="item-text"]')?.value || "";
       const status = row.querySelector(".status-pill");
       if (status) status.outerHTML = statusPill(row.dataset.done === "true");
+      const origin = row.querySelector('[data-cell="origin"]');
+      if (origin) origin.innerHTML = originBadge({ scope: row.dataset.scope, period: row.dataset.period, done: row.dataset.done === "true" });
     }
     applyCurrentFilters();
   }
@@ -945,6 +1019,7 @@
     const date = document.getElementById("dateFilter")?.value || "";
     const month = document.getElementById("monthFilter")?.value || "";
     const year = document.getElementById("yearFilter")?.value || "";
+    const viewValue = document.getElementById("viewFilter")?.value || "";
     const rows = [...el.list.querySelectorAll("[data-row]")];
     const sidebarItems = [...(el.list.querySelectorAll(".action-sidebar-item") || [])];
     rows.forEach((row, index) => {
@@ -954,7 +1029,8 @@
       const dateMatch = !date || row.dataset.date === date;
       const monthMatch = !month || row.dataset.month === month;
       const yearMatch = !year || row.dataset.year === year;
-      const hidden = Boolean(query && !text.includes(query)) || !statusMatch || !dateMatch || !monthMatch || !yearMatch;
+      const viewMatch = matchesView(viewValue, row.dataset.scope, row.dataset.period, done);
+      const hidden = Boolean(query && !text.includes(query)) || !statusMatch || !dateMatch || !monthMatch || !yearMatch || !viewMatch;
       row.hidden = hidden;
       if (sidebarItems[index]) sidebarItems[index].hidden = hidden;
     });
@@ -1032,19 +1108,22 @@
     return el.list.querySelector("tbody");
   }
 
-  function ensureMonthlyTbody() {
+  function ensureItemsTbody() {
     let tbody = el.list.querySelector("tbody");
     if (tbody) return tbody;
     el.list.innerHTML = `
       <div class="table-area">
         <div class="table-scroll">
-          <table class="data-table" aria-label="月度事项表">
+          <table class="data-table" aria-label="事项表">
             <thead>
               <tr>
                 <th>完成</th>
                 <th>事项</th>
-                <th>描述</th>
-                <th>月份</th>
+                <th>归属</th>
+                <th>期</th>
+                <th>上级</th>
+                <th>来源</th>
+                <th>备注</th>
                 <th>创建时间</th>
                 <th>状态</th>
               </tr>
@@ -1057,7 +1136,7 @@
           <div class="action-sidebar-list"></div>
         </div>
       </div>
-      <p class="table-note">事项按对象维护；月份只是归属字段，历史未完成项会排在前面。</p>
+      <p class="table-note">「收集箱」视图 = 未归属 + 过期未完成。给它选一个周或月，就是一次重新决定。</p>
     `;
     return el.list.querySelector("tbody");
   }
@@ -1165,22 +1244,6 @@
     return { schema_version: 1, years };
   }
 
-  function flattenMonthItems(months) {
-    return (months || []).flatMap((record) => (record.items || []).map((item) => ({
-      month: record.month,
-      id: item.id || uid("month"),
-      text: item.text || "",
-      done: Boolean(item.done),
-      note: item.note || "",
-      created_at: item.created_at || nowSeconds(),
-      updated_at: item.updated_at || null
-    })));
-  }
-
-  function sortMonthItems(items) {
-    return [...items].sort((a, b) => Number(a.done) - Number(b.done) || b.month.localeCompare(a.month) || (Number(b.created_at) || 0) - (Number(a.created_at) || 0));
-  }
-
   function setSummary(items) {
     el.summary.innerHTML = items.map(([label, value]) => `
       <div class="summary-card">
@@ -1206,9 +1269,9 @@
         definitions: normalizeDefinitions(snapshot?.habits?.definitions || defaultHabitDefinitions()),
         days: normalizeHabitDays(snapshot?.habits?.days || [], snapshot?.habits?.definitions || defaultHabitDefinitions())
       },
-      monthly: {
+      items: {
         schema_version: 1,
-        months: normalizeMonths(snapshot?.monthly?.months || [])
+        items: normalizeItems(snapshot?.items?.items || [])
       },
       annual_goals: {
         schema_version: 1,
@@ -1226,8 +1289,8 @@
     return { schema_version: 1, definitions: defaultHabitDefinitions(), days: [] };
   }
 
-  function defaultMonthly() {
-    return { schema_version: 1, months: [] };
+  function defaultItems() {
+    return { schema_version: 1, items: [] };
   }
 
   function defaultAnnualGoals() {
@@ -1281,19 +1344,20 @@
     }).sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  function normalizeMonths(months) {
-    return [...dedupeBy(months, "month")].filter((month) => isMonth(month.month)).map((record) => ({
-      month: record.month,
-      items: (record.items || []).filter((item) => String(item.text || "").trim()).map((item) => ({
-        id: item.id || uid("month"),
-        text: String(item.text || "").trim(),
+  function normalizeItems(items) {
+    return [...dedupeBy(items, "id")]
+      .filter((item) => String(item.text || "").trim())
+      .map((item) => ({
+        id: item.id || uid("item"),
+        text: String(item.text).trim(),
         done: Boolean(item.done),
         note: String(item.note || ""),
+        scope: ["inbox", "week", "month", "year"].includes(item.scope) ? item.scope : "inbox",
+        period: item.scope === "inbox" ? "" : String(item.period || ""),
+        parent_id: String(item.parent_id || ""),
         created_at: item.created_at || nowSeconds(),
         updated_at: item.updated_at || null
-      })),
-      updated_at: record.updated_at || null
-    })).filter((record) => record.items.length).sort((a, b) => a.month.localeCompare(b.month));
+      }));
   }
 
   function normalizeAnnualGoalYears(years) {
