@@ -2323,15 +2323,15 @@
               <div class="preview-list" id="habitPreviewList"></div>
             </article>
 
-            <article class="database-preview-card" data-preview-card="monthly">
+            <article class="database-preview-card" data-preview-card="items">
               <div class="preview-head">
                 <div class="preview-title">
-                  <h3>本月重要几件事</h3>
-                  <span id="monthlyPreviewMeta">未完成优先</span>
+                  <h3>收集箱</h3>
+                  <span id="itemsPreviewMeta">待归属</span>
                 </div>
-                <a class="preview-manage" href="本月重要几件事管理.html">管理</a>
+                <a class="preview-manage" href="收集箱.html">管理</a>
               </div>
-              <div class="preview-list" id="monthlyPreviewList"></div>
+              <div class="preview-list" id="itemsPreviewList"></div>
             </article>
 
             <article class="database-preview-card" data-preview-card="annual-goals">
@@ -2463,7 +2463,6 @@
       formatDate,
       parseDateKey,
       isDateKey,
-      isMonthKey,
       nowSeconds,
       escapeHtml,
       toErrorMessage,
@@ -2549,8 +2548,8 @@
       frogPreviewMeta: document.getElementById("frogPreviewMeta"),
       habitPreviewList: document.getElementById("habitPreviewList"),
       habitPreviewMeta: document.getElementById("habitPreviewMeta"),
-      monthlyPreviewList: document.getElementById("monthlyPreviewList"),
-      monthlyPreviewMeta: document.getElementById("monthlyPreviewMeta"),
+      itemsPreviewList: document.getElementById("itemsPreviewList"),
+      itemsPreviewMeta: document.getElementById("itemsPreviewMeta"),
       annualGoalsPreviewList: document.getElementById("annualGoalsPreviewList"),
       annualGoalsPreviewMeta: document.getElementById("annualGoalsPreviewMeta"),
       databasePreviewStatus: document.getElementById("databasePreviewStatus"),
@@ -2564,7 +2563,7 @@
     const databaseFallbackKeys = {
       frogs: "lifeos-db:frogs",
       habits: "lifeos-db:habits",
-      monthly: "lifeos-db:monthly-important",
+      items: "lifeos-db:items",
       annualGoals: "lifeos-db:annual-goals"
     };
     // 法定节假日与调休表，按年份维护；新一年的安排公布后在此追加即可。
@@ -2874,7 +2873,7 @@
           paths: {
             frogs: `${vaultDir}/00-Databases/frogs.csv`,
             habits: `${vaultDir}/00-Databases/habits.csv`,
-            monthly: `${vaultDir}/00-Databases/monthly-important.csv`,
+            items: `${vaultDir}/00-Databases/items.csv`,
             annual_goals: `${vaultDir}/00-Databases/annual-goals.csv`
           }
         };
@@ -2896,9 +2895,9 @@
         return database;
       }
 
-      if (command === "save_monthly_database") {
-        const database = { schema_version: 1, months: normalizeMonthlyRecords(args.months || []) };
-        localStorage.setItem(databaseFallbackKeys.monthly, JSON.stringify(database));
+      if (command === "save_plan_item_database") {
+        const database = { schema_version: 1, items: normalizeItems(args.items || []) };
+        localStorage.setItem(databaseFallbackKeys.items, JSON.stringify(database));
         return database;
       }
 
@@ -2966,7 +2965,7 @@
       return {
         frogs: defaultFrogDatabase(),
         habits: defaultHabitDatabase(),
-        monthly: defaultMonthlyDatabase(),
+        items: defaultItemsDatabase(),
         annual_goals: defaultAnnualGoalDatabase(),
         paths: {}
       };
@@ -2980,8 +2979,8 @@
       return { schema_version: 1, definitions: defaultHabitDefinitions(), days: [] };
     }
 
-    function defaultMonthlyDatabase() {
-      return { schema_version: 1, months: [] };
+    function defaultItemsDatabase() {
+      return { schema_version: 1, items: [] };
     }
 
     function defaultAnnualGoalDatabase() {
@@ -2992,7 +2991,7 @@
       return normalizeDatabaseSnapshot({
         frogs: readFallbackDatabase(databaseFallbackKeys.frogs, defaultFrogDatabase()),
         habits: readFallbackDatabase(databaseFallbackKeys.habits, defaultHabitDatabase()),
-        monthly: readFallbackDatabase(databaseFallbackKeys.monthly, defaultMonthlyDatabase()),
+        items: readFallbackDatabase(databaseFallbackKeys.items, defaultItemsDatabase()),
         annual_goals: readFallbackDatabase(databaseFallbackKeys.annualGoals, defaultAnnualGoalDatabase())
       });
     }
@@ -3017,9 +3016,9 @@
           definitions,
           days: normalizeHabitDays(snapshot?.habits?.days || [], definitions)
         },
-        monthly: {
+        items: {
           schema_version: 1,
-          months: normalizeMonthlyRecords(snapshot?.monthly?.months || [])
+          items: normalizeItems(snapshot?.items?.items || [])
         },
         annual_goals: {
           schema_version: 1,
@@ -3089,22 +3088,24 @@
       return Array.from(byDate.values()).sort((left, right) => left.date.localeCompare(right.date));
     }
 
-    function normalizeMonthlyRecords(months) {
-      const byMonth = new Map();
-      (months || []).forEach((record) => {
-        if (!isMonthKey(record?.month) || byMonth.has(record.month)) return;
-        const items = (record.items || [])
-          .map((item, index) => ({
-            id: String(item.id || `${record.month}-${index + 1}-${nowSeconds()}`),
-            text: String(item.text || "").trim(),
-            done: Boolean(item.done),
-            created_at: item.created_at || nowSeconds(),
-            updated_at: item.updated_at || null
-          }))
-          .filter((item) => item.text);
-        if (items.length) byMonth.set(record.month, { month: record.month, items, updated_at: record.updated_at || null });
+    function normalizeItems(items) {
+      const byId = new Map();
+      (items || []).forEach((item) => {
+        if (item?.id && !byId.has(item.id)) byId.set(item.id, item);
       });
-      return Array.from(byMonth.values()).sort((left, right) => left.month.localeCompare(right.month));
+      return Array.from(byId.values())
+        .filter((item) => String(item.text || "").trim())
+        .map((item) => ({
+          id: item.id,
+          text: String(item.text).trim(),
+          done: Boolean(item.done),
+          note: String(item.note || ""),
+          scope: ["inbox", "week", "month", "year"].includes(item.scope) ? item.scope : "inbox",
+          period: item.scope === "inbox" ? "" : String(item.period || ""),
+          parent_id: String(item.parent_id || ""),
+          created_at: item.created_at || nowSeconds(),
+          updated_at: item.updated_at || null
+        }));
     }
 
     function normalizeAnnualGoalYears(years) {
@@ -3142,12 +3143,13 @@
     function renderDatabasePreview() {
       const snapshot = normalizeDatabaseSnapshot(state.databases);
       state.databases = snapshot;
+      const currentWeek = window.LifeOSShared.weekKey(formatDate(today));
+      const currentMonth = formatDate(today).slice(0, 7);
       const frogItems = flattenFrogPreview(snapshot.frogs.days);
       const habitItems = todayHabitPreview(snapshot.habits);
-      const monthItems = flattenMonthlyPreview(snapshot.monthly.months);
+      const inboxItems = flattenInboxPreview(snapshot.items.items, currentWeek, currentMonth);
       const goalItems = flattenAnnualGoalsPreview(snapshot.annual_goals.years);
       const frogOpen = frogItems.filter((item) => !item.done).length;
-      const monthOpen = monthItems.filter((item) => !item.done).length;
       const goalOpen = goalItems.filter((item) => !item.done).length;
 
       if (el.frogPreviewMeta) el.frogPreviewMeta.textContent = frogItems.length ? `${frogOpen}/${frogItems.length} 未完成` : "没有青蛙";
@@ -3155,7 +3157,7 @@
         const checked = habitItems.filter((item) => item.checked).length;
         el.habitPreviewMeta.textContent = `今日 ${checked}/${habitItems.length}`;
       }
-      if (el.monthlyPreviewMeta) el.monthlyPreviewMeta.textContent = monthItems.length ? `${monthOpen}/${monthItems.length} 未完成` : "没有月度事项";
+      if (el.itemsPreviewMeta) el.itemsPreviewMeta.textContent = inboxItems.length ? `${inboxItems.length} 项待归属` : "收集箱是空的";
       if (el.annualGoalsPreviewMeta) el.annualGoalsPreviewMeta.textContent = goalItems.length ? `${goalOpen}/${goalItems.length} 未完成` : "没有年度目标";
 
       if (el.frogPreviewList) {
@@ -3170,10 +3172,10 @@
           : renderPreviewEmpty("还没有习惯定义。");
       }
 
-      if (el.monthlyPreviewList) {
-        el.monthlyPreviewList.innerHTML = monthItems.length
-          ? [...monthItems.slice(0, 5).map(renderMonthlyPreviewRow), renderMorePreview(monthItems.length, "本月重要几件事管理.html")].join("")
-          : renderPreviewEmpty("还没有月度事项。");
+      if (el.itemsPreviewList) {
+        el.itemsPreviewList.innerHTML = inboxItems.length
+          ? [...inboxItems.slice(0, 5).map(renderItemPreviewRow), renderMorePreview(inboxItems.length, "收集箱.html")].join("")
+          : renderPreviewEmpty("收集箱是空的。");
       }
 
       if (el.annualGoalsPreviewList) {
@@ -3200,11 +3202,9 @@
       }));
     }
 
-    function flattenMonthlyPreview(months) {
-      return (months || []).flatMap((record) => (record.items || [])
-        .filter((item) => item.text)
-        .map((item) => ({ ...item, month: record.month })))
-        .sort((left, right) => Number(left.done) - Number(right.done) || left.month.localeCompare(right.month) || String(left.text).localeCompare(String(right.text), "zh-Hans-CN"));
+    function flattenInboxPreview(items, currentWeek, currentMonth) {
+      const overdue = (item) => (item.scope === "week" && item.period < currentWeek) || (item.scope === "month" && item.period < currentMonth);
+      return (items || []).filter((item) => item.scope === "inbox" || (!item.done && overdue(item)));
     }
 
     function flattenAnnualGoalsPreview(years) {
@@ -3235,13 +3235,14 @@
       });
     }
 
-    function renderMonthlyPreviewRow(item) {
+    function renderItemPreviewRow(item) {
+      const meta = item.scope === "inbox" ? "待归属" : `${item.period} · 过期未完成`;
       return renderPreviewRow({
-        kind: "monthly",
+        kind: "item",
         checked: item.done,
         text: item.text,
-        meta: `${formatMonthLabel(item.month)} · 月度事项`,
-        attrs: `data-month="${escapeHtml(item.month)}" data-item-id="${escapeHtml(item.id)}"`
+        meta,
+        attrs: `data-item-id="${escapeHtml(item.id)}"`
       });
     }
 
@@ -3307,8 +3308,8 @@
         setFrogPreviewDone(field.dataset.date, Number(field.dataset.slot), field.checked);
       } else if (kind === "habit") {
         setHabitPreviewDone(field.dataset.habitId, field.checked);
-      } else if (kind === "monthly") {
-        setMonthlyPreviewDone(field.dataset.month, field.dataset.itemId, field.checked);
+      } else if (kind === "item") {
+        setItemPreviewDone(field.dataset.itemId, field.checked);
       } else if (kind === "annual-goal") {
         setAnnualGoalPreviewDone(field.dataset.year, field.dataset.itemId, field.checked);
       }
@@ -3334,13 +3335,11 @@
       day.updated_at = nowSeconds();
     }
 
-    function setMonthlyPreviewDone(month, itemId, done) {
-      const record = state.databases.monthly.months.find((item) => item.month === month);
-      const item = record?.items?.find((entry) => entry.id === itemId);
-      if (!record || !item) throw new Error("没有找到这条月度事项。");
+    function setItemPreviewDone(itemId, done) {
+      const item = state.databases.items.items.find((entry) => entry.id === itemId);
+      if (!item) throw new Error("没有找到这条事项。");
       item.done = done;
       item.updated_at = nowSeconds();
-      record.updated_at = nowSeconds();
     }
 
     function setAnnualGoalPreviewDone(year, itemId, done) {
@@ -3372,9 +3371,9 @@
         return;
       }
 
-      if (kind === "monthly") {
-        const saved = await invoke("save_monthly_database", { months: state.databases.monthly.months });
-        state.databases.monthly = { schema_version: 1, months: normalizeMonthlyRecords(saved.months || []) };
+      if (kind === "item") {
+        const saved = await invoke("save_plan_item_database", { items: state.databases.items.items });
+        state.databases.items = { schema_version: 1, items: normalizeItems(saved.items || []) };
         return;
       }
 
@@ -4028,12 +4027,6 @@
 
     function textOrBlank(value) {
       return String(value || "").trim();
-    }
-
-    function formatMonthLabel(value) {
-      if (!isMonthKey(value)) return value || "";
-      const [year, month] = value.split("-");
-      return `${year} 年 ${month} 月`;
     }
 
     function formatLongDate(date) {
