@@ -4,6 +4,8 @@
         parseDateKey,
         normaliseDate,
         weekdayLabel,
+        weekKey,
+        weekRangeLabel,
         toErrorMessage,
         defaultHabitDefinitions: habitDefinitions
       } = window.LifeOSShared;
@@ -36,6 +38,10 @@
       const todoList = document.getElementById("todoList");
       const todoInput = document.getElementById("todoInput");
       const addTodo = document.getElementById("addTodo");
+      const weekList = document.getElementById("weekList");
+      const weekInput = document.getElementById("weekInput");
+      const addWeekItem = document.getElementById("addWeekItem");
+      const weekRange = document.getElementById("weekRange");
       const annualGoalList = document.getElementById("annualGoalList");
       const addAnnualGoal = document.getElementById("addAnnualGoal");
       const ANNUAL_GOAL_PLACEHOLDERS = ["一年后希望自己更像谁", "今年最想拿到的一个证据"];
@@ -293,10 +299,29 @@
 
       addTodo?.addEventListener("click", (event) => {
         event.preventDefault();
-        if (!addMonthlyItem(todoInput?.value || "")) return;
+        if (!addPlanItem("month", todoInput?.value || "")) return;
         todoInput.value = "";
         todoInput.focus();
         scheduleSave("本月事项已更新，正在保存…");
+      });
+
+      addWeekItem?.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (!addPlanItem("week", weekInput?.value || "")) return;
+        weekInput.value = "";
+        weekInput.focus();
+        scheduleSave("本周事项已更新，正在保存…");
+      });
+
+      weekInput?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addWeekItem?.click();
+        }
+      });
+
+      weekList?.addEventListener("change", () => {
+        scheduleSave("本周事项已更新，正在保存…");
       });
 
       addAnnualGoal?.addEventListener("click", (event) => {
@@ -326,15 +351,6 @@
       habitCheckList?.addEventListener("change", () => {
         updateMetrics();
         scheduleSave("习惯勾选已更新，正在保存…");
-      });
-
-      todoList?.addEventListener("click", (event) => {
-        if (event.target.closest(".delete-todo")) {
-          window.setTimeout(() => {
-            updateTodoCount();
-            scheduleSave("本月事项已删除，正在保存…");
-          }, 0);
-        }
       });
 
       boot();
@@ -421,7 +437,7 @@
       function setFormDisabled(disabled) {
         dataSaveFields().forEach((field) => { field.disabled = disabled; });
         const annualInputs = annualGoalList ? Array.from(annualGoalList.querySelectorAll("input")) : [];
-        [...moodButtons, addTodo, todoInput, addAnnualGoal, ...annualInputs].forEach((node) => {
+        [...moodButtons, addTodo, todoInput, addWeekItem, weekInput, addAnnualGoal, ...annualInputs].forEach((node) => {
           if (node) node.disabled = disabled;
         });
       }
@@ -497,13 +513,42 @@
             args.date,
             args.frogs || [],
             args.habits || {},
-            args.monthly || [],
+            args.planItems || [],
             args.frogBacklog || [],
-            args.monthlyBacklog || [],
             args.annualGoals || []
           );
         }
         throw new Error(`未知命令：${command}`);
+      }
+
+      function readFallbackItemsDatabase() {
+        const current = readFallbackDatabase("lifeos-db:items", null);
+        if (current) return current;
+        const legacy = readFallbackDatabase("lifeos-db:monthly-important", null);
+        const items = (legacy?.months || []).flatMap((record) => (record.items || [])
+          .filter((item) => String(item.text || "").trim())
+          .map((item) => ({
+            id: item.id || createClientId("item"),
+            text: String(item.text).trim(),
+            done: Boolean(item.done),
+            note: item.note || "",
+            scope: "month",
+            period: record.month,
+            parent_id: "",
+            created_at: item.created_at || null,
+            updated_at: item.updated_at || record.updated_at || null
+          })));
+        const db = { schema_version: 1, items };
+        localStorage.setItem("lifeos-db:items", JSON.stringify(db));
+        if (legacy) localStorage.removeItem("lifeos-db:monthly-important");
+        return db;
+      }
+
+      function selectJournalPlanItems(items, valueDate) {
+        const week = weekKey(valueDate);
+        const month = valueDate.slice(0, 7);
+        return (items || []).filter((item) =>
+          (item.scope === "week" && item.period === week) || (item.scope === "month" && item.period === month));
       }
 
       function getFallbackDatabases(valueDate) {
@@ -514,30 +559,27 @@
           days: []
         });
         habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
-        const monthlyDb = readFallbackDatabase("lifeos-db:monthly-important", { schema_version: 1, months: [] });
+        const itemsDb = readFallbackItemsDatabase();
         const annualGoalsDb = readFallbackDatabase("lifeos-db:annual-goals", { schema_version: 1, years: [] });
-        const month = valueDate.slice(0, 7);
         const year = valueDate.slice(0, 4);
         return {
           frogs: frogsDb.days.find((day) => day.date === valueDate) || { date: valueDate, items: [], updated_at: null },
           frog_backlog: collectFrogBacklog(frogsDb.days),
           habits: habitsDb.days.find((day) => day.date === valueDate) || { date: valueDate, checks: {}, updated_at: null },
           habit_definitions: habitsDb.definitions,
-          monthly: monthlyDb.months.find((record) => record.month === month) || { month, items: [], updated_at: null },
-          monthly_backlog: collectMonthlyBacklog(monthlyDb.months),
+          plan_items: selectJournalPlanItems(itemsDb.items, valueDate),
           annual_goals: annualGoalsDb.years.find((record) => record.year === year) || { year, items: [], updated_at: null },
           paths: {
             frogs: "本机预览 / LifeOS-Vault / 00-Databases / frogs.csv",
             habits: "本机预览 / LifeOS-Vault / 00-Databases / habits.csv",
-            monthly: "本机预览 / LifeOS-Vault / 00-Databases / monthly-important.csv",
+            items: "本机预览 / LifeOS-Vault / 00-Databases / items.csv",
             annual_goals: "本机预览 / LifeOS-Vault / 00-Databases / annual-goals.csv"
           }
         };
       }
 
-      function saveFallbackDatabases(valueDate, frogs, habits, monthly, frogBacklog, monthlyBacklog, annualGoals) {
+      function saveFallbackDatabases(valueDate, frogs, habits, planItems, frogBacklog, annualGoals) {
         const now = Math.floor(Date.now() / 1000);
-        const month = valueDate.slice(0, 7);
         const year = valueDate.slice(0, 4);
         const frogsDb = readFallbackDatabase("lifeos-db:frogs", { schema_version: 1, days: [] });
         const habitsDb = readFallbackDatabase("lifeos-db:habits", {
@@ -546,7 +588,7 @@
           days: []
         });
         habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
-        const monthlyDb = readFallbackDatabase("lifeos-db:monthly-important", { schema_version: 1, months: [] });
+        const itemsDb = readFallbackItemsDatabase();
         const annualGoalsDb = readFallbackDatabase("lifeos-db:annual-goals", { schema_version: 1, years: [] });
 
         const normalisedFrogs = normaliseFrogsForDatabase(frogs);
@@ -578,14 +620,27 @@
         habitsDb.days.sort((a, b) => a.date.localeCompare(b.date));
         localStorage.setItem("lifeos-db:habits", JSON.stringify(habitsDb));
 
-        const monthlyItems = normaliseMonthlyForDatabase(monthly, month, now);
-        monthlyDb.months = monthlyDb.months.filter((record) => record.month !== month);
-        if (monthlyItems.length) {
-          monthlyDb.months.push({ month, items: monthlyItems, updated_at: now });
-        }
-        monthlyDb.months.sort((a, b) => a.month.localeCompare(b.month));
-        applyMonthlyBacklog(monthlyDb, monthlyBacklog, now);
-        localStorage.setItem("lifeos-db:monthly-important", JSON.stringify(monthlyDb));
+        (planItems || []).forEach((incoming) => {
+          const text = String(incoming.text || "").trim();
+          if (!text) return;
+          const id = incoming.id || createClientId("item");
+          const existing = itemsDb.items.find((item) => item.id === id);
+          const next = {
+            id,
+            text,
+            done: Boolean(incoming.done),
+            note: String(incoming.note || "").trim(),
+            scope: incoming.scope || "inbox",
+            period: incoming.period || "",
+            parent_id: incoming.parent_id || "",
+            created_at: existing?.created_at || incoming.created_at || now,
+            updated_at: now
+          };
+          if (!existing) { itemsDb.items.push(next); return; }
+          const differs = ["text", "done", "note", "scope", "period", "parent_id"].some((key) => existing[key] !== next[key]);
+          if (differs) Object.assign(existing, next);
+        });
+        localStorage.setItem("lifeos-db:items", JSON.stringify(itemsDb));
 
         let annualRecord = annualGoalsDb.years.find((record) => record.year === year);
         if (!annualRecord) {
@@ -653,46 +708,6 @@
           }
         });
         database.days.sort((left, right) => left.date.localeCompare(right.date));
-      }
-
-      function collectMonthlyBacklog(months) {
-        return (months || []).flatMap((record) => (record.items || []).map((item) => ({
-          month: record.month,
-          id: item.id || createClientId("month"),
-          text: String(item.text || "").trim(),
-          done: Boolean(item.done),
-          created_at: item.created_at || null,
-          updated_at: item.updated_at || record.updated_at || null
-        }))).filter((item) => item.month && item.text && !item.done)
-          .sort((left, right) => left.month.localeCompare(right.month) || left.text.localeCompare(right.text));
-      }
-
-      function applyMonthlyBacklog(database, backlog, now) {
-        (backlog || []).forEach((item) => {
-          const month = /^\d{4}-\d{2}$/.test(String(item.month || "")) ? item.month : "";
-          const text = String(item.text || "").trim();
-          if (!month || !text) return;
-          let record = database.months.find((entry) => entry.month === month);
-          if (!record) {
-            record = { month, items: [], updated_at: now };
-            database.months.push(record);
-          }
-          const id = item.id || createClientId("month");
-          let existing = record.items.find((entry) => entry.id === id);
-          if (!existing) {
-            existing = { id, text, done: false, created_at: item.created_at || now, updated_at: now };
-            record.items.push(existing);
-            record.updated_at = now;
-          }
-          const changed = existing.text !== text || Boolean(existing.done) !== Boolean(item.done);
-          existing.text = text;
-          existing.done = Boolean(item.done);
-          if (changed) {
-            existing.updated_at = now;
-            record.updated_at = now;
-          }
-        });
-        database.months.sort((left, right) => left.month.localeCompare(right.month));
       }
 
       function readFallbackDatabase(key, fallback) {
@@ -784,7 +799,6 @@
           });
         }
 
-        const monthly = databases?.monthly;
         state.form.frogDebt = (databases?.frog_backlog || []).map((item) => ({
           date: item.date || "",
           slot: Number(item.slot || 0),
@@ -793,24 +807,10 @@
           updated_at: item.updated_at || null
         })).filter((item) => item.date && item.slot && item.text);
 
-        if (Array.isArray(databases?.monthly_backlog)) {
-          state.form.todos = databases.monthly_backlog.map((item) => ({
-            month: item.month || state.form.date.slice(0, 7),
-            id: item.id || createClientId("month"),
-            text: item.text || "",
-            done: Boolean(item.done),
-            created_at: item.created_at || null,
-            updated_at: item.updated_at || null
-          })).filter((item) => item.text);
-        } else if (monthly) {
-          state.form.todos = (monthly.items || []).filter((item) => !item.done).map((item) => ({
-            month: monthly.month || state.form.date.slice(0, 7),
-            id: item.id || createClientId("month"),
-            text: item.text || "",
-            done: Boolean(item.done),
-            created_at: item.created_at || null,
-            updated_at: item.updated_at || null
-          })).filter((item) => item.text);
+        if (Array.isArray(databases?.plan_items)) {
+          const normalised = databases.plan_items.map(normalisePlanItem).filter((item) => item.text);
+          state.form.weekItems = normalised.filter((item) => item.scope === "week");
+          state.form.monthItems = normalised.filter((item) => item.scope === "month");
         }
 
         const annualGoals = databases?.annual_goals;
@@ -824,9 +824,8 @@
         return {
           frogs: collectFrogsForDatabase(form),
           habits: collectHabitsForDatabase(form),
-          monthly: collectCurrentMonthlyForDatabase(form),
+          planItems: collectPlanItemsForDatabase(form),
           frogBacklog: collectFrogBacklogForDatabase(form),
-          monthlyBacklog: collectMonthlyBacklogForDatabase(form),
           annualGoals: collectAnnualGoalsForDatabase(form)
         };
       }
@@ -860,42 +859,22 @@
         })).filter((item) => item.date && item.slot >= 1 && item.slot <= 3 && item.text);
       }
 
-      function collectCurrentMonthlyForDatabase(form) {
-        const month = form.date.slice(0, 7);
-        const byId = new Map();
-        (state.databases?.monthly?.items || []).filter((item) => item.done && item.text).forEach((item) => {
-          const id = item.id || createClientId("month");
-          byId.set(id, {
-            id,
-            text: item.text || "",
-            done: Boolean(item.done),
-            created_at: item.created_at || null,
-            updated_at: item.updated_at || null
-          });
-        });
-        (form.todos || []).filter((item) => (item.month || month) === month).forEach((item) => {
-          const id = item.id || createClientId("month");
-          byId.set(id, {
-            id,
-            text: String(item.text || "").trim(),
-            done: Boolean(item.done),
-            created_at: item.created_at || null,
-            updated_at: item.updated_at || null
-          });
-        });
-        return Array.from(byId.values()).filter((item) => item.text);
-      }
-
-      function collectMonthlyBacklogForDatabase(form) {
-        const month = form.date.slice(0, 7);
-        return (form.todos || []).map((item) => ({
-          month: item.month || month,
-          id: item.id || createClientId("month"),
+      function normalisePlanItem(item) {
+        return {
+          id: item.id || createClientId("item"),
           text: String(item.text || "").trim(),
           done: Boolean(item.done),
+          note: String(item.note || ""),
+          scope: item.scope || "inbox",
+          period: item.period || "",
+          parent_id: item.parent_id || "",
           created_at: item.created_at || null,
           updated_at: item.updated_at || null
-        })).filter((item) => item.month && item.text);
+        };
+      }
+
+      function collectPlanItemsForDatabase(form) {
+        return [...(form.weekItems || []), ...(form.monthItems || [])].map(normalisePlanItem).filter((item) => item.text);
       }
 
       function collectAnnualGoalsForDatabase(form) {
@@ -931,7 +910,9 @@
         renderBodyTagSummary();
         if (identityTitleEl) identityTitleEl.textContent = state.form.identityTitle || storedIdentityTitle();
         renderFrogDebt(state.form.frogDebt || []);
-        renderTodos(state.form.todos || []);
+        renderPlanList(weekList, state.form.weekItems || []);
+        renderPlanList(todoList, state.form.monthItems || []);
+        if (weekRange) weekRange.textContent = `WEEK · ${weekRangeLabel(weekKey(state.form.date))}`;
         renderAnnualGoals(state.form.annualGoals || []);
         updateDerivedLabels();
         autoSizeAll();
@@ -946,14 +927,8 @@
         state.form.weather = document.querySelector("[data-weather].is-active")?.dataset.weather || "";
         state.form.bodyTags = activeBodyTags();
         state.form.identityTitle = identityTitleEl?.textContent.trim() || storedIdentityTitle();
-        state.form.todos = Array.from(todoList.querySelectorAll(".todo-item")).map((item) => ({
-          id: item.dataset.id || createClientId("month"),
-          month: item.dataset.month || state.form.date.slice(0, 7),
-          text: item.querySelector(".todo-text")?.textContent.trim() || "",
-          done: Boolean(item.querySelector("input")?.checked),
-          created_at: item.dataset.createdAt ? Number(item.dataset.createdAt) : null,
-          updated_at: item.dataset.updatedAt ? Number(item.dataset.updatedAt) : null
-        })).filter((todo) => todo.text);
+        state.form.weekItems = readPlanListFromDom(weekList);
+        state.form.monthItems = readPlanListFromDom(todoList);
         state.form.frogDebt = (state.form.frogDebt || []).filter((frog) => frog && frog.date && frog.slot && frog.text);
         state.form.annualGoals = readAnnualGoalsFromDom();
       }
@@ -1343,64 +1318,79 @@
         updateFrogDebtCount();
       }
 
-      function renderTodos(todos) {
-        todoList.innerHTML = "";
-        const month = state.form.date.slice(0, 7);
-        const visibleTodos = (todos || []).filter((todo) => todo.text);
-        if (!visibleTodos.length) {
+      function readPlanListFromDom(listEl) {
+        if (!listEl) return [];
+        return Array.from(listEl.querySelectorAll(".todo-item")).map((item) => ({
+          id: item.dataset.id,
+          text: item.querySelector(".todo-text")?.textContent.trim() || "",
+          done: Boolean(item.querySelector("input")?.checked),
+          note: item.dataset.note || "",
+          scope: item.dataset.scope,
+          period: item.dataset.period,
+          parent_id: item.dataset.parentId || "",
+          created_at: item.dataset.createdAt ? Number(item.dataset.createdAt) : null,
+          updated_at: item.dataset.updatedAt ? Number(item.dataset.updatedAt) : null
+        })).filter((entry) => entry.text);
+      }
+
+      function renderPlanList(listEl, items) {
+        if (!listEl) return;
+        listEl.innerHTML = "";
+        const visible = (items || []).filter((item) => item.text)
+          .sort((a, b) => Number(a.done) - Number(b.done) || (a.created_at || 0) - (b.created_at || 0));
+        if (!visible.length) {
           const empty = document.createElement("li");
           empty.className = "empty-row";
-          empty.textContent = "没有未完成事项";
-          todoList.append(empty);
+          empty.textContent = listEl === weekList ? "本周还没有事项" : "本月还没有事项";
+          listEl.append(empty);
           updateTodoCount();
           return;
         }
-        visibleTodos.forEach((todo) => {
+        visible.forEach((entry) => {
           const item = document.createElement("li");
-          item.className = `todo-item${todo.done ? " is-done" : ""}`;
-          item.dataset.id = todo.id || createClientId("month");
-          item.dataset.month = todo.month || month;
-          if (todo.created_at) item.dataset.createdAt = String(todo.created_at);
-          if (todo.updated_at) item.dataset.updatedAt = String(todo.updated_at);
+          item.className = `todo-item${entry.done ? " is-done" : ""}`;
+          item.dataset.id = entry.id || createClientId("item");
+          item.dataset.scope = entry.scope;
+          item.dataset.period = entry.period;
+          if (entry.note) item.dataset.note = entry.note;
+          if (entry.parent_id) item.dataset.parentId = entry.parent_id;
+          if (entry.created_at) item.dataset.createdAt = String(entry.created_at);
+          if (entry.updated_at) item.dataset.updatedAt = String(entry.updated_at);
           const checkbox = document.createElement("input");
           checkbox.type = "checkbox";
-          checkbox.checked = Boolean(todo.done);
-          checkbox.setAttribute("aria-label", "完成本月事项");
+          checkbox.checked = Boolean(entry.done);
+          checkbox.setAttribute("aria-label", entry.scope === "week" ? "完成本周事项" : "完成本月事项");
           const text = document.createElement("span");
           text.className = "todo-text";
-          text.textContent = todo.text;
-          const meta = document.createElement("time");
-          meta.className = "todo-meta";
-          meta.dateTime = item.dataset.month;
-          meta.textContent = item.dataset.month === month ? "本月" : item.dataset.month;
-          const button = document.createElement("button");
-          button.className = "delete-todo";
-          button.type = "button";
-          button.setAttribute("aria-label", "删除本月事项");
-          button.textContent = "×";
-          button.addEventListener("click", () => item.remove());
+          text.textContent = entry.text;
           checkbox.addEventListener("change", () => item.classList.toggle("is-done", checkbox.checked));
-          item.append(checkbox, text, meta);
-          if (item.dataset.month === month) item.append(button);
-          todoList.append(item);
+          item.append(checkbox, text);
+          listEl.append(item);
         });
         updateTodoCount();
       }
 
-      function addMonthlyItem(text) {
+      function addPlanItem(scope, text) {
         const cleanText = String(text || "").trim();
         if (!cleanText) return false;
         const now = Math.floor(Date.now() / 1000);
         readPageToForm();
         const item = {
-          id: createClientId("month"),
-          month: state.form.date.slice(0, 7),
+          id: createClientId("item"),
           text: cleanText,
           done: false,
+          note: "",
+          scope,
+          period: scope === "week" ? weekKey(state.form.date) : state.form.date.slice(0, 7),
+          parent_id: "",
           created_at: now,
           updated_at: now
         };
-        renderTodos([...(state.form.todos || []), item]);
+        if (scope === "week") {
+          renderPlanList(weekList, [...(state.form.weekItems || []), item]);
+        } else {
+          renderPlanList(todoList, [...(state.form.monthItems || []), item]);
+        }
         readPageToForm();
         return true;
       }
@@ -1479,9 +1469,10 @@
       }
 
       function updateTodoCount() {
+        if (!todoCount || !todoList) return;
         const items = Array.from(todoList.querySelectorAll(".todo-item"));
         const done = items.filter((item) => item.querySelector("input")?.checked).length;
-        if (todoCount) todoCount.textContent = `${Math.max(0, items.length - done)} 项未完成`;
+        todoCount.textContent = `${done}/${items.length}`;
       }
 
       function updateMasthead() {
@@ -1516,7 +1507,8 @@
       function buildMarkdown(form) {
         const frogs = [form["frog-1"], form["frog-2"], form["frog-3"]].map((value) => String(value || "").trim());
         const habits = activeHabitDefinitions(form).map((definition) => [definition.label, form[definition.id]]);
-        const todos = (form.todos || []).filter((todo) => String(todo.text || "").trim());
+        const weekItems = (form.weekItems || []).filter((item) => String(item.text || "").trim());
+        const monthItems = (form.monthItems || []).filter((item) => String(item.text || "").trim());
         const identityTitle = String(form.identityTitle || "").trim() || DEFAULT_IDENTITY_TITLE;
         const freeNotes = textOrBlank(form["brain-dump"]);
         const annualGoals = (form.annualGoals || []).map((goal) => String(goal || "").trim()).filter(Boolean);
@@ -1572,14 +1564,11 @@
           if (healthSignal) parts.push(`- 备注：${healthSignal}`);
         }
 
-        parts.push(
-          "",
-          "## 看见未来",
-          todos.length ? todos.map((todo) => {
-            const prefix = todo.month && todo.month !== form.date.slice(0, 7) ? `${todo.month} · ` : "";
-            return `- [${todo.done ? "x" : " "}] ${prefix}${todo.text}`;
-          }).join("\n") : "——",
-        );
+        const todoLines = (items) => items.length
+          ? items.map((item) => `- [${item.done ? "x" : " "}] ${item.text}`).join("\n")
+          : "——";
+        parts.push("", "## 本周推进", todoLines(weekItems));
+        parts.push("", "## 本月重要几件事", todoLines(monthItems));
 
         if (annualGoals.length) {
           parts.push("", "## 年度目标");
@@ -1631,7 +1620,8 @@
           if (key === "标签") form.bodyTags = value.split(/[、,，\s]+/).map((tag) => tag.trim()).filter(Boolean);
           if (key === "备注" || key === "身体信号") form["health-signal"] = value;
         });
-        form.todos = parseTodoLines(findSection(sections, ["看见未来"]));
+        form.weekItems = parseTodoLines(findSection(sections, ["本周推进"]), "week", weekKey(valueDate));
+        form.monthItems = parseTodoLines(findSection(sections, ["本月重要几件事", "看见未来"]), "month", valueDate.slice(0, 7));
         form.annualGoals = parseNumberedList(findSection(sections, ["年度目标", "半年目标"]));
         parseStatusLines(findSection(sections, ["年度目标", "半年目标"])).forEach(([key, value]) => {
           if (key === "把握") form["half-year-confidence"] = value;
@@ -1654,7 +1644,8 @@
           habitDefinitions: habitDefinitions(),
           habitChecklistByLabel: {},
           frogDebt: [],
-          todos: [],
+          weekItems: [],
+          monthItems: [],
           annualGoals: []
         };
       }
@@ -1697,16 +1688,6 @@
             done: Boolean(item.done)
           };
         });
-      }
-
-      function normaliseMonthlyForDatabase(items, month, now) {
-        return (items || []).map((item, index) => ({
-          id: item.id || `${month}-${index + 1}-${now}`,
-          text: String(item.text || "").trim(),
-          done: Boolean(item.done),
-          created_at: item.created_at || now,
-          updated_at: now
-        })).filter((item) => item.text);
       }
 
       function createClientId(prefix) {
@@ -1757,11 +1738,22 @@
         return splitLines(text).map((line) => line.replace(/^\d+[.、]\s*/, "").trim()).filter(Boolean);
       }
 
-      function parseTodoLines(text) {
+      function parseTodoLines(text, scope, period) {
         return splitLines(text).map((line) => {
           const done = /^-\s+\[[xX]\]\s*/.test(line);
           const clean = line.replace(/^-\s+\[[ xX]\]\s*/, "").trim();
-          return clean ? { text: clean, done } : null;
+          if (!clean) return null;
+          return {
+            id: createClientId("item"),
+            text: clean,
+            done,
+            note: "",
+            scope,
+            period,
+            parent_id: "",
+            created_at: null,
+            updated_at: null
+          };
         }).filter(Boolean);
       }
 
