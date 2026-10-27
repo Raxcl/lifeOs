@@ -525,7 +525,8 @@
         const current = readFallbackDatabase("lifeos-db:items", null);
         if (current) return current;
         const legacy = readFallbackDatabase("lifeos-db:monthly-important", null);
-        const items = (legacy?.months || []).flatMap((record) => (record.items || [])
+        if (!legacy) return null;
+        const items = (legacy.months || []).flatMap((record) => (record.items || [])
           .filter((item) => String(item.text || "").trim())
           .map((item) => ({
             id: item.id || createClientId("item"),
@@ -540,7 +541,7 @@
           })));
         const db = { schema_version: 1, items };
         localStorage.setItem("lifeos-db:items", JSON.stringify(db));
-        if (legacy) localStorage.removeItem("lifeos-db:monthly-important");
+        localStorage.removeItem("lifeos-db:monthly-important");
         return db;
       }
 
@@ -567,7 +568,7 @@
           frog_backlog: collectFrogBacklog(frogsDb.days),
           habits: habitsDb.days.find((day) => day.date === valueDate) || { date: valueDate, checks: {}, updated_at: null },
           habit_definitions: habitsDb.definitions,
-          plan_items: selectJournalPlanItems(itemsDb.items, valueDate),
+          plan_items: itemsDb ? selectJournalPlanItems(itemsDb.items, valueDate) : null,
           annual_goals: annualGoalsDb.years.find((record) => record.year === year) || { year, items: [], updated_at: null },
           paths: {
             frogs: "本机预览 / LifeOS-Vault / 00-Databases / frogs.csv",
@@ -588,7 +589,7 @@
           days: []
         });
         habitsDb.definitions = normaliseHabitDefinitions(habitsDb.definitions);
-        const itemsDb = readFallbackItemsDatabase();
+        const itemsDb = readFallbackItemsDatabase() || { schema_version: 1, items: [] };
         const annualGoalsDb = readFallbackDatabase("lifeos-db:annual-goals", { schema_version: 1, years: [] });
 
         const normalisedFrogs = normaliseFrogsForDatabase(frogs);
