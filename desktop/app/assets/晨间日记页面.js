@@ -41,6 +41,8 @@
       const weekList = document.getElementById("weekList");
       const weekInput = document.getElementById("weekInput");
       const addWeekItem = document.getElementById("addWeekItem");
+      const inboxInput = document.getElementById("inboxInput");
+      const addInboxItem = document.getElementById("addInboxItem");
       const weekRange = document.getElementById("weekRange");
       const annualGoalList = document.getElementById("annualGoalList");
       const addAnnualGoal = document.getElementById("addAnnualGoal");
@@ -320,6 +322,21 @@
         }
       });
 
+      addInboxItem?.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (!addPlanItem("inbox", inboxInput?.value || "")) return;
+        inboxInput.value = "";
+        inboxInput.focus();
+        scheduleSave("已放入收集箱，正在保存…");
+      });
+
+      inboxInput?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addInboxItem?.click();
+        }
+      });
+
       weekList?.addEventListener("change", () => {
         scheduleSave("本周事项已更新，正在保存…");
       });
@@ -437,7 +454,7 @@
       function setFormDisabled(disabled) {
         dataSaveFields().forEach((field) => { field.disabled = disabled; });
         const annualInputs = annualGoalList ? Array.from(annualGoalList.querySelectorAll("input")) : [];
-        [...moodButtons, addTodo, todoInput, addWeekItem, weekInput, addAnnualGoal, ...annualInputs].forEach((node) => {
+        [...moodButtons, addTodo, todoInput, addWeekItem, weekInput, addInboxItem, inboxInput, addAnnualGoal, ...annualInputs].forEach((node) => {
           if (node) node.disabled = disabled;
         });
       }
@@ -875,7 +892,7 @@
       }
 
       function collectPlanItemsForDatabase(form) {
-        return [...(form.weekItems || []), ...(form.monthItems || [])].map(normalisePlanItem).filter((item) => item.text);
+        return [...(form.weekItems || []), ...(form.monthItems || []), ...(form.inboxItems || [])].map(normalisePlanItem).filter((item) => item.text);
       }
 
       function collectAnnualGoalsForDatabase(form) {
@@ -1382,11 +1399,15 @@
           done: false,
           note: "",
           scope,
-          period: scope === "week" ? weekKey(state.form.date) : state.form.date.slice(0, 7),
+          period: scope === "week" ? weekKey(state.form.date) : scope === "month" ? state.form.date.slice(0, 7) : "",
           parent_id: "",
           created_at: now,
           updated_at: now
         };
+        if (scope === "inbox") {
+          state.form.inboxItems = [...(state.form.inboxItems || []), item];
+          return true;
+        }
         if (scope === "week") {
           renderPlanList(weekList, [...(state.form.weekItems || []), item]);
         } else {
@@ -1647,6 +1668,7 @@
           frogDebt: [],
           weekItems: [],
           monthItems: [],
+          inboxItems: [],
           annualGoals: []
         };
       }
@@ -1743,7 +1765,7 @@
         return splitLines(text).map((line) => {
           const done = /^-\s+\[[xX]\]\s*/.test(line);
           const clean = line.replace(/^-\s+\[[ xX]\]\s*/, "").trim();
-          if (!clean) return null;
+          if (!clean || clean === "——") return null;
           return {
             id: createClientId("item"),
             text: clean,

@@ -1113,6 +1113,40 @@
       min-height: var(--future-row-min);
     }
 
+    .inbox-quick-capture {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px dashed var(--hairline);
+      border-radius: var(--radius);
+      background: var(--glass-rgba-soft);
+    }
+
+    .inbox-quick-capture label {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .inbox-quick-capture .mini-input {
+      flex: 1 1 240px;
+    }
+
+    .inbox-quick-link {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 12px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .inbox-quick-link:hover {
+      color: var(--fg);
+    }
+
     .path-card {
       min-height: 0;
       height: 100%;
