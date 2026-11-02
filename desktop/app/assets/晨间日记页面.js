@@ -652,10 +652,16 @@
             period: incoming.period || "",
             parent_id: incoming.parent_id || "",
             created_at: existing?.created_at || incoming.created_at || now,
-            updated_at: now
+            updated_at: now,
+            sort_order: Number(incoming.sort_order) || 0
           };
+          if (!existing && !next.sort_order) {
+            next.sort_order = Math.max(0, ...itemsDb.items
+              .filter((item) => item.scope === next.scope && item.period === next.period)
+              .map((item) => Number(item.sort_order) || 0)) + 1;
+          }
           if (!existing) { itemsDb.items.push(next); return; }
-          const differs = ["text", "done", "note", "scope", "period", "parent_id"].some((key) => existing[key] !== next[key]);
+          const differs = ["text", "done", "note", "scope", "period", "parent_id", "sort_order"].some((key) => existing[key] !== next[key]);
           if (differs) Object.assign(existing, next);
         });
         localStorage.setItem("lifeos-db:items", JSON.stringify(itemsDb));
@@ -666,18 +672,23 @@
           annualGoalsDb.years.push(annualRecord);
         }
         let annualChanged = !annualRecord.items.length;
+        let maxAnnualSortOrder = Math.max(0, ...annualRecord.items.map((item) => Number(item.sort_order) || 0));
         const goalItems = (annualGoals || []).map((item, index) => {
           const text = String(item.text || "").trim();
           const id = item.id || createClientId("year");
           const prev = annualRecord.items.find((entry) => entry.id === id);
-          const changed = !prev || prev.text !== text || Boolean(prev.done) !== Boolean(item.done);
+          const incomingSortOrder = Number(item.sort_order) || 0;
+          maxAnnualSortOrder = Math.max(maxAnnualSortOrder, incomingSortOrder);
+          const sortOrder = prev || incomingSortOrder ? incomingSortOrder : ++maxAnnualSortOrder;
+          const changed = !prev || prev.text !== text || Boolean(prev.done) !== Boolean(item.done) || (Number(prev.sort_order) || 0) !== sortOrder;
           if (changed) annualChanged = true;
           return {
             id,
             text,
             done: Boolean(item.done),
             created_at: item.created_at || (prev && prev.created_at) || now,
-            updated_at: changed ? now : (prev && prev.updated_at) || null
+            updated_at: changed ? now : (prev && prev.updated_at) || null,
+            sort_order: sortOrder
           };
         }).filter((item) => item.text);
         annualRecord.items = goalItems;
@@ -887,7 +898,8 @@
           period: item.period || "",
           parent_id: item.parent_id || "",
           created_at: item.created_at || null,
-          updated_at: item.updated_at || null
+          updated_at: item.updated_at || null,
+          sort_order: Number(item.sort_order) || 0
         };
       }
 
@@ -906,7 +918,8 @@
             text,
             done: Boolean(existing?.done),
             created_at: existing?.created_at || null,
-            updated_at: existing?.updated_at || null
+            updated_at: existing?.updated_at || null,
+            sort_order: Number(existing?.sort_order) || 0
           };
         });
       }
@@ -1347,7 +1360,8 @@
           period: item.dataset.period,
           parent_id: item.dataset.parentId || "",
           created_at: item.dataset.createdAt ? Number(item.dataset.createdAt) : null,
-          updated_at: item.dataset.updatedAt ? Number(item.dataset.updatedAt) : null
+          updated_at: item.dataset.updatedAt ? Number(item.dataset.updatedAt) : null,
+          sort_order: Number(item.dataset.sortOrder) || 0
         })).filter((entry) => entry.text);
       }
 
@@ -1370,6 +1384,7 @@
           item.dataset.id = entry.id || createClientId("item");
           item.dataset.scope = entry.scope;
           item.dataset.period = entry.period;
+          item.dataset.sortOrder = String(Number(entry.sort_order) || 0);
           if (entry.note) item.dataset.note = entry.note;
           if (entry.parent_id) item.dataset.parentId = entry.parent_id;
           if (entry.created_at) item.dataset.createdAt = String(entry.created_at);
@@ -1402,7 +1417,8 @@
           period: scope === "week" ? weekKey(state.form.date) : scope === "month" ? state.form.date.slice(0, 7) : "",
           parent_id: "",
           created_at: now,
-          updated_at: now
+          updated_at: now,
+          sort_order: 0
         };
         if (scope === "inbox") {
           state.form.inboxItems = [...(state.form.inboxItems || []), item];

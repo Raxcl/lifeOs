@@ -3104,7 +3104,8 @@
           period: item.scope === "inbox" ? "" : String(item.period || ""),
           parent_id: String(item.parent_id || ""),
           created_at: item.created_at || nowSeconds(),
-          updated_at: item.updated_at || null
+          updated_at: item.updated_at || null,
+          sort_order: Number(item.sort_order) || 0
         }));
     }
 
@@ -3119,7 +3120,8 @@
             text: String(item.text || "").trim(),
             done: Boolean(item.done),
             created_at: item.created_at || nowSeconds(),
-            updated_at: item.updated_at || null
+            updated_at: item.updated_at || null,
+            sort_order: Number(item.sort_order) || 0
           }))
           .filter((item) => item.text);
         if (items.length) byYear.set(year, { year, items, updated_at: record.updated_at || null });

@@ -595,7 +595,7 @@
 
   function renderAnnualGoalItemRow(item) {
     return `
-      <tr class="data-row" data-kind="annual-goal-item" data-row data-done="${item.done ? "true" : "false"}" data-year="${escapeAttr(item.year)}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}">
+      <tr class="data-row" data-kind="annual-goal-item" data-row data-done="${item.done ? "true" : "false"}" data-year="${escapeAttr(item.year)}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}" data-sort-order="${Number(item.sort_order) || 0}">
         <td><input type="checkbox" data-field="goal-done" ${item.done ? "checked" : ""} aria-label="完成状态"></td>
         <td><input type="text" data-field="goal-text" value="${escapeAttr(item.text)}" placeholder="年度目标"></td>
         <td><input type="number" data-field="goal-year" value="${escapeAttr(item.year)}" min="2000" max="2099" aria-label="归属年份"></td>
@@ -608,7 +608,7 @@
   function renderPlanItemRow(item) {
     const scope = item.scope || "inbox";
     return `
-      <tr class="data-row" data-kind="plan-item" data-row data-done="${item.done ? "true" : "false"}" data-scope="${escapeAttr(scope)}" data-period="${escapeAttr(item.period || "")}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}">
+      <tr class="data-row" data-kind="plan-item" data-row data-done="${item.done ? "true" : "false"}" data-scope="${escapeAttr(scope)}" data-period="${escapeAttr(item.period || "")}" data-search="${escapeAttr(item.text)}" data-item-id="${escapeAttr(item.id)}" data-created-at="${item.created_at || ""}" data-sort-order="${Number(item.sort_order) || 0}">
         <td><input type="checkbox" data-field="item-done" ${item.done ? "checked" : ""} aria-label="完成状态"></td>
         <td><input type="text" data-field="item-text" value="${escapeAttr(item.text)}" placeholder="事项"></td>
         <td>
@@ -862,7 +862,8 @@
           text: "",
           done: false,
           created_at: nowSeconds(),
-          updated_at: null
+          updated_at: null,
+          sort_order: 0
         }));
         tbody.querySelector('[data-field="goal-text"]')?.focus();
         applyCurrentFilters();
@@ -880,7 +881,7 @@
       if (tbody) {
         tbody.insertAdjacentHTML("afterbegin", renderPlanItemRow({
           id: uid("item"), text: "", done: false, note: "", scope: "inbox", period: "", parent_id: "",
-          created_at: nowSeconds(), updated_at: null
+          created_at: nowSeconds(), updated_at: null, sort_order: 0
         }));
         tbody.querySelector('[data-field="item-text"]')?.focus();
         applyCurrentFilters();
@@ -978,7 +979,8 @@
         period,
         parent_id: scope === "inbox" ? "" : (row.querySelector('[data-field="item-parent"]')?.value || ""),
         created_at: Number(row.dataset.createdAt) || nowSeconds(),
-        updated_at: null
+        updated_at: null,
+        sort_order: Number(row.dataset.sortOrder) || 0
       };
     }).filter((item) => item.text.trim());
   }
@@ -1216,7 +1218,8 @@
       text: item.text || "",
       done: Boolean(item.done),
       created_at: item.created_at || nowSeconds(),
-      updated_at: item.updated_at || null
+      updated_at: item.updated_at || null,
+      sort_order: Number(item.sort_order) || 0
     })));
   }
 
@@ -1237,7 +1240,8 @@
         text,
         done: Boolean(row.querySelector('[data-field="goal-done"]')?.checked),
         created_at: Number(row.dataset.createdAt) || nowSeconds(),
-        updated_at: null
+        updated_at: null,
+        sort_order: Number(row.dataset.sortOrder) || 0
       });
     });
     const years = [...grouped.entries()].map(([year, items]) => ({ year, items, updated_at: null }));
@@ -1356,7 +1360,8 @@
         period: item.scope === "inbox" ? "" : String(item.period || ""),
         parent_id: String(item.parent_id || ""),
         created_at: item.created_at || nowSeconds(),
-        updated_at: item.updated_at || null
+        updated_at: item.updated_at || null,
+        sort_order: Number(item.sort_order) || 0
       }));
   }
 
@@ -1368,7 +1373,8 @@
         text: String(item.text || "").trim(),
         done: Boolean(item.done),
         created_at: item.created_at || nowSeconds(),
-        updated_at: item.updated_at || null
+        updated_at: item.updated_at || null,
+        sort_order: Number(item.sort_order) || 0
       })),
       updated_at: record.updated_at || null
     })).sort((a, b) => a.year.localeCompare(b.year));
