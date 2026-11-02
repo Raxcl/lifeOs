@@ -89,8 +89,15 @@ async function withChrome(run) {
 
     let nextId = 0;
     const pending = new Map();
+    const consoleErrors = [];
     socket.addEventListener("message", (event) => {
       const message = JSON.parse(event.data);
+      if (message.method === "Runtime.exceptionThrown") {
+        consoleErrors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
+      }
+      if (message.method === "Runtime.consoleAPICalled" && message.params.type === "error") {
+        consoleErrors.push(message.params.args.map((argument) => argument.value || argument.description || "").join(" "));
+      }
       if (!message.id) return;
       const request = pending.get(message.id);
       if (!request) return;
@@ -149,6 +156,10 @@ async function withChrome(run) {
       );
     }
 
+    async function addInitScript(source) {
+      await send("Page.addScriptToEvaluateOnNewDocument", { source });
+    }
+
     let mouseDown = false;
     async function mouse(type, x, y) {
       if (type === "mousePressed") mouseDown = true;
@@ -165,7 +176,7 @@ async function withChrome(run) {
 
     await send("Page.enable");
     await send("Runtime.enable");
-    return await run({ openPage, evaluate, mouse, assert });
+    return await run({ openPage, addInitScript, evaluate, mouse, assert, getConsoleErrors: () => [...consoleErrors] });
   } finally {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ id: -1, method: "Browser.close" }));
@@ -837,6 +848,118 @@ const tests = [
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#yearCards .relation-empty')`, "empty relation year column");
       assert.equal(await evaluate(`document.querySelectorAll('#yearCards .relation-card').length`), 0);
       assert.match(await evaluate(`document.querySelector('#yearCards .relation-empty').textContent`), /暂无/);
+    }
+  },
+  {
+    name: "relation narrow viewport keeps one row and aligned paths after horizontal scrolling",
+    async run({ openPage, evaluate, assert }) {
+      await openPage("目标关系.html", 440, 843);
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelectorAll('#relationSvg path[data-source]').length === 2`, "narrow relation fixture");
+      const layout = await evaluate(`(() => {
+        const relationScroll = document.querySelector("#relationScroll");
+        return {
+          scrollWidth: relationScroll.scrollWidth,
+          clientWidth: relationScroll.clientWidth,
+          columnTops: Array.from(document.querySelectorAll(".relation-column"), (column) => Math.round(column.getBoundingClientRect().top))
+        };
+      })()`);
+      assert.ok(layout.scrollWidth > layout.clientWidth, "440px viewport must retain horizontal overflow");
+      assert.equal(new Set(layout.columnTops).size, 1, "week, month, and year columns must remain on the same row");
+      await evaluate(`(async () => {
+        const relationScroll = document.querySelector("#relationScroll");
+        relationScroll.scrollLeft = relationScroll.scrollWidth;
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      })()`);
+      assert.ok(await evaluate(`document.querySelector("#relationScroll").scrollLeft > 0`), "the board must actually scroll horizontally");
+      const endpoints = await evaluate(`(() => {
+        const boardRect = document.querySelector("#relationBoard").getBoundingClientRect();
+        return Array.from(document.querySelectorAll("#relationSvg path[data-source]"), (path) => {
+          const values = path.getAttribute("d").match(/-?\\d+(?:\\.\\d+)?/g).map(Number);
+          const source = document.querySelector('[data-item-id="' + path.dataset.source + '"]').getBoundingClientRect();
+          const target = document.querySelector('[data-item-id="' + path.dataset.target + '"]').getBoundingClientRect();
+          return {
+            id: path.dataset.source,
+            actual: { startX: values[0], startY: values[1], endX: values[6], endY: values[7] },
+            expected: {
+              startX: source.right - boardRect.left,
+              startY: source.top + source.height / 2 - boardRect.top,
+              endX: target.left - boardRect.left,
+              endY: target.top + target.height / 2 - boardRect.top
+            }
+          };
+        });
+      })()`);
+      for (const endpoint of endpoints) {
+        for (const key of ["startX", "startY", "endX", "endY"]) {
+          assert.ok(Math.abs(endpoint.actual[key] - endpoint.expected[key]) < 0.01, `${endpoint.id} ${key} must match its card side midpoint after scrolling`);
+        }
+      }
+    }
+  },
+  {
+    name: "relation save lifecycle guards unload disables controls and leaves no animation loop or console errors",
+    async run({ openPage, addInitScript, evaluate, mouse, assert, getConsoleErrors }) {
+      await addInitScript(`(() => {
+        const nativeRequestAnimationFrame = window.requestAnimationFrame.bind(window);
+        const stats = window.__relationRafStats = { requested: 0, callbacks: 0 };
+        window.requestAnimationFrame = (callback) => {
+          stats.requested += 1;
+          return nativeRequestAnimationFrame((timestamp) => {
+            stats.callbacks += 1;
+            callback(timestamp);
+          });
+        };
+      })();`);
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationSvg path[data-source="w1"]')`, "save lifecycle fixture");
+      await delay(100);
+      const rafBefore = await evaluate(`({ ...window.__relationRafStats })`);
+      await delay(350);
+      const rafAfter = await evaluate(`({ ...window.__relationRafStats })`);
+      assert.deepEqual(rafAfter, rafBefore, "an idle relation page must not keep requesting animation frames");
+      assert.equal(rafAfter.requested, rafAfter.callbacks, "all scheduled relation drawing must settle");
+
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        window.__saveLifecycle = null;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items" && !window.__saveLifecycle) {
+            const event = new Event("beforeunload", { cancelable: true });
+            window.dispatchEvent(event);
+            window.__saveLifecycle = {
+              prevented: event.defaultPrevented,
+              controlsDisabled: Array.from(document.querySelectorAll("[data-sort-handle], [data-connect], [data-disconnect]")).every((button) => button.disabled),
+              scrollEnabled: !document.querySelector("#relationScroll").inert && !document.querySelector("#relationScroll").hasAttribute("disabled"),
+              boardEnabled: !document.querySelector("#relationBoard").inert
+            };
+          }
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      try {
+        await dragCardBelow(evaluate, mouse, "w1", "w2");
+        await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").sort_order === 2`, "lifecycle sort save");
+        const duringSave = await evaluate(`window.__saveLifecycle`);
+        assert.equal(duringSave.prevented, true, "beforeunload must be prevented while saving");
+        assert.equal(duringSave.controlsDisabled, true, "sort, connect, and disconnect controls must be disabled while saving");
+        assert.equal(duringSave.scrollEnabled, true, "horizontal scrolling must remain available while saving");
+        assert.equal(duringSave.boardEnabled, true, "saving must not make the whole board inert");
+        const afterSave = await evaluate(`(() => {
+          const event = new Event("beforeunload", { cancelable: true });
+          window.dispatchEvent(event);
+          return {
+            prevented: event.defaultPrevented,
+            controlsEnabled: Array.from(document.querySelectorAll("[data-sort-handle], [data-connect], [data-disconnect]")).every((button) => !button.disabled)
+          };
+        })()`);
+        assert.equal(afterSave.prevented, false, "beforeunload must not be prevented after saving finishes");
+        assert.equal(afterSave.controlsEnabled, true, "all relation controls must be re-enabled after saving");
+        assert.deepEqual(getConsoleErrors(), [], "the relation page must not emit console or unhandled runtime errors");
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__saveLifecycle; delete window.__relationRafStats;`);
+      }
     }
   },
   {

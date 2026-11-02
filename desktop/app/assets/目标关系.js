@@ -44,6 +44,11 @@
   installDrawTriggers();
   installSortHandlers();
   installConnectionHandlers();
+  window.addEventListener("beforeunload", (event) => {
+    if (!state.saving) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
   boot();
 
   async function boot() {
