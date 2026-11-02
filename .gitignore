@@ -25,6 +25,9 @@ prototypes/
 test-results/
 *.artifact.json
 
+# Isolated development worktrees
+.worktrees/
+
 # Local reference media dumps
 素材/
 参考素材*.png
