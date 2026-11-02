@@ -256,6 +256,8 @@ struct AnnualGoalItem {
     done: bool,
     created_at: Option<u64>,
     updated_at: Option<u64>,
+    #[serde(default)]
+    sort_order: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -1164,6 +1166,7 @@ const ANNUAL_GOAL_CSV_HEADERS: &[&str] = &[
     "done",
     "created_at",
     "updated_at",
+    "sort_order",
 ];
 
 const PLAN_ITEM_CSV_HEADERS: &[&str] = &[
@@ -1582,15 +1585,23 @@ fn read_annual_goal_database(path: &Path) -> Result<AnnualGoalDatabase, String> 
                 done: parse_csv_bool(&csv_cell(&row, "done")),
                 created_at: parse_optional_u64(&csv_cell(&row, "created_at")).or(Some(now)),
                 updated_at: updated.or(Some(now)),
+                sort_order: csv_cell(&row, "sort_order").parse().unwrap_or(0),
             });
     }
 
     let mut years = by_year
         .into_iter()
-        .map(|(year, items)| AnnualGoalRecord {
-            updated_at: updated_at.get(&year).copied(),
-            year,
-            items,
+        .map(|(year, mut items)| {
+            items.sort_by(|left, right| {
+                left.sort_order.cmp(&right.sort_order)
+                    .then(left.created_at.cmp(&right.created_at))
+                    .then(left.id.cmp(&right.id))
+            });
+            AnnualGoalRecord {
+                updated_at: updated_at.get(&year).copied(),
+                year,
+                items,
+            }
         })
         .collect::<Vec<_>>();
     years.sort_by(|left, right| left.year.cmp(&right.year));
@@ -1612,6 +1623,7 @@ fn write_annual_goal_database(path: &Path, database: &AnnualGoalDatabase) -> Res
             String::new(),
             String::new(),
             timestamp_csv(record.updated_at),
+            "0".to_string(),
         ]);
         for item in &record.items {
             rows.push(vec![
@@ -1621,6 +1633,7 @@ fn write_annual_goal_database(path: &Path, database: &AnnualGoalDatabase) -> Res
                 bool_csv(item.done),
                 timestamp_csv(item.created_at),
                 timestamp_csv(item.updated_at.or(record.updated_at)),
+                item.sort_order.to_string(),
             ]);
         }
     }
@@ -2693,36 +2706,44 @@ fn normalize_annual_goal_items(
     existing: Option<&AnnualGoalRecord>,
 ) -> (Vec<AnnualGoalItem>, bool) {
     let mut any_changed = existing.is_none();
-    let normalized: Vec<AnnualGoalItem> = items
-        .into_iter()
-        .enumerate()
-        .filter_map(|(index, item)| {
-            let text = item.text.trim().to_string();
-            if text.is_empty() {
-                return None;
-            }
-            let id = if item.id.trim().is_empty() {
-                format!("{year}-{}-{now}", index + 1)
-            } else {
-                item.id
-            };
-            let prev = existing.and_then(|record| record.items.iter().find(|i| i.id == id));
-            let changed = match prev {
-                Some(p) => p.text != text || p.done != item.done,
-                None => true,
-            };
-            if changed {
-                any_changed = true;
-            }
-            Some(AnnualGoalItem {
-                id,
-                text,
-                done: item.done,
-                created_at: item.created_at.or(prev.and_then(|p| p.created_at)).or(Some(now)),
-                updated_at: if changed { Some(now) } else { prev.and_then(|p| p.updated_at) },
-            })
-        })
-        .collect();
+    let mut next_order = existing
+        .and_then(|record| record.items.iter().map(|item| item.sort_order).max())
+        .unwrap_or(0) + 1;
+    let mut normalized = Vec::new();
+    for (index, item) in items.into_iter().enumerate() {
+        let text = item.text.trim().to_string();
+        if text.is_empty() {
+            continue;
+        }
+        let id = if item.id.trim().is_empty() {
+            format!("{year}-{}-{now}", index + 1)
+        } else {
+            item.id
+        };
+        let prev = existing.and_then(|record| record.items.iter().find(|i| i.id == id));
+        let sort_order = if prev.is_none() && item.sort_order == 0 {
+            let order = next_order;
+            next_order += 1;
+            order
+        } else {
+            item.sort_order
+        };
+        let changed = match prev {
+            Some(p) => p.text != text || p.done != item.done || p.sort_order != item.sort_order,
+            None => true,
+        };
+        if changed {
+            any_changed = true;
+        }
+        normalized.push(AnnualGoalItem {
+            id,
+            text,
+            done: item.done,
+            created_at: item.created_at.or(prev.and_then(|p| p.created_at)).or(Some(now)),
+            updated_at: if changed { Some(now) } else { prev.and_then(|p| p.updated_at) },
+            sort_order,
+        });
+    }
     (normalized, any_changed)
 }
 
@@ -3161,6 +3182,54 @@ day_index: 42
         let a = items.iter().find(|item| item.id == "a").unwrap();
         assert_eq!(a.sort_order, 9);
         assert_eq!(a.updated_at, Some(20));
+    }
+
+    #[test]
+    fn annual_goal_sort_order_defaults_and_round_trips() {
+        let dir = temp_dir("annual-goal-sort-order");
+        let path = dir.join("annual-goals.csv");
+        write_csv(
+            &path,
+            &["year", "item_id", "text", "done", "created_at", "updated_at"],
+            vec![vec!["2026".into(), "y1".into(), "旧目标".into(), "No".into(), "1".into(), "1".into()]],
+        ).unwrap();
+        let database = read_annual_goal_database(&path).unwrap();
+        assert_eq!(database.years[0].items[0].sort_order, 0);
+
+        let (items, changed) = normalize_annual_goal_items(
+            "2026",
+            vec![AnnualGoalItem {
+                id: "y2".into(), text: "新目标".into(), done: false,
+                created_at: Some(2), updated_at: Some(2), sort_order: 0,
+            }],
+            10,
+            database.years.first(),
+        );
+        assert!(changed);
+        assert_eq!(items[0].sort_order, 1);
+    }
+
+    #[test]
+    fn annual_goal_reorder_updates_timestamp() {
+        let existing = AnnualGoalRecord {
+            year: "2026".into(),
+            items: vec![AnnualGoalItem {
+                id: "y1".into(), text: "年度目标".into(), done: false,
+                created_at: Some(1), updated_at: Some(1), sort_order: 1,
+            }],
+            updated_at: Some(1),
+        };
+        let (items, changed) = normalize_annual_goal_items(
+            "2026",
+            vec![AnnualGoalItem {
+                id: "y1".into(), text: "年度目标".into(), done: false,
+                created_at: Some(1), updated_at: Some(1), sort_order: 3,
+            }],
+            10,
+            Some(&existing),
+        );
+        assert!(changed);
+        assert_eq!(items[0].updated_at, Some(10));
     }
 
     #[test]
