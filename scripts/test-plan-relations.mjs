@@ -963,10 +963,29 @@ const tests = [
     }
   },
   {
-    name: "journal future path links to the relation page",
-    async run({ openPage, evaluate, assert }) {
+    name: "calendar topbar links to the relation page and returns to the calendar",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("index.html");
+      assert.ok(await evaluate(`document.querySelector('.topbar-actions a[href="目标关系.html?from=calendar"]')`));
+      await clickSelector(evaluate, mouse, '.topbar-actions a[href="目标关系.html?from=calendar"]');
+      await waitFor(evaluate, `location.search === "?from=calendar" && document.querySelector(".relation-back")`, "relation page from calendar");
+      assert.equal(await evaluate(`document.querySelector(".relation-back").getAttribute("href")`), "index.html");
+      assert.match(await evaluate(`document.querySelector(".relation-back").textContent`), /返回日历/);
+      await clickSelector(evaluate, mouse, ".relation-back");
+      await waitFor(evaluate, `document.querySelector("#calendarView") && location.pathname.endsWith("/index.html")`, "calendar return");
+    }
+  },
+  {
+    name: "journal future path links to the relation page and returns to the journal",
+    async run({ openPage, evaluate, mouse, assert }) {
       await openPage("晨间日记页面.html");
-      assert.ok(await evaluate(`document.querySelector('.path-label a[href="目标关系.html"]')`));
+      assert.ok(await evaluate(`document.querySelector('.path-label a[href="目标关系.html?from=journal"]')`));
+      await clickSelector(evaluate, mouse, '.path-label a[href="目标关系.html?from=journal"]');
+      await waitFor(evaluate, `location.search === "?from=journal" && document.querySelector('.relation-back[href="晨间日记页面.html"]')`, "relation page from journal");
+      assert.equal(await evaluate(`document.querySelector(".relation-back").getAttribute("href")`), "晨间日记页面.html");
+      assert.match(await evaluate(`document.querySelector(".relation-back").textContent`), /返回晨间日记/);
+      await clickSelector(evaluate, mouse, ".relation-back");
+      await waitFor(evaluate, `document.querySelector('.path-label a[href="目标关系.html?from=journal"]')`, "journal return");
     }
   }
 ];

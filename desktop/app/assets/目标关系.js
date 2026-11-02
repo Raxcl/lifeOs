@@ -40,6 +40,10 @@
   const emptyLabels = { week: "本周暂无事项", month: "本月暂无事项", year: "今年暂无目标" };
 
   window.LifeOSBackground.install({ layer: document.getElementById("wallpaperLayer") });
+  const backLink = document.querySelector(".relation-back");
+  const fromJournal = new URLSearchParams(window.location.search).get("from") === "journal";
+  backLink.href = fromJournal ? "晨间日记页面.html" : "index.html";
+  backLink.textContent = fromJournal ? "← 返回晨间日记" : "← 返回日历";
   document.getElementById("relationPeriod").textContent = `${weekRangeLabel(currentWeek)} · ${currentMonth} · ${currentYear}`;
   installDrawTriggers();
   installSortHandlers();
