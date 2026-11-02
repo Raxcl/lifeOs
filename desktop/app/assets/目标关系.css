@@ -8,6 +8,7 @@
   --accent-soft: #e4eadc;
   --danger: #a45c50;
   --radius: 18px;
+  --drag-shadow: 0 18px 40px rgba(48, 55, 47, .2);
 }
 
 * { box-sizing: border-box; }
@@ -145,9 +146,10 @@ button { -webkit-app-region: no-drag; }
   border-radius: var(--radius);
   background: var(--panel);
   box-shadow: 0 8px 24px rgba(48, 55, 47, .06);
-  transition: box-shadow .18s ease, transform .18s ease;
+  transition: box-shadow .18s ease;
 }
 
+.relation-card.is-dragging { z-index: 2; box-shadow: var(--drag-shadow); }
 .relation-card.is-done { opacity: .58; }
 .relation-card.is-valid-target { outline: 2px solid var(--accent); }
 .relation-board.is-disabled .relation-card { pointer-events: none; }

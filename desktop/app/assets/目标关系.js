@@ -3,6 +3,7 @@
     weekKey,
     weekRangeLabel,
     formatDate,
+    nowSeconds,
     escapeHtml,
     toErrorMessage
   } = window.LifeOSShared;
@@ -39,6 +40,7 @@
   window.LifeOSBackground.install({ layer: document.getElementById("wallpaperLayer") });
   document.getElementById("relationPeriod").textContent = `${weekRangeLabel(currentWeek)} · ${currentMonth} · ${currentYear}`;
   installDrawTriggers();
+  installSortHandlers();
   boot();
 
   async function boot() {
@@ -78,6 +80,66 @@
   function readFallback(key, fallback) {
     const stored = localStorage.getItem(key);
     return stored ? JSON.parse(stored) : fallback;
+  }
+
+  async function invoke(command, args) {
+    if (tauriInvoke) return tauriInvoke(command, args);
+    if (command === "save_plan_item_database") {
+      const database = { schema_version: 1, items: normalizeItems(args.items || []) };
+      localStorage.setItem(fallbackKeys.items, JSON.stringify(database));
+      return database;
+    }
+    if (command === "save_annual_goal_database") {
+      const database = { schema_version: 1, years: normalizeAnnualGoalYears(args.years || []) };
+      localStorage.setItem(fallbackKeys.annualGoals, JSON.stringify(database));
+      return database;
+    }
+    throw new Error(`未支持的命令：${command}`);
+  }
+
+  function normalizeItems(items) {
+    return [...dedupeBy(items, "id")]
+      .filter((item) => String(item.text || "").trim())
+      .map((item) => ({
+        id: item.id || uid("item"),
+        text: String(item.text).trim(),
+        done: Boolean(item.done),
+        note: String(item.note || ""),
+        scope: ["inbox", "week", "month", "year"].includes(item.scope) ? item.scope : "inbox",
+        period: item.scope === "inbox" ? "" : String(item.period || ""),
+        parent_id: String(item.parent_id || ""),
+        created_at: item.created_at || nowSeconds(),
+        updated_at: item.updated_at || null,
+        sort_order: Number(item.sort_order) || 0
+      }));
+  }
+
+  function normalizeAnnualGoalYears(years) {
+    return [...dedupeBy(years, "year")].filter((record) => /^\d{4}$/.test(String(record.year || ""))).map((record) => ({
+      year: record.year,
+      items: (record.items || []).filter((item) => String(item.text || "").trim()).map((item) => ({
+        id: item.id || uid("year"),
+        text: String(item.text || "").trim(),
+        done: Boolean(item.done),
+        created_at: item.created_at || nowSeconds(),
+        updated_at: item.updated_at || null,
+        sort_order: Number(item.sort_order) || 0
+      })),
+      updated_at: record.updated_at || null
+    })).sort((a, b) => a.year.localeCompare(b.year));
+  }
+
+  function dedupeBy(items, key) {
+    const map = new Map();
+    (items || []).forEach((item) => {
+      if (item?.[key] && !map.has(item[key])) map.set(item[key], item);
+    });
+    return map.values();
+  }
+
+  function uid(prefix) {
+    if (crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   function selectCurrentColumns() {
@@ -129,6 +191,7 @@
   }
 
   function render() {
+    selectCurrentColumns();
     const visible = visibleMap();
     for (const scope of ["week", "month", "year"]) {
       const items = state.columns[scope];
@@ -207,14 +270,124 @@
     window.addEventListener("resize", scheduleDraw);
   }
 
+  function installSortHandlers() {
+    board.addEventListener("pointerdown", startSort);
+    board.addEventListener("pointermove", moveSort);
+    board.addEventListener("pointerup", finishSort);
+    board.addEventListener("pointercancel", cancelSort);
+  }
+
+  function startSort(event) {
+    const handle = event.target.closest("[data-sort-handle]");
+    if (!handle || state.saving || state.drag || event.button !== 0) return;
+    const card = handle.closest(".relation-card");
+    const list = card?.parentElement;
+    if (!card || !list) return;
+    const before = structuredClone(state.snapshot);
+    const scope = card.dataset.scope;
+    state.drag = {
+      card,
+      list,
+      handle,
+      scope,
+      before,
+      beforeOrder: state.columns[scope].map((item) => String(item.id)),
+      pointerId: event.pointerId,
+      startY: event.clientY
+    };
+    handle.setPointerCapture(event.pointerId);
+    card.classList.add("is-dragging");
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function moveSort(event) {
+    const drag = state.drag;
+    if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
+    const delta = event.clientY - drag.startY;
+    drag.card.style.transform = `translateY(${delta}px)`;
+    const siblings = [...drag.list.querySelectorAll(".relation-card")].filter((card) => card !== drag.card);
+    const next = siblings.find((card) => {
+      const rect = card.getBoundingClientRect();
+      return event.clientY < rect.top + rect.height / 2;
+    });
+    drag.list.insertBefore(drag.card, next || null);
+    scheduleDraw();
+    event.preventDefault();
+  }
+
+  async function finishSort(event) {
+    const drag = state.drag;
+    if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
+    state.drag = null;
+    if (drag.handle.hasPointerCapture(event.pointerId)) drag.handle.releasePointerCapture(event.pointerId);
+    drag.card.style.transform = "";
+    drag.card.classList.remove("is-dragging");
+    const ids = [...drag.list.querySelectorAll(".relation-card")].map((card) => card.dataset.itemId);
+    scheduleDraw();
+    if (ids.join("\u0000") === drag.beforeOrder.join("\u0000")) return;
+
+    ids.forEach((id, index) => {
+      if (drag.scope === "year") {
+        const year = state.snapshot.annual_goals.years.find((record) => String(record.year) === currentYear);
+        const item = year?.items.find((entry) => String(entry.id) === id);
+        if (item) item.sort_order = index + 1;
+      } else {
+        const item = state.snapshot.items.items.find((entry) => String(entry.id) === id);
+        if (item) item.sort_order = index + 1;
+      }
+    });
+    selectCurrentColumns();
+    await saveSnapshot(drag.before, drag.scope === "year" ? "annual" : "items");
+    event.preventDefault();
+  }
+
+  function cancelSort(event) {
+    const drag = state.drag;
+    if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
+    state.drag = null;
+    if (drag.handle.hasPointerCapture(event.pointerId)) drag.handle.releasePointerCapture(event.pointerId);
+    state.snapshot = drag.before;
+    render();
+  }
+
+  async function saveSnapshot(before, target) {
+    state.saving = true;
+    setControlsDisabled(true);
+    setNotice("正在保存…");
+    try {
+      if (target === "items") {
+        const saved = await invoke("save_plan_item_database", { items: state.snapshot.items.items });
+        state.snapshot.items = saved;
+      } else {
+        const saved = await invoke("save_annual_goal_database", { years: state.snapshot.annual_goals.years });
+        state.snapshot.annual_goals = saved;
+      }
+      setNotice("已保存", "saved");
+    } catch (error) {
+      state.snapshot = before;
+      render();
+      setNotice(`保存失败，已撤销：${error.message || error}`, "error");
+    } finally {
+      state.saving = false;
+      setControlsDisabled(false);
+      scheduleDraw();
+    }
+  }
+
   function setBoardEnabled(enabled) {
     board.classList.toggle("is-disabled", !enabled);
     board.setAttribute("aria-disabled", String(!enabled));
     board.inert = !enabled;
   }
 
-  function setNotice(message, isError = false) {
+  function setControlsDisabled(disabled) {
+    for (const button of board.querySelectorAll("button")) button.disabled = disabled;
+  }
+
+  function setNotice(message, stateName = "") {
     notice.textContent = message;
-    notice.classList.toggle("is-error", isError);
+    notice.dataset.state = stateName === true ? "error" : stateName;
+    notice.classList.toggle("is-error", stateName === true || stateName === "error");
   }
 })();
