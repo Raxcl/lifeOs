@@ -167,15 +167,19 @@ async function withChrome(run) {
     await send("Runtime.enable");
     return await run({ openPage, evaluate, mouse, assert });
   } finally {
-    if (socket && socket.readyState === WebSocket.OPEN) socket.close();
-    if (chrome.pid && chrome.exitCode === null && chrome.signalCode === null) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ id: -1, method: "Browser.close" }));
+    } else if (chrome.pid && chrome.exitCode === null && chrome.signalCode === null) {
       chrome.kill("SIGTERM");
+    }
+    if (chrome.pid && chrome.exitCode === null && chrome.signalCode === null) {
       const exited = await Promise.race([exitPromise.then(() => true), delay(5000).then(() => false)]);
       if (!exited) {
         chrome.kill("SIGKILL");
         await exitPromise;
       }
     }
+    if (socket && socket.readyState === WebSocket.OPEN) socket.close();
     fs.rmSync(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
