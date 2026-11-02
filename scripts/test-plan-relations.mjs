@@ -208,6 +208,47 @@ localStorage.setItem("lifeos-db:annual-goals", JSON.stringify({schema_version:1,
 location.reload();
 `;
 
+function localDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function relationFixture({ emptyYear = false } = {}) {
+  const now = new Date();
+  const today = localDateKey(now);
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const currentWeek = localDateKey(monday);
+  const currentMonth = today.slice(0, 7);
+  const currentYear = today.slice(0, 4);
+  const otherMonth = localDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 1)).slice(0, 7);
+  const items = {
+    schema_version: 1,
+    items: [
+      { id: "w1", text: "本周关联事项", done: false, note: "", scope: "week", period: currentWeek, parent_id: "m1", created_at: 1, updated_at: 1, sort_order: 1 },
+      { id: "w2", text: "本周已完成事项", done: true, note: "", scope: "week", period: currentWeek, parent_id: "", created_at: 2, updated_at: 2, sort_order: 2 },
+      { id: "m1", text: "本月关联事项", done: false, note: "", scope: "month", period: currentMonth, parent_id: "y1", created_at: 3, updated_at: 3, sort_order: 1 },
+      { id: "m2", text: "本月悬空事项", done: false, note: "", scope: "month", period: currentMonth, parent_id: "missing-year", created_at: 4, updated_at: 4, sort_order: 2 },
+      { id: "m-other", text: "其他月份事项", done: false, note: "", scope: "month", period: otherMonth, parent_id: "", created_at: 5, updated_at: 5, sort_order: 3 }
+    ]
+  };
+  const annualGoals = {
+    schema_version: 1,
+    years: [{
+      year: currentYear,
+      updated_at: 1,
+      items: emptyYear ? [] : [{ id: "y1", text: "今年关联目标", done: false, created_at: 6, updated_at: 6, sort_order: 1 }]
+    }]
+  };
+  return `
+    localStorage.setItem("lifeos-db:items", JSON.stringify(${JSON.stringify(items)}));
+    localStorage.setItem("lifeos-db:annual-goals", JSON.stringify(${JSON.stringify(annualGoals)}));
+    location.reload();
+  `;
+}
+
 const tests = [
   {
     name: "journal month and annual fallback saves preserve sort_order",
@@ -301,6 +342,52 @@ const tests = [
       }))()`);
       assert.equal(itemSort, 17);
       assert.equal(goalSort, 23);
+    }
+  },
+  {
+    name: "relation page filters current periods and draws only valid formal links",
+    async run({ openPage, evaluate, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelectorAll('#relationSvg path[data-source]').length === 2`, "relation cards and formal paths");
+      const cards = await evaluate(`(() => {
+        const cardIds = (scope) => Array.from(
+          document.querySelectorAll('.relation-card[data-scope="' + scope + '"]'),
+          (card) => card.dataset.itemId
+        );
+        return { week: cardIds("week"), month: cardIds("month"), year: cardIds("year") };
+      })()`);
+      assert.deepEqual(cards.week, ["w1", "w2"]);
+      assert.deepEqual(cards.month, ["m1", "m2"]);
+      assert.deepEqual(cards.year, ["y1"]);
+      assert.equal(await evaluate(`document.querySelectorAll("#relationSvg path[data-source]").length`), 2);
+      assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="w1"]').dataset.target`), "m1");
+      assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="m1"]').dataset.target`), "y1");
+      assert.ok(await evaluate(`document.querySelector('#relationSvg path[data-source="w1"]').getAttribute("d").includes(" C ")`));
+      assert.ok(await evaluate(`document.querySelector('[data-item-id="w2"]').classList.contains("is-done")`));
+      assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="w2"]')`), null);
+      assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="m2"]')`), null);
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable').textContent`), "上级不可用");
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="m-other"]')`), null);
+      assert.ok(await evaluate(`["w1", "m1", "y1"].every((id) => document.querySelector('[data-item-id="' + id + '"] [data-sort-handle]'))`));
+      assert.ok(await evaluate(`["w1", "m1"].every((id) => document.querySelector('[data-item-id="' + id + '"] [data-connect]') && document.querySelector('[data-item-id="' + id + '"] [data-disconnect]'))`));
+    }
+  },
+  {
+    name: "relation page renders an empty current-year column",
+    async run({ openPage, evaluate, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ emptyYear: true }));
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#yearCards .relation-empty')`, "empty relation year column");
+      assert.equal(await evaluate(`document.querySelectorAll('#yearCards .relation-card').length`), 0);
+      assert.match(await evaluate(`document.querySelector('#yearCards .relation-empty').textContent`), /暂无/);
+    }
+  },
+  {
+    name: "journal future path links to the relation page",
+    async run({ openPage, evaluate, assert }) {
+      await openPage("晨间日记页面.html");
+      assert.ok(await evaluate(`document.querySelector('.path-label a[href="目标关系.html"]')`));
     }
   }
 ];
