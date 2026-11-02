@@ -247,7 +247,17 @@ button { -webkit-app-region: no-drag; }
   opacity: .72;
 }
 
-#temporaryLine { display: none; }
+#temporaryLine {
+  display: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 6 5;
+  opacity: .72;
+}
+
+#temporaryLine.is-active { display: block; }
 
 @media (max-width: 720px) {
   .relation-page { padding: 22px 18px 24px; }

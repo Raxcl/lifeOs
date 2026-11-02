@@ -223,6 +223,43 @@ async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging)
   await mouse("mouseReleased", points.end.x, points.end.y);
 }
 
+async function dragConnection(evaluate, mouse, sourceId, targetId, { whileDragging, cancel = false } = {}) {
+  const points = await evaluate(`(async () => {
+    const handle = document.querySelector('[data-item-id="${sourceId}"] [data-connect]');
+    const target = ${targetId ? `document.querySelector('[data-item-id="${targetId}"]')` : "null"};
+    const board = document.querySelector("#relationBoard");
+    if (!handle || (${Boolean(targetId)} && !target)) throw new Error("Missing connection drag fixture");
+    if (target) target.scrollIntoView({ block: "center", inline: "center" });
+    handle.scrollIntoView({ block: "center", inline: "center" });
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const handleRect = handle.getBoundingClientRect();
+    const boardRect = board.getBoundingClientRect();
+    const end = target ? (() => {
+      const targetRect = target.getBoundingClientRect();
+      return { x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 };
+    })() : { x: boardRect.right - 12, y: boardRect.bottom - 12 };
+    if (!target && document.elementFromPoint(end.x, end.y)?.closest(".relation-card")) {
+      throw new Error("Blank connection fixture hit a card");
+    }
+    return {
+      start: { x: handleRect.left + handleRect.width / 2, y: handleRect.top + handleRect.height / 2 },
+      end
+    };
+  })()`);
+  await mouse("mousePressed", points.start.x, points.start.y);
+  await mouse("mouseMoved", points.end.x, points.end.y);
+  await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+  if (whileDragging) await whileDragging(points.end);
+  if (cancel) {
+    await evaluate(`document.querySelector('[data-item-id="${sourceId}"] [data-connect]').dispatchEvent(
+      new PointerEvent("pointercancel", { bubbles: true, pointerId: 1, pointerType: "mouse" })
+    )`);
+  } else {
+    await mouse("mouseReleased", points.end.x, points.end.y);
+  }
+  await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+}
+
 const JOURNAL_FIXTURE = `
 localStorage.setItem("lifeos-db:items", JSON.stringify({schema_version:1,items:[{
   id:"m-sort",text:"保留月排序",done:false,note:"",scope:"month",period:"2026-10",
@@ -538,6 +575,257 @@ const tests = [
         assert.ok(await evaluate(`document.querySelector('#relationNotice').classList.contains("is-error")`));
       } finally {
         await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem;`);
+      }
+    }
+  },
+  {
+    name: "relation manual connection connects w2 to m2 then replaces it with m1",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w2"] [data-connect]')`, "manual connection fixture");
+      const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
+
+      await dragConnection(evaluate, mouse, "w2", "m2");
+      assert.equal(
+        await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id`),
+        "m2",
+        "the first connection must persist w2.parent_id"
+      );
+      await waitFor(evaluate, `document.querySelector('#relationSvg path[data-source="w2"][data-target="m2"]')`, "w2 to m2 formal path");
+      assert.equal(await evaluate(`document.querySelectorAll('#relationSvg path[data-source="w2"]').length`), 1);
+      assert.equal(await evaluate(`document.querySelector("#temporaryLine").getAttribute("d")`), "");
+      assert.equal(await evaluate(`document.querySelectorAll(".relation-card.is-valid-target").length`), 0);
+
+      await dragConnection(evaluate, mouse, "w2", "m1");
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id === "m1"`, "replacement parent save");
+      await waitFor(evaluate, `document.querySelector('#relationSvg path[data-source="w2"][data-target="m1"]')`, "replacement formal path");
+      const replacement = await evaluate(`(() => {
+        const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items.filter((item) => item.id === "w2");
+        return {
+          parents: items.map((item) => item.parent_id),
+          paths: Array.from(document.querySelectorAll('#relationSvg path[data-source="w2"]'), (path) => path.dataset.target)
+        };
+      })()`);
+      assert.deepEqual(replacement.parents, ["m1"], "replacement must keep one item and overwrite parent_id");
+      assert.deepEqual(replacement.paths, ["m1"], "replacement must remove the old formal path");
+
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        window.__itemWrites = 0;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items") window.__itemWrites += 1;
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      try {
+        const beforeNoOp = await evaluate(`localStorage.getItem("lifeos-db:items")`);
+        await dragConnection(evaluate, mouse, "w2", "m1");
+        assert.equal(await evaluate(`window.__itemWrites`), 0, "connecting the existing parent must be a no-op");
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), beforeNoOp);
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), beforeAnnual, "connections must save only items");
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__itemWrites;`);
+      }
+    }
+  },
+  {
+    name: "relation connection preview follows the pointer and highlights only legal cards",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w2"] [data-connect]')`, "connection preview fixture");
+      await dragConnection(evaluate, mouse, "w2", "m2", {
+        whileDragging: async (end) => {
+          const preview = await evaluate(`(() => {
+            const line = document.querySelector("#temporaryLine");
+            const boardRect = document.querySelector("#relationBoard").getBoundingClientRect();
+            const match = line.getAttribute("d").match(/,\\s*(-?[\\d.]+)\\s+(-?[\\d.]+)$/);
+            const point = ${JSON.stringify(end)};
+            return {
+              display: getComputedStyle(line).display,
+              path: line.getAttribute("d"),
+              actualEnd: match ? { x: Number(match[1]), y: Number(match[2]) } : null,
+              expectedEnd: { x: point.x - boardRect.left, y: point.y - boardRect.top },
+              highlights: Array.from(document.querySelectorAll(".relation-card.is-valid-target"), (card) => card.dataset.itemId),
+              captured: document.querySelector('[data-item-id="w2"] [data-connect]').hasPointerCapture(1)
+            };
+          })()`);
+          assert.notEqual(preview.display, "none");
+          assert.ok(preview.path.includes(" C "));
+          assert.ok(Math.abs(preview.actualEnd.x - preview.expectedEnd.x) < 0.01, "temporary path x must follow the pointer");
+          assert.ok(Math.abs(preview.actualEnd.y - preview.expectedEnd.y) < 0.01, "temporary path y must follow the pointer");
+          assert.deepEqual(preview.highlights, ["m1", "m2"], "only month cards are legal week targets");
+          assert.equal(preview.captured, true);
+        }
+      });
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id === "m2"`, "preview connection save");
+      assert.equal(await evaluate(`document.querySelector("#temporaryLine").getAttribute("d")`), "");
+      assert.equal(await evaluate(`document.querySelectorAll(".relation-card.is-valid-target").length`), 0);
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="w2"] [data-connect]').hasPointerCapture(1)`), false);
+    }
+  },
+  {
+    name: "relation invalid blank and pointercancel gestures leave data unchanged",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('#relationSvg path[data-source="w1"][data-target="m1"]')`, "connection cancellation fixture");
+      const before = await evaluate(`(() => ({
+        items: localStorage.getItem("lifeos-db:items"),
+        annual: localStorage.getItem("lifeos-db:annual-goals"),
+        path: document.querySelector('#relationSvg path[data-source="w1"]').getAttribute("d")
+      }))()`);
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        window.__itemWrites = 0;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items") window.__itemWrites += 1;
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      const assertUnchanged = async () => {
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
+        assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="w1"]').getAttribute("d")`), before.path);
+        assert.equal(await evaluate(`document.querySelector("#temporaryLine").getAttribute("d")`), "");
+        assert.equal(await evaluate(`document.querySelectorAll(".relation-card.is-valid-target").length`), 0);
+      };
+      try {
+        await dragConnection(evaluate, mouse, "w1", "y1");
+        await assertUnchanged();
+        await dragConnection(evaluate, mouse, "w1", null);
+        await assertUnchanged();
+        await dragConnection(evaluate, mouse, "w2", "m2", {
+          cancel: true,
+          whileDragging: async () => {
+            assert.equal(await evaluate(`document.querySelector('[data-item-id="w2"] [data-connect]').hasPointerCapture(1)`), true);
+          }
+        });
+        await assertUnchanged();
+        assert.equal(await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id`), "");
+        assert.equal(await evaluate(`window.__itemWrites`), 0, "cancelled gestures must not save");
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__itemWrites;`);
+      }
+    }
+  },
+  {
+    name: "relation month connection and disconnect handle valid and unavailable parents",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('[data-item-id="m2"] .relation-unavailable')`, "disconnect fixture");
+      const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
+
+      await clickSelector(evaluate, mouse, '[data-item-id="m2"] [data-disconnect]');
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "m2").parent_id === ""`, "unavailable parent disconnect");
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable')`), null);
+      assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="m2"]')`), null);
+
+      await dragConnection(evaluate, mouse, "m2", "y1");
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "m2").parent_id === "y1"`, "month to year save");
+      await waitFor(evaluate, `document.querySelector('#relationSvg path[data-source="m2"][data-target="y1"]')`, "month to year path");
+      await dragConnection(evaluate, mouse, "w2", "m2");
+      await waitFor(evaluate, `document.querySelector('#relationSvg path[data-source="w2"][data-target="m2"]')`, "valid parent disconnect fixture");
+      await clickSelector(evaluate, mouse, '[data-item-id="w2"] [data-disconnect]');
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id === ""`, "valid parent disconnect");
+      await waitFor(evaluate, `!document.querySelector('#relationSvg path[data-source="w2"]')`, "valid parent path removal");
+      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), beforeAnnual, "connect and disconnect must save only items");
+
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        window.__itemWrites = 0;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items") window.__itemWrites += 1;
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      try {
+        await clickSelector(evaluate, mouse, '[data-item-id="w2"] [data-disconnect]');
+        assert.equal(await evaluate(`window.__itemWrites`), 0, "disconnecting an empty parent must be a no-op");
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__itemWrites;`);
+      }
+    }
+  },
+  {
+    name: "relation connection save failure restores parent DOM path and storage",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('#relationSvg path[data-source="w1"][data-target="m1"]')`, "connection rollback fixture");
+      const before = await evaluate(`(() => ({
+        items: localStorage.getItem("lifeos-db:items"),
+        annual: localStorage.getItem("lifeos-db:annual-goals"),
+        path: document.querySelector('#relationSvg path[data-source="w1"]').getAttribute("d")
+      }))()`);
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        window.__failItemWrite = true;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items" && window.__failItemWrite) {
+            window.__failItemWrite = false;
+            throw new Error("模拟连接保存失败");
+          }
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      try {
+        await dragConnection(evaluate, mouse, "w1", "m2");
+        await waitFor(evaluate, `document.querySelector('#relationNotice').textContent.includes("保存失败，已撤销")`, "connection rollback notice");
+        await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
+        assert.equal(await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").parent_id`), "m1");
+        assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="w1"]').dataset.target`), "m1");
+        assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="w1"]').getAttribute("d")`), before.path);
+        assert.equal(await evaluate(`document.querySelector("#temporaryLine").getAttribute("d")`), "");
+        assert.equal(await evaluate(`document.querySelectorAll(".relation-card.is-valid-target").length`), 0);
+        assert.equal(await evaluate(`window.__failItemWrite`), false);
+        assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /模拟连接保存失败/);
+        assert.equal(await evaluate(`document.querySelector('[data-item-id="w1"] [data-connect]').disabled`), false);
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__failItemWrite;`);
+      }
+    }
+  },
+  {
+    name: "relation disconnect save failure restores parent DOM path and storage",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('#relationSvg path[data-source="w1"][data-target="m1"]')`, "disconnect rollback fixture");
+      const before = await evaluate(`(() => ({
+        items: localStorage.getItem("lifeos-db:items"),
+        annual: localStorage.getItem("lifeos-db:annual-goals"),
+        path: document.querySelector('#relationSvg path[data-source="w1"]').getAttribute("d")
+      }))()`);
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        window.__failItemWrite = true;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items" && window.__failItemWrite) {
+            window.__failItemWrite = false;
+            throw new Error("模拟断开保存失败");
+          }
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      try {
+        await clickSelector(evaluate, mouse, '[data-item-id="w1"] [data-disconnect]');
+        await waitFor(evaluate, `document.querySelector('#relationNotice').textContent.includes("保存失败，已撤销")`, "disconnect rollback notice");
+        await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
+        assert.equal(await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").parent_id`), "m1");
+        assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="w1"]').dataset.target`), "m1");
+        assert.equal(await evaluate(`document.querySelector('#relationSvg path[data-source="w1"]').getAttribute("d")`), before.path);
+        assert.equal(await evaluate(`window.__failItemWrite`), false);
+        assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /模拟断开保存失败/);
+        assert.equal(await evaluate(`document.querySelector('[data-item-id="w1"] [data-disconnect]').disabled`), false);
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__failItemWrite;`);
       }
     }
   },

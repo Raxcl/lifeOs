@@ -17,6 +17,8 @@
   const board = document.getElementById("relationBoard");
   const notice = document.getElementById("relationNotice");
   const lineGroup = document.getElementById("relationLines");
+  const temporaryLine = document.getElementById("temporaryLine");
+  const TARGET_SCOPE = { week: "month", month: "year" };
   const containers = {
     week: document.getElementById("weekCards"),
     month: document.getElementById("monthCards"),
@@ -41,6 +43,7 @@
   document.getElementById("relationPeriod").textContent = `${weekRangeLabel(currentWeek)} · ${currentMonth} · ${currentYear}`;
   installDrawTriggers();
   installSortHandlers();
+  installConnectionHandlers();
   boot();
 
   async function boot() {
@@ -172,7 +175,7 @@
   }
 
   function parentTarget(scope, item, visible) {
-    const targetScope = { week: "month", month: "year" }[scope];
+    const targetScope = TARGET_SCOPE[scope];
     if (!targetScope || !item.parent_id) return null;
     const target = visible.get(String(item.parent_id));
     return target?.scope === targetScope ? target.item : null;
@@ -279,7 +282,7 @@
 
   function startSort(event) {
     const handle = event.target.closest("[data-sort-handle]");
-    if (!handle || state.saving || state.drag || event.button !== 0) return;
+    if (!handle || state.saving || state.drag || state.connection || event.button !== 0) return;
     const card = handle.closest(".relation-card");
     const list = card?.parentElement;
     if (!card || !list) return;
@@ -349,6 +352,98 @@
     if (drag.handle.hasPointerCapture(event.pointerId)) drag.handle.releasePointerCapture(event.pointerId);
     state.snapshot = drag.before;
     render();
+  }
+
+  function installConnectionHandlers() {
+    board.addEventListener("pointerdown", startConnection);
+    board.addEventListener("pointermove", moveConnection);
+    board.addEventListener("pointerup", finishConnection);
+    board.addEventListener("pointercancel", cancelConnection);
+    board.addEventListener("click", disconnect);
+  }
+
+  function startConnection(event) {
+    const handle = event.target.closest("[data-connect]");
+    if (!handle || state.saving || state.drag || state.connection || event.button !== 0) return;
+    const card = handle.closest(".relation-card");
+    const sourceId = card?.dataset.itemId;
+    const sourceScope = card?.dataset.scope;
+    const targetScope = TARGET_SCOPE[sourceScope];
+    if (!sourceId || !targetScope) return;
+    state.connection = { sourceId, sourceScope, pointerId: event.pointerId, handle };
+    handle.setPointerCapture(event.pointerId);
+    temporaryLine.classList.add("is-active");
+    for (const target of containers[targetScope].querySelectorAll(".relation-card")) {
+      target.classList.add("is-valid-target");
+    }
+    updateTemporaryLine(event);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function moveConnection(event) {
+    if (!state.connection || state.saving || state.connection.pointerId !== event.pointerId) return;
+    updateTemporaryLine(event);
+    event.preventDefault();
+  }
+
+  function updateTemporaryLine(event) {
+    const connection = state.connection;
+    const sourceCard = document.querySelector(`[data-item-id="${CSS.escape(connection.sourceId)}"]`);
+    if (!sourceCard) return;
+    const source = boardPoint(sourceCard.getBoundingClientRect(), "right");
+    const boardRect = board.getBoundingClientRect();
+    const target = { x: event.clientX - boardRect.left, y: event.clientY - boardRect.top };
+    temporaryLine.setAttribute("d", curvePath(source, target));
+  }
+
+  async function finishConnection(event) {
+    const connection = state.connection;
+    if (!connection || state.saving || connection.pointerId !== event.pointerId) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".relation-card");
+    const targetId = target?.dataset.itemId;
+    const valid = targetId && target.dataset.scope === TARGET_SCOPE[connection.sourceScope];
+    clearConnection();
+    if (!valid) return;
+    const item = state.snapshot.items.items.find((entry) => String(entry.id) === connection.sourceId);
+    if (!item || String(item.parent_id || "") === targetId) return;
+    const before = structuredClone(state.snapshot);
+    item.parent_id = targetId;
+    render();
+    await saveSnapshot(before, "items");
+    event.preventDefault();
+  }
+
+  function cancelConnection(event) {
+    if (!state.connection || state.connection.pointerId !== event.pointerId) return;
+    clearConnection();
+  }
+
+  function clearConnection() {
+    const connection = state.connection;
+    if (!connection) return;
+    state.connection = null;
+    if (connection.handle.hasPointerCapture(connection.pointerId)) {
+      connection.handle.releasePointerCapture(connection.pointerId);
+    }
+    temporaryLine.classList.remove("is-active");
+    temporaryLine.setAttribute("d", "");
+    for (const target of document.querySelectorAll(".relation-card.is-valid-target")) {
+      target.classList.remove("is-valid-target");
+    }
+  }
+
+  async function disconnect(event) {
+    const button = event.target.closest("[data-disconnect]");
+    if (!button || state.saving || state.drag || state.connection) return;
+    const sourceId = button.closest(".relation-card")?.dataset.itemId;
+    const item = state.snapshot.items.items.find((entry) => String(entry.id) === sourceId);
+    if (!item || !item.parent_id) return;
+    const before = structuredClone(state.snapshot);
+    item.parent_id = "";
+    render();
+    await saveSnapshot(before, "items");
+    event.preventDefault();
   }
 
   async function saveSnapshot(before, target) {
