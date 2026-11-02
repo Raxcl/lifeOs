@@ -287,7 +287,7 @@ struct JournalDatabases {
     frog_backlog: Vec<FrogBacklogItem>,
     habits: HabitDay,
     habit_definitions: Vec<HabitDefinition>,
-    plan_items: Vec<PlanItem>,
+    plan_items: Option<Vec<PlanItem>>,
     annual_goals: AnnualGoalRecord,
     paths: DatabasePaths,
 }
@@ -2466,6 +2466,8 @@ async fn get_journal_databases(
     let year = year_key(&date)?;
     let week = week_key(&date)?;
     let (frogs_path, habits_path, items_path, annual_goals_path) = database_paths(&app)?;
+    let plan_items_present = items_path.exists()
+        || items_path.with_file_name("monthly-important.csv").exists();
 
     let frogs_db = read_frog_database(&frogs_path)?;
     let habits_db = read_habit_database(&habits_path)?;
@@ -2510,7 +2512,8 @@ async fn get_journal_databases(
         frog_backlog: collect_frog_backlog(&frogs_db.days),
         habits,
         habit_definitions: habits_db.definitions,
-        plan_items: select_journal_plan_items(&items_db.items, &week, &month),
+        plan_items: plan_items_present
+            .then(|| select_journal_plan_items(&items_db.items, &week, &month)),
         annual_goals,
         paths: database_path_labels(&frogs_path, &habits_path, &items_path, &annual_goals_path),
     })
@@ -2660,7 +2663,7 @@ async fn save_journal_databases(
         frog_backlog: collect_frog_backlog(&frogs_db.days),
         habits: saved_habits,
         habit_definitions: habits_db.definitions,
-        plan_items: select_journal_plan_items(&items_db.items, &week, &month),
+        plan_items: Some(select_journal_plan_items(&items_db.items, &week, &month)),
         annual_goals: saved_annual_goals,
         paths: database_path_labels(&frogs_path, &habits_path, &items_path, &annual_goals_path),
     })
