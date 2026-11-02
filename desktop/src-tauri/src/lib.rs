@@ -239,6 +239,8 @@ struct PlanItem {
     created_at: Option<u64>,
     #[serde(default)]
     updated_at: Option<u64>,
+    #[serde(default)]
+    sort_order: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -1165,7 +1167,7 @@ const ANNUAL_GOAL_CSV_HEADERS: &[&str] = &[
 ];
 
 const PLAN_ITEM_CSV_HEADERS: &[&str] = &[
-    "item_id", "text", "done", "note", "scope", "period", "parent_id", "created_at", "updated_at",
+    "item_id", "text", "done", "note", "scope", "period", "parent_id", "created_at", "updated_at", "sort_order",
 ];
 const LEGACY_MONTHLY_CSV_HEADERS: &[&str] = &[
     "month", "item_id", "text", "done", "note", "created_at", "updated_at",
@@ -1355,6 +1357,7 @@ fn sort_plan_items(items: &mut Vec<PlanItem>) {
         scope_rank(&a.scope)
             .cmp(&scope_rank(&b.scope))
             .then(a.period.cmp(&b.period))
+            .then(a.sort_order.cmp(&b.sort_order))
             .then(a.created_at.cmp(&b.created_at))
             .then(a.id.cmp(&b.id))
     });
@@ -1381,6 +1384,7 @@ fn migrate_monthly_to_items(legacy: &Path, target: &Path) -> Result<(), String> 
             parent_id: String::new(),
             created_at: parse_optional_u64(&csv_cell(&row, "created_at")).or(Some(now)),
             updated_at: parse_optional_u64(&csv_cell(&row, "updated_at")).or(Some(now)),
+            sort_order: 0,
         });
     }
     sort_plan_items(&mut items);
@@ -1406,6 +1410,15 @@ fn upsert_plan_items(items: &mut Vec<PlanItem>, incoming: Vec<PlanItem>, now: u6
             let raw = item.id.trim();
             if raw.is_empty() { format!("item-{now}-{}", items.len() + 1) } else { raw.to_string() }
         };
+        let sort_order = if item.sort_order == 0 {
+            items.iter()
+                .filter(|existing| existing.scope == scope && existing.period == period)
+                .map(|existing| existing.sort_order)
+                .max()
+                .unwrap_or(0) + 1
+        } else {
+            item.sort_order
+        };
 
         if let Some(existing) = items.iter_mut().find(|e| e.id == id) {
             let differs = existing.text != text
@@ -1413,7 +1426,8 @@ fn upsert_plan_items(items: &mut Vec<PlanItem>, incoming: Vec<PlanItem>, now: u6
                 || existing.note != note
                 || existing.scope != scope
                 || existing.period != period
-                || existing.parent_id != parent_id;
+                || existing.parent_id != parent_id
+                || existing.sort_order != item.sort_order;
             if differs {
                 existing.text = text;
                 existing.done = item.done;
@@ -1421,6 +1435,7 @@ fn upsert_plan_items(items: &mut Vec<PlanItem>, incoming: Vec<PlanItem>, now: u6
                 existing.scope = scope;
                 existing.period = period;
                 existing.parent_id = parent_id;
+                existing.sort_order = item.sort_order;
                 existing.updated_at = Some(now);
                 changed = true;
             }
@@ -1435,6 +1450,7 @@ fn upsert_plan_items(items: &mut Vec<PlanItem>, incoming: Vec<PlanItem>, now: u6
                 parent_id,
                 created_at: item.created_at.or(Some(now)),
                 updated_at: Some(now),
+                sort_order,
             });
             changed = true;
         }
@@ -1487,6 +1503,7 @@ fn read_plan_item_database(path: &Path) -> Result<PlanItemDatabase, String> {
             parent_id: csv_cell(&row, "parent_id"),
             created_at: parse_optional_u64(&csv_cell(&row, "created_at")).or(Some(now)),
             updated_at: parse_optional_u64(&csv_cell(&row, "updated_at")).or(Some(now)),
+            sort_order: csv_cell(&row, "sort_order").parse().unwrap_or(0),
         });
     }
     sort_plan_items(&mut items);
@@ -1507,6 +1524,7 @@ fn write_plan_item_database(path: &Path, database: &PlanItemDatabase) -> Result<
             item.parent_id.clone(),
             timestamp_csv(item.created_at),
             timestamp_csv(item.updated_at),
+            item.sort_order.to_string(),
         ])
         .collect();
     write_csv(path, PLAN_ITEM_CSV_HEADERS, rows)
@@ -2415,6 +2433,7 @@ async fn save_plan_item_database(
             parent_id,
             created_at: prev.and_then(|p| p.created_at).or(item.created_at).or(Some(now)),
             updated_at: if differs { Some(now) } else { prev.and_then(|p| p.updated_at) },
+            sort_order: item.sort_order,
         });
     }
 
@@ -3085,12 +3104,12 @@ day_index: 42
                 PlanItem {
                     id: "a".into(), text: "周事".into(), done: false, note: "".into(),
                     scope: "week".into(), period: "2026-10-26".into(), parent_id: "m1".into(),
-                    created_at: Some(10), updated_at: Some(20),
+                    created_at: Some(10), updated_at: Some(20), sort_order: 0,
                 },
                 PlanItem {
                     id: "b".into(), text: "收集箱".into(), done: true, note: "备注, 带逗号".into(),
                     scope: "inbox".into(), period: "".into(), parent_id: "".into(),
-                    created_at: Some(1), updated_at: Some(2),
+                    created_at: Some(1), updated_at: Some(2), sort_order: 0,
                 },
             ],
         };
@@ -3106,6 +3125,42 @@ day_index: 42
         assert_eq!(b.note, "备注, 带逗号");
         assert!(b.done);
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn plan_item_sort_order_round_trip_and_legacy_default() {
+        let dir = temp_dir("plan-item-sort-order");
+        let path = dir.join("items.csv");
+        write_csv(
+            &path,
+            &["item_id", "text", "done", "note", "scope", "period", "parent_id", "created_at", "updated_at"],
+            vec![vec!["m1".into(), "月事项".into(), "No".into(), "".into(), "month".into(), "2026-10".into(), "".into(), "1".into(), "1".into()]],
+        ).unwrap();
+        let legacy = read_plan_item_database(&path).unwrap();
+        assert_eq!(legacy.items[0].sort_order, 0);
+
+        let mut database = legacy;
+        database.items[0].sort_order = 7;
+        write_plan_item_database(&path, &database).unwrap();
+        assert_eq!(read_plan_item_database(&path).unwrap().items[0].sort_order, 7);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn upsert_sort_order_assigns_new_item_and_tracks_reorder() {
+        let mut items = vec![sample_item("a", "month", "2026-10", false)];
+        items[0].sort_order = 4;
+        let mut incoming = sample_item("b", "month", "2026-10", false);
+        incoming.sort_order = 0;
+        assert!(upsert_plan_items(&mut items, vec![incoming], 10).unwrap());
+        assert_eq!(items.iter().find(|item| item.id == "b").unwrap().sort_order, 5);
+
+        let mut reordered = sample_item("a", "month", "2026-10", false);
+        reordered.sort_order = 9;
+        assert!(upsert_plan_items(&mut items, vec![reordered], 20).unwrap());
+        let a = items.iter().find(|item| item.id == "a").unwrap();
+        assert_eq!(a.sort_order, 9);
+        assert_eq!(a.updated_at, Some(20));
     }
 
     #[test]
@@ -3139,7 +3194,7 @@ day_index: 42
         PlanItem {
             id: id.into(), text: format!("事项 {id}"), done, note: String::new(),
             scope: scope.into(), period: period.into(), parent_id: String::new(),
-            created_at: Some(1), updated_at: Some(1),
+            created_at: Some(1), updated_at: Some(1), sort_order: 0,
         }
     }
 
