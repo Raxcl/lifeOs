@@ -212,7 +212,7 @@ async function clickSelector(evaluate, mouse, selector) {
   await mouse("mouseReleased", point.x, point.y);
 }
 
-async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging) {
+async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging, { cancel = false } = {}) {
   const points = await evaluate(`(async () => {
     const card = document.querySelector('.relation-card[data-item-id="${sourceId}"]');
     const target = document.querySelector('[data-item-id="${targetId}"]');
@@ -231,6 +231,9 @@ async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging)
   await mouse("mouseMoved", points.end.x, points.end.y);
   await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
   if (whileDragging) await whileDragging(points);
+  if (cancel) {
+    await evaluate(`document.querySelector('.relation-card[data-item-id="${sourceId}"]').dispatchEvent(new PointerEvent("pointercancel", { bubbles: true, pointerId: 1 }))`);
+  }
   await mouse("mouseReleased", points.end.x, points.end.y);
 }
 
@@ -594,11 +597,18 @@ const tests = [
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationGraph path[data-source="w1"]')`, "week sort fixture");
       const beforePath = await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`);
       const beforeTop = await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect().top`);
+      const beforeNodeY = await evaluate(`document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').transform.baseVal.consolidate().matrix.f`);
       const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
       const beforeItems = await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items`);
       await dragCardBelow(evaluate, mouse, "w1", "w2", async (points) => {
         const duringTop = await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect().top`);
         assert.ok(Math.abs(duringTop - (beforeTop + points.end.y - points.start.y)) < 1, "dragged card must follow the pointer before pointerup");
+        const cssTranslateY = await evaluate(`(() => {
+          const transform = document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').style.transform;
+          return transform ? new DOMMatrixReadOnly(transform).f : null;
+        })()`);
+        assert.ok(cssTranslateY !== null, "the node view must receive an inline CSS transform while dragging");
+        assert.ok(Math.abs(cssTranslateY - (beforeNodeY + points.end.y - points.start.y)) < 1, "CSS translation must match the pointer-driven node position");
         const duringPath = await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`);
         assert.notEqual(duringPath, beforePath, "formal path must follow the card before pointerup");
       });
@@ -606,6 +616,7 @@ const tests = [
         const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
         return items.find((item) => item.id === "w2").sort_order === 1 && items.find((item) => item.id === "w1").sort_order === 2;
       })()`, "week sort save");
+      assert.equal(await evaluate(`document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').style.transform`), "", "pointerup must clear the temporary CSS transform");
       const saved = await evaluate(`(() => {
         const database = JSON.parse(localStorage.getItem("lifeos-db:items"));
         const order = Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => {
@@ -623,6 +634,22 @@ const tests = [
       await evaluate(`location.reload()`);
       await waitFor(evaluate, `Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId).join(",") === "w2,w1"`, "week order after refresh");
       assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), ["w2", "w1"]);
+    }
+  },
+  {
+    name: "relation cancelled sorting clears temporary view transform and restores snapshot",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
+      const before = await evaluate(`localStorage.getItem("lifeos-db:items")`);
+      await dragCardBelow(evaluate, mouse, "w1", "w2", async () => {
+        assert.notEqual(await evaluate(`document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').style.transform`), "", "cancel fixture must exercise the temporary CSS transform");
+      }, { cancel: true });
+      await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+      assert.equal(await evaluate(`document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').style.transform`), "", "pointercancel must clear the temporary CSS transform");
+      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before);
+      assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), ["w1", "w2"]);
     }
   },
   {
@@ -711,6 +738,109 @@ const tests = [
         assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), ["w1", "w2"], "editing must not reorder cards");
       } finally {
         await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__writes;`);
+      }
+    }
+  },
+  {
+    name: "relation add buttons save current week month and year cards at column ends",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
+      const periods = await evaluate(`(() => {
+        const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
+        const years = JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years;
+        return {
+          week: items.find((item) => item.id === "w1").period,
+          month: items.find((item) => item.id === "m1").period,
+          year: years.find((record) => record.items.some((item) => item.id === "y1")).year
+        };
+      })()`);
+      for (const [scope, text] of [["week", "新增本周事项"], ["month", "新增本月事项"], ["year", "新增今年目标"]]) {
+        await clickSelector(evaluate, mouse, `[data-add-card="${scope}"]`);
+        await waitFor(evaluate, `document.querySelector('.relation-card[data-scope="${scope}"] [data-edit-input]')`, `${scope} add editor`);
+        const id = await evaluate(`document.querySelector('.relation-card[data-scope="${scope}"] [data-edit-input]').closest('.relation-card').dataset.itemId`);
+        assert.equal(await evaluate(`document.querySelector('.relation-card[data-item-id="${id}"] [data-edit-input]').value`), "", "a new card must start blank");
+        await setEditValue(evaluate, text);
+        await pressKeyOn(evaluate, `.relation-card[data-item-id="${id}"] [data-edit-input]`, "Enter");
+        const savedExpression = scope === "year"
+          ? `JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years.flatMap((record) => record.items).some((item) => item.id === "${id}" && item.text === "${text}")`
+          : `JSON.parse(localStorage.getItem("lifeos-db:items")).items.some((item) => item.id === "${id}" && item.text === "${text}")`;
+        await waitFor(evaluate, savedExpression, `${scope} new card save`);
+        const record = await evaluate(scope === "year"
+          ? `JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years.flatMap((record) => record.items).find((item) => item.id === "${id}")`
+          : `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "${id}")`);
+        assert.equal(record.text, text);
+        assert.equal(record.done, false);
+        assert.equal(record.sort_order, 3, "the new card must follow the two existing cards");
+        if (scope === "year") {
+          assert.equal(await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years.find((record) => record.items.some((item) => item.id === "${id}")).year`), periods.year);
+        } else {
+          assert.equal(record.scope, scope);
+          assert.equal(record.period, periods[scope]);
+          assert.equal(record.parent_id, "");
+          assert.equal(record.note, "");
+        }
+        assert.equal(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="${scope}"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).at(-1).dataset.itemId`), id, "the saved card must remain at the column end");
+        assert.equal(await evaluate(`document.querySelector('.relation-card[data-item-id="${id}"] [data-edit-input]')`), null, "saving must close the editor");
+      }
+    }
+  },
+  {
+    name: "relation escape or blank commit removes an unsaved new card",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
+      const before = await evaluate(`({
+        items: localStorage.getItem("lifeos-db:items"),
+        annual: localStorage.getItem("lifeos-db:annual-goals")
+      })`);
+      await clickSelector(evaluate, mouse, '[data-add-card="week"]');
+      await waitFor(evaluate, `document.querySelector('.relation-card[data-scope="week"] [data-edit-input]')`, "new week cancellation fixture");
+      const weekId = await evaluate(`document.querySelector('.relation-card[data-scope="week"] [data-edit-input]').closest('.relation-card').dataset.itemId`);
+      await pressKeyOn(evaluate, `.relation-card[data-item-id="${weekId}"] [data-edit-input]`, "Escape");
+      await waitFor(evaluate, `!document.querySelector('.relation-card[data-item-id="${weekId}"]')`, "escape removes the new week card");
+      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
+
+      await clickSelector(evaluate, mouse, '[data-add-card="year"]');
+      await waitFor(evaluate, `document.querySelector('.relation-card[data-scope="year"] [data-edit-input]')`, "new year cancellation fixture");
+      const yearId = await evaluate(`document.querySelector('.relation-card[data-scope="year"] [data-edit-input]').closest('.relation-card').dataset.itemId`);
+      await setEditValue(evaluate, "   ");
+      await pressKeyOn(evaluate, `.relation-card[data-item-id="${yearId}"] [data-edit-input]`, "Enter");
+      await waitFor(evaluate, `!document.querySelector('.relation-card[data-item-id="${yearId}"]')`, "blank commit removes the new year card");
+      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
+      assert.equal(await evaluate(`document.querySelectorAll("[data-edit-input]").length`), 0);
+    }
+  },
+  {
+    name: "relation new card save failure restores the pre-add snapshot",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
+      const before = await evaluate(`localStorage.getItem("lifeos-db:items")`);
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items") throw new Error("模拟新增保存失败");
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      try {
+        await clickSelector(evaluate, mouse, '[data-add-card="week"]');
+        await waitFor(evaluate, `document.querySelector('.relation-card[data-scope="week"] [data-edit-input]')`, "new card rollback fixture");
+        const id = await evaluate(`document.querySelector('.relation-card[data-scope="week"] [data-edit-input]').closest('.relation-card').dataset.itemId`);
+        await setEditValue(evaluate, "保存失败的新事项");
+        await pressKeyOn(evaluate, `.relation-card[data-item-id="${id}"] [data-edit-input]`, "Enter");
+        await waitFor(evaluate, `document.querySelector('#relationNotice').textContent.includes("保存失败，已撤销")`, "new card rollback notice");
+        await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+        assert.equal(await evaluate(`document.querySelector('.relation-card[data-item-id="${id}"]')`), null);
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before);
+        assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), ["w1", "w2"]);
+        assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /模拟新增保存失败/);
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem;`);
       }
     }
   },

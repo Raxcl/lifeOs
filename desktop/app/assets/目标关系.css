@@ -133,6 +133,9 @@ button { -webkit-app-region: no-drag; }
 .relation-column { min-width: 0; }
 
 .relation-column h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin: 0 0 18px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
@@ -140,6 +143,24 @@ button { -webkit-app-region: no-drag; }
   font-weight: 750;
   letter-spacing: .08em;
 }
+
+.relation-add {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--accent);
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.relation-add:hover { border-color: var(--accent); background: var(--accent-soft); }
+.relation-add:disabled { cursor: default; opacity: .45; }
 
 .relation-cards { padding-top: 54px; }
 

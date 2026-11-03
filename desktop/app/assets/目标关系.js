@@ -35,6 +35,7 @@
     columns: { week: [], month: [], year: [] },
     saving: false,
     drag: null,
+    newCard: null,
     layout: null,
     heights: new Map(),
     measureQueued: false,
@@ -115,6 +116,7 @@
     if (!event.target.closest(".x6-edge")) clearEdgeSelection();
   });
   board.addEventListener("click", disconnect);
+  board.addEventListener("click", addCard);
   window.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("resize", resizeGraph);
   window.addEventListener("beforeunload", (event) => {
@@ -593,6 +595,49 @@
     });
   }
 
+  function addCard(event) {
+    const button = event.target.closest("[data-add-card]");
+    if (!button || state.saving || state.drag || !state.snapshot) return;
+    const scope = button.dataset.addCard;
+    const id = uid(scope);
+    const timestamp = nowSeconds();
+    const sortOrder = Math.max(0, ...state.columns[scope].map((item) => Number(item.sort_order) || 0)) + 1;
+    const before = structuredClone(state.snapshot);
+    if (scope === "year") {
+      let year = state.snapshot.annual_goals.years.find((record) => String(record.year) === currentYear);
+      if (!year) {
+        year = { year: currentYear, updated_at: timestamp, items: [] };
+        state.snapshot.annual_goals.years.push(year);
+      }
+      year.items.push({ id, text: "", done: false, created_at: timestamp, updated_at: timestamp, sort_order: sortOrder });
+      year.updated_at = timestamp;
+    } else {
+      state.snapshot.items.items.push({
+        id,
+        text: "",
+        done: false,
+        note: "",
+        scope,
+        period: scope === "week" ? currentWeek : currentMonth,
+        parent_id: "",
+        created_at: timestamp,
+        updated_at: timestamp,
+        sort_order: sortOrder
+      });
+    }
+    state.newCard = { id, before };
+    render();
+    startEdit(id);
+    event.preventDefault();
+  }
+
+  function discardNewCard() {
+    if (!state.newCard) return;
+    state.snapshot = state.newCard.before;
+    state.newCard = null;
+    render();
+  }
+
   function installEditHandlers() {
     board.addEventListener("dblclick", (event) => {
       if (state.saving || state.drag) return;
@@ -650,12 +695,18 @@
     if (!node || !data.editing) return;
     const value = String(input.value).trim();
     const scope = data.scope;
+    const isNew = state.newCard?.id === id;
+    if (isNew && !value) {
+      discardNewCard();
+      return;
+    }
     syncNodeData(id);
     refreshLayout();
     const record = findRecord(scope, id);
     if (!record || !value || value === String(record.text || "")) return;
-    const before = structuredClone(state.snapshot);
+    const before = isNew ? state.newCard.before : structuredClone(state.snapshot);
     record.text = value;
+    if (isNew) state.newCard = null;
     syncNodeData(id);
     refreshLayout();
     saveSnapshot(before, scope === "year" ? "annual" : "items");
@@ -665,6 +716,10 @@
     const id = input.closest(".relation-card")?.dataset.itemId;
     const node = id && graph.getCellById(id);
     if (!node || !node.getData().editing) return;
+    if (state.newCard?.id === id) {
+      discardNewCard();
+      return;
+    }
     syncNodeData(id);
     refreshLayout();
   }
@@ -716,6 +771,7 @@
       drag.card.classList.add("is-dragging");
     }
     drag.node.position(state.layout.x[drag.scope], drag.startNodeY + deltaY);
+    syncDragView(drag);
     const pointerY = drag.pointerBoardY + deltaY;
     let index = 0;
     for (const id of drag.others) {
@@ -743,12 +799,25 @@
     }
   }
 
+  function syncDragView(drag) {
+    const view = graph.findView(drag.node);
+    if (!view) return;
+    const { x, y } = drag.node.getPosition();
+    view.container.style.transform = `translate(${x}px, ${y}px)`;
+  }
+
+  function clearDragView(drag) {
+    const view = graph.findView(drag.node);
+    if (view) view.container.style.transform = "";
+  }
+
   async function finishSort(event) {
     const drag = state.drag;
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
     state.drag = null;
     if (drag.card.hasPointerCapture(event.pointerId)) drag.card.releasePointerCapture(event.pointerId);
     drag.card.classList.remove("is-dragging");
+    clearDragView(drag);
     if (!drag.moved) return;
     if (drag.order.join("\u0000") === drag.beforeOrder.join("\u0000")) {
       layoutColumns();
@@ -777,6 +846,7 @@
     state.drag = null;
     if (drag.card.hasPointerCapture(event.pointerId)) drag.card.releasePointerCapture(event.pointerId);
     drag.card.classList.remove("is-dragging");
+    clearDragView(drag);
     state.snapshot = drag.before;
     render();
   }
