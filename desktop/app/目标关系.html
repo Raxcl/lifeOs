@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>目标关系 | LifeOS</title>
   <link rel="stylesheet" href="assets/window-frame.css" />
-  <link rel="stylesheet" href="assets/目标关系.css" />
+  <link rel="stylesheet" href="assets/目标关系.css?v=20261103d" />
 </head>
 <body>
   <div class="window-frame" data-tauri-drag-region>
@@ -34,14 +34,20 @@
           <section class="relation-column" data-column="month"><h2><span>本月</span><button class="relation-add" type="button" data-add-card="month" aria-label="新增本月事项" title="新增本月事项">＋</button></h2><div class="relation-cards" id="monthCards"></div></section>
           <section class="relation-column" data-column="year"><h2><span>今年</span><button class="relation-add" type="button" data-add-card="year" aria-label="新增今年目标" title="新增今年目标">＋</button></h2><div class="relation-cards" id="yearCards"></div></section>
         </div>
-        <div class="relation-graph" id="relationGraph"></div>
+        <svg id="relationSvg" aria-hidden="true">
+          <defs>
+            <marker id="relationArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto" markerUnits="strokeWidth" viewBox="0 0 9 7"><path d="M 0 0 L 9 3.5 L 0 7 Z" fill="#687d5b" /></marker>
+            <marker id="relationArrowSelected" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto" markerUnits="strokeWidth" viewBox="0 0 9 7"><path d="M 0 0 L 9 3.5 L 0 7 Z" fill="#a45c50" /></marker>
+          </defs>
+          <g id="relationLines"></g>
+          <path id="temporaryLine" d="" />
+        </svg>
       </div>
     </div>
   </main>
   <script src="assets/lifeos-shared.js"></script>
   <script src="assets/window-controls.js"></script>
   <script src="assets/app-background.js"></script>
-  <script src="assets/vendor/x6.min.js"></script>
-  <script src="assets/目标关系.js"></script>
+  <script src="assets/目标关系.js?v=20261103d"></script>
 </body>
 </html>

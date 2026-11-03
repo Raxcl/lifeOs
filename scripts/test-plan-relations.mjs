@@ -239,12 +239,12 @@ async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging,
 
 async function clickEdgePath(evaluate, mouse, sourceId) {
   const point = await evaluate(`(() => {
-    const path = document.querySelector('#relationGraph path[data-source="${sourceId}"]');
+    const path = document.querySelector('#relationLines path[data-source="${sourceId}"]');
     if (!path) throw new Error("Missing formal edge path for ${sourceId}");
     const middle = path.getPointAtLength(path.getTotalLength() / 2);
     const mapped = middle.matrixTransform(path.getScreenCTM());
     const top = document.elementFromPoint(mapped.x, mapped.y);
-    if (!top || !top.closest(".x6-edge")) {
+    if (top !== path) {
       throw new Error("Edge midpoint for ${sourceId} is covered by " + (top ? top.tagName + " " + (top.getAttribute("class") || "") : "null"));
     }
     return { x: mapped.x, y: mapped.y };
@@ -259,14 +259,10 @@ async function pressKey(evaluate, key) {
 }
 
 async function waitForSettledLayout(evaluate) {
-  await waitFor(evaluate, `(() => {
-    const nodes = Array.from(document.querySelectorAll('#relationGraph .x6-node'));
-    return nodes.length > 0 && nodes.every((node) => {
-      const frame = node.querySelector('foreignObject');
-      const card = node.querySelector('.relation-card');
-      return Boolean(frame && card) && Math.abs(Number(frame.getAttribute('height')) - card.offsetHeight) < 1;
-    });
-  })()`, "relation layout to settle");
+  await evaluate(`(async () => {
+    await document.fonts.ready;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  })()`);
 }
 
 async function doubleClickCard(evaluate, mouse, itemId) {
@@ -302,8 +298,8 @@ async function pressKeyOn(evaluate, selector, key) {
 
 async function dragConnection(evaluate, mouse, sourceId, targetId, { whileDragging, cancel = false } = {}) {
   const points = await evaluate(`(async () => {
-    const handle = document.querySelector('.x6-node:has(.relation-card[data-item-id="${sourceId}"]) .relation-port[port-group="out"]');
-    const target = ${targetId ? `document.querySelector('.x6-node:has(.relation-card[data-item-id="${targetId}"]) .relation-port[port-group="in"]')` : "null"};
+    const handle = document.querySelector('.relation-card[data-item-id="${sourceId}"] [data-connect="out"]');
+    const target = ${targetId ? `document.querySelector('.relation-card[data-item-id="${targetId}"] [data-connect="in"]')` : "null"};
     const board = document.querySelector("#relationBoard");
     if (!handle || (${Boolean(targetId)} && !target)) throw new Error("Missing connection drag fixture");
     if (target) target.scrollIntoView({ block: "center", inline: "center" });
@@ -502,7 +498,9 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelectorAll('#relationGraph path[data-source]').length === 2`, "relation cards and formal paths");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelectorAll('#relationLines path[data-source]').length === 2`, "relation cards and formal paths");
+      assert.ok(await evaluate(`Array.from(document.querySelectorAll(".relation-card")).every((card) => card.parentElement.id === card.dataset.scope + "Cards" && !card.closest("foreignObject"))`), "cards must render directly in their HTML columns");
+      assert.equal(await evaluate(`document.querySelector(".x6-node")`), null, "the relation page must not depend on X6 node rendering");
       const cards = await evaluate(`(() => {
         const cardIds = (scope) => Array.from(document.querySelectorAll('.relation-card[data-scope="' + scope + '"]'))
           .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
@@ -525,21 +523,22 @@ const tests = [
         ];
       })()`);
       assert.deepEqual(await evaluate(`["w1", "m1", "y1"].map((id) => document.querySelector('[data-item-id="' + id + '"] .relation-card-kind').textContent)`), expectedPeriodLabels);
-      assert.equal(await evaluate(`document.querySelectorAll("#relationGraph path[data-source]").length`), 2);
-      assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').dataset.target`), "m1");
-      assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="m1"]').dataset.target`), "y1");
-      assert.ok(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d").includes(" C ")`));
+      assert.equal(await evaluate(`document.querySelectorAll("#relationLines path[data-source]").length`), 2);
+      assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').dataset.target`), "m1");
+      assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="m1"]').dataset.target`), "y1");
+      assert.ok(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d").includes(" C ")`));
       assert.ok(await evaluate(`document.querySelector('.relation-card[data-item-id="w2"]').classList.contains("is-done")`));
-      assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w2"]')`), null);
-      assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="m2"]')`), null);
+      assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w2"]')`), null);
+      assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="m2"]')`), null);
       assert.equal(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable').textContent`), "上级不可用");
       assert.ok(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable[data-disconnect]').matches("button")`), "the orphan badge must remain a clickable button");
       assert.equal(await evaluate(`document.querySelector('[data-item-id="m-other"]')`), null);
       assert.ok(await evaluate(`["w1", "m1", "y1"].every((id) => document.querySelector('[data-item-id="' + id + '"] button') === null)`), "regular cards must render without buttons");
       assert.equal(await evaluate(`document.querySelectorAll('#relationBoard [data-disconnect]').length`), 1, "only the orphan badge may expose data-disconnect");
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('.relation-card[data-item-id="w1"]')).cursor`), "grab", "cards must advertise whole-card dragging");
-      assert.ok(await evaluate(`["w1", "m1"].every((id) => document.querySelector('.x6-node:has(.relation-card[data-item-id="' + id + '"]) .relation-port'))`));
-      assert.match(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("marker-end")`), /url\(/);
+      assert.ok(await evaluate(`["w1", "m1"].every((id) => document.querySelector('.relation-card[data-item-id="' + id + '"] [data-connect="out"]'))`));
+      assert.ok(await evaluate(`["m1", "y1"].every((id) => document.querySelector('.relation-card[data-item-id="' + id + '"] [data-connect="in"]'))`));
+      assert.match(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("marker-end")`), /url\(/);
     }
   },
   {
@@ -566,15 +565,15 @@ const tests = [
     }
   },
   {
-    name: "relation node hover reveals ports and port hover activates the magnet",
+    name: "relation card hover reveals and activates HTML connection controls",
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"]) .relation-port[port-group="out"]')`, "hover port fixture");
+      await waitFor(evaluate, `document.querySelector('.relation-card[data-item-id="w1"] [data-connect="out"]')`, "hover connection fixture");
       const points = await evaluate(`(() => {
         const card = document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect();
-        const port = document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"]) .relation-port[port-group="out"]').getBoundingClientRect();
+        const port = document.querySelector('.relation-card[data-item-id="w1"] [data-connect="out"]').getBoundingClientRect();
         return {
           card: { x: card.left + card.width / 2, y: card.top + card.height / 2 },
           port: { x: port.left + port.width / 2, y: port.top + port.height / 2 }
@@ -582,10 +581,9 @@ const tests = [
       })()`);
       await mouse("mouseMoved", points.card.x, points.card.y);
       await mouse("mouseMoved", points.card.x + 3, points.card.y + 2);
-      await waitFor(evaluate, `document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').classList.contains("ports-visible")`, "node ports on hover");
-      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"]) .relation-port[port-group="out"]')).visibility`), "visible");
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.relation-card[data-item-id="w1"] [data-connect="out"]')).visibility`), "visible");
       await mouse("mouseMoved", points.port.x, points.port.y);
-      await waitFor(evaluate, `document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"]) .relation-port[port-group="out"]').classList.contains("is-port-active")`, "active port on hover");
+      assert.ok(await evaluate(`document.querySelector('.relation-card[data-item-id="w1"] [data-connect="out"]').matches(":hover")`), "the outgoing control must activate on hover");
     }
   },
   {
@@ -594,29 +592,30 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationGraph path[data-source="w1"]')`, "week sort fixture");
-      const beforePath = await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`);
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationLines path[data-source="w1"]')`, "week sort fixture");
+      const beforePath = await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")`);
       const beforeTop = await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect().top`);
-      const beforeNodeY = await evaluate(`document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').transform.baseVal.consolidate().matrix.f`);
       const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
       const beforeItems = await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items`);
       await dragCardBelow(evaluate, mouse, "w1", "w2", async (points) => {
         const duringTop = await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect().top`);
         assert.ok(Math.abs(duringTop - (beforeTop + points.end.y - points.start.y)) < 1, "dragged card must follow the pointer before pointerup");
-        const cssTranslateY = await evaluate(`(() => {
-          const transform = document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').style.transform;
-          return transform ? new DOMMatrixReadOnly(transform).f : null;
-        })()`);
-        assert.ok(cssTranslateY !== null, "the node view must receive an inline CSS transform while dragging");
-        assert.ok(Math.abs(cssTranslateY - (beforeNodeY + points.end.y - points.start.y)) < 1, "CSS translation must match the pointer-driven node position");
-        const duringPath = await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`);
+        assert.match(await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').style.transform`), /^translateY\(/, "the HTML card itself must carry the pointer-driven translation");
+        const duringPath = await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")`);
         assert.notEqual(duringPath, beforePath, "formal path must follow the card before pointerup");
+        const glueGap = await evaluate(`(() => {
+          const nums = document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d").match(/-?\\d+(?:\\.\\d+)?/g).map(Number);
+          const card = document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect();
+          const board = document.querySelector('#relationBoard').getBoundingClientRect();
+          return Math.hypot(nums[0] - (card.right - board.left), nums[1] - (card.top + card.height / 2 - board.top));
+        })()`);
+        assert.ok(glueGap < 1.5, "the edge start must track the dragged card's real bounds while dragging");
       });
       await waitFor(evaluate, `(() => {
         const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
         return items.find((item) => item.id === "w2").sort_order === 1 && items.find((item) => item.id === "w1").sort_order === 2;
       })()`, "week sort save");
-      assert.equal(await evaluate(`document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').style.transform`), "", "pointerup must clear the temporary CSS transform");
+      assert.equal(await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').style.transform`), "", "pointerup must leave no inline card transform behind");
       const saved = await evaluate(`(() => {
         const database = JSON.parse(localStorage.getItem("lifeos-db:items"));
         const order = Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => {
@@ -637,18 +636,31 @@ const tests = [
     }
   },
   {
-    name: "relation cancelled sorting clears temporary view transform and restores snapshot",
+    name: "relation cancelled sorting clears card translation and restores snapshot",
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      const before = await evaluate(`localStorage.getItem("lifeos-db:items")`);
+      const before = await evaluate(`(() => ({
+        items: localStorage.getItem("lifeos-db:items"),
+        top: document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect().top,
+        path: document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")
+      }))()`);
       await dragCardBelow(evaluate, mouse, "w1", "w2", async () => {
-        assert.notEqual(await evaluate(`document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').style.transform`), "", "cancel fixture must exercise the temporary CSS transform");
+        assert.match(await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').style.transform`), /^translateY\(/, "cancel fixture must exercise the HTML card translation");
+        const glueGap = await evaluate(`(() => {
+          const nums = document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d").match(/-?\\d+(?:\\.\\d+)?/g).map(Number);
+          const card = document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect();
+          const board = document.querySelector('#relationBoard').getBoundingClientRect();
+          return Math.hypot(nums[0] - (card.right - board.left), nums[1] - (card.top + card.height / 2 - board.top));
+        })()`);
+        assert.ok(glueGap < 1.5, "the edge must track the dragged card even when the gesture is cancelled");
       }, { cancel: true });
       await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
-      assert.equal(await evaluate(`document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"])').style.transform`), "", "pointercancel must clear the temporary CSS transform");
-      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before);
+      assert.equal(await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').style.transform`), "", "pointercancel must leave no inline card transform behind");
+      assert.equal(await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect().top`), before.top, "pointercancel must restore the original card position");
+      assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")`), before.path, "pointercancel must restore the original path");
+      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
       assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), ["w1", "w2"]);
     }
   },
@@ -882,11 +894,11 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationGraph path[data-source="w1"]')`, "item rollback fixture");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationLines path[data-source="w1"]')`, "item rollback fixture");
       const before = await evaluate(`(() => ({
         items: localStorage.getItem("lifeos-db:items"),
         order: Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId),
-        path: document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")
+        path: document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")
       }))()`);
       await evaluate(`
         window.__originalSetItem = Storage.prototype.setItem;
@@ -901,7 +913,7 @@ const tests = [
         await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
         assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), before.order);
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
-        assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`), before.path);
+        assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")`), before.path);
         assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /模拟保存失败/);
         assert.ok(await evaluate(`document.querySelector('#relationNotice').classList.contains("is-error")`));
       } finally {
@@ -915,11 +927,11 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('[data-item-id="y2"]') && document.querySelector('#relationGraph path[data-source="m1"]')`, "annual rollback fixture");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="y2"]') && document.querySelector('#relationLines path[data-source="m1"]')`, "annual rollback fixture");
       const before = await evaluate(`(() => ({
         annual: localStorage.getItem("lifeos-db:annual-goals"),
         order: Array.from(document.querySelectorAll('.relation-card[data-scope="year"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId),
-        path: document.querySelector('#relationGraph path[data-source="m1"]').getAttribute("d")
+        path: document.querySelector('#relationLines path[data-source="m1"]').getAttribute("d")
       }))()`);
       await evaluate(`
         window.__originalSetItem = Storage.prototype.setItem;
@@ -934,7 +946,7 @@ const tests = [
         await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
         assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="year"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), before.order);
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
-        assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="m1"]').getAttribute("d")`), before.path);
+        assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="m1"]').getAttribute("d")`), before.path);
         assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /模拟年度保存失败/);
         assert.ok(await evaluate(`document.querySelector('#relationNotice').classList.contains("is-error")`));
       } finally {
@@ -948,7 +960,7 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('.x6-node:has(.relation-card[data-item-id="w2"]) .relation-port')`, "manual connection fixture");
+      await waitFor(evaluate, `document.querySelector('.relation-card[data-item-id="w2"] [data-connect="out"]')`, "manual connection fixture");
       const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
 
       await dragConnection(evaluate, mouse, "w2", "m2");
@@ -957,19 +969,19 @@ const tests = [
         "m2",
         "the first connection must persist w2.parent_id"
       );
-      await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w2"][data-target="m2"]')`, "w2 to m2 formal path");
-      assert.equal(await evaluate(`document.querySelectorAll('#relationGraph path[data-source="w2"]').length`), 1);
-      assert.equal(await evaluate(`document.querySelectorAll("#relationGraph .x6-edge:not(:has(path[data-source]))").length`), 0);
-      assert.equal(await evaluate(`document.querySelectorAll(".x6-available-magnet").length`), 0);
+      await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="w2"][data-target="m2"]')`, "w2 to m2 formal path");
+      assert.equal(await evaluate(`document.querySelectorAll('#relationLines path[data-source="w2"]').length`), 1);
+      assert.equal(await evaluate(`document.querySelector("#temporaryLine").getAttribute("d").length`), 0);
+      assert.equal(await evaluate(`document.querySelectorAll(".relation-card.is-valid-target").length`), 0);
 
       await dragConnection(evaluate, mouse, "w2", "m1");
       await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id === "m1"`, "replacement parent save");
-      await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w2"][data-target="m1"]')`, "replacement formal path");
+      await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="w2"][data-target="m1"]')`, "replacement formal path");
       const replacement = await evaluate(`(() => {
         const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items.filter((item) => item.id === "w2");
         return {
           parents: items.map((item) => item.parent_id),
-          paths: Array.from(document.querySelectorAll('#relationGraph path[data-source="w2"]'), (path) => path.dataset.target)
+          paths: Array.from(document.querySelectorAll('#relationLines path[data-source="w2"]'), (path) => path.dataset.target)
         };
       })()`);
       assert.deepEqual(replacement.parents, ["m1"], "replacement must keep one item and overwrite parent_id");
@@ -995,42 +1007,39 @@ const tests = [
     }
   },
   {
-    name: "relation X6 preview highlights only legal target ports",
+    name: "relation HTML preview highlights only legal target cards",
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('.x6-node:has(.relation-card[data-item-id="w2"]) .relation-port')`, "connection preview fixture");
+      await waitFor(evaluate, `document.querySelector('.relation-card[data-item-id="w2"] [data-connect="out"]')`, "connection preview fixture");
       await dragConnection(evaluate, mouse, "w2", "m2", {
         whileDragging: async () => {
-          const preview = await evaluate(`(() => {
-            const edge = document.querySelector("#relationGraph .x6-edge:not(:has(path[data-source]))");
-            const path = edge?.querySelector("path");
-            return {
-              path: path?.getAttribute("d") || "",
-              highlights: Array.from(document.querySelectorAll(".x6-available-magnet"), (magnet) => magnet.closest(".x6-node")?.querySelector(".relation-card")?.dataset.itemId)
-            };
-          })()`);
-          assert.ok(preview.path.length > 0, "X6 must render a live preview edge");
-          assert.deepEqual([...new Set(preview.highlights)].sort(), ["m1", "m2"], "only month input ports are legal week targets");
+          const preview = await evaluate(`(() => ({
+            path: document.querySelector("#temporaryLine").getAttribute("d") || "",
+            active: document.querySelector("#temporaryLine").classList.contains("is-active"),
+            highlights: Array.from(document.querySelectorAll(".relation-card.is-valid-target"), (card) => card.dataset.itemId)
+          }))()`);
+          assert.ok(preview.path.length > 0 && preview.active, "the SVG temporary line must follow the live gesture");
+          assert.deepEqual([...new Set(preview.highlights)].sort(), ["m1", "m2"], "only month cards are legal week targets");
         }
       });
       await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id === "m2"`, "preview connection save");
-      assert.equal(await evaluate(`document.querySelectorAll("#relationGraph .x6-edge:not(:has(path[data-source]))").length`), 0);
-      assert.equal(await evaluate(`document.querySelectorAll(".x6-available-magnet").length`), 0);
+      assert.equal(await evaluate(`document.querySelector("#temporaryLine").getAttribute("d").length`), 0);
+      assert.equal(await evaluate(`document.querySelectorAll(".relation-card.is-valid-target").length`), 0);
     }
   },
   {
-    name: "relation invalid blank and cancelled X6 gestures leave data unchanged",
+    name: "relation invalid blank and cancelled HTML gestures leave data unchanged",
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"][data-target="m1"]')`, "connection cancellation fixture");
+      await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="w1"][data-target="m1"]')`, "connection cancellation fixture");
       const before = await evaluate(`(() => ({
         items: localStorage.getItem("lifeos-db:items"),
         annual: localStorage.getItem("lifeos-db:annual-goals"),
-        path: document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")
+        path: document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")
       }))()`);
       await evaluate(`
         window.__originalSetItem = Storage.prototype.setItem;
@@ -1043,9 +1052,9 @@ const tests = [
       const assertUnchanged = async () => {
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
-        assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`), before.path);
-        assert.equal(await evaluate(`document.querySelectorAll("#relationGraph .x6-edge:not(:has(path[data-source]))").length`), 0);
-        assert.equal(await evaluate(`document.querySelectorAll(".x6-available-magnet").length`), 0);
+        assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")`), before.path);
+        assert.equal(await evaluate(`document.querySelector("#temporaryLine").getAttribute("d").length`), 0);
+        assert.equal(await evaluate(`document.querySelectorAll(".relation-card.is-valid-target").length`), 0);
       };
       try {
         await dragConnection(evaluate, mouse, "w1", "y1");
@@ -1074,13 +1083,13 @@ const tests = [
       await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "m2").parent_id === ""`, "unavailable parent disconnect");
       await waitFor(evaluate, `!document.querySelector('[data-item-id="m2"] .relation-unavailable')`, "unavailable badge removal");
       assert.equal(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable')`), null);
-      assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="m2"]')`), null);
+      assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="m2"]')`), null);
 
       await dragConnection(evaluate, mouse, "m2", "y1");
       await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "m2").parent_id === "y1"`, "month to year save");
-      await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="m2"][data-target="y1"]')`, "month to year path");
+      await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="m2"][data-target="y1"]')`, "month to year path");
       await dragConnection(evaluate, mouse, "w2", "m2");
-      await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w2"][data-target="m2"]')`, "valid parent disconnect fixture");
+      await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="w2"][data-target="m2"]')`, "valid parent disconnect fixture");
 
       await evaluate(`
         window.__originalSetItem = Storage.prototype.setItem;
@@ -1090,7 +1099,7 @@ const tests = [
           return window.__originalSetItem.call(this, key, value);
         };
       `);
-      const edgeStroke = `document.querySelector('#relationGraph path[data-source="w2"]').getAttribute("stroke")`;
+      const edgeStroke = `document.querySelector('#relationLines path[data-source="w2"]').getAttribute("stroke")`;
       try {
         await clickEdgePath(evaluate, mouse, "w2");
         await waitFor(evaluate, `${edgeStroke} === "#a45c50"`, "selected edge highlight");
@@ -1104,7 +1113,7 @@ const tests = [
         const blank = await evaluate(`(() => {
           const rect = document.querySelector("#relationBoard").getBoundingClientRect();
           const point = { x: rect.right - 12, y: rect.bottom - 12 };
-          if (document.elementFromPoint(point.x, point.y)?.closest(".relation-card, .x6-edge")) {
+          if (document.elementFromPoint(point.x, point.y)?.closest(".relation-card, #relationLines path[data-source]")) {
             throw new Error("Blank deselect fixture hit a card or edge");
           }
           return point;
@@ -1121,7 +1130,7 @@ const tests = [
         await waitFor(evaluate, `${edgeStroke} === "#a45c50"`, "selection before keyboard disconnect");
         await pressKey(evaluate, "Backspace");
         await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id === ""`, "valid parent disconnect");
-        await waitFor(evaluate, `!document.querySelector('#relationGraph path[data-source="w2"]')`, "valid parent path removal");
+        await waitFor(evaluate, `!document.querySelector('#relationLines path[data-source="w2"]')`, "valid parent path removal");
         assert.equal(await evaluate(`window.__itemWrites`), 1, "keyboard disconnect must save items exactly once");
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), beforeAnnual, "connect and disconnect must save only items");
       } finally {
@@ -1135,11 +1144,11 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"][data-target="m1"]')`, "connection rollback fixture");
+      await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="w1"][data-target="m1"]')`, "connection rollback fixture");
       const before = await evaluate(`(() => ({
         items: localStorage.getItem("lifeos-db:items"),
         annual: localStorage.getItem("lifeos-db:annual-goals"),
-        path: document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")
+        path: document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")
       }))()`);
       await evaluate(`
         window.__originalSetItem = Storage.prototype.setItem;
@@ -1159,10 +1168,10 @@ const tests = [
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
         assert.equal(await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").parent_id`), "m1");
-        assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').dataset.target`), "m1");
-        assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`), before.path);
-        assert.equal(await evaluate(`document.querySelectorAll("#relationGraph .x6-edge:not(:has(path[data-source]))").length`), 0);
-        assert.equal(await evaluate(`document.querySelectorAll(".x6-available-magnet").length`), 0);
+        assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').dataset.target`), "m1");
+        assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")`), before.path);
+        assert.equal(await evaluate(`document.querySelector("#temporaryLine").getAttribute("d").length`), 0);
+        assert.equal(await evaluate(`document.querySelectorAll(".relation-card.is-valid-target").length`), 0);
         assert.equal(await evaluate(`window.__failItemWrite`), false);
         assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /模拟连接保存失败/);
         assert.equal(await evaluate(`document.querySelector('#relationBoard').getAttribute('aria-busy')`), "false");
@@ -1177,11 +1186,11 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"][data-target="m1"]')`, "disconnect rollback fixture");
+      await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="w1"][data-target="m1"]')`, "disconnect rollback fixture");
       const before = await evaluate(`(() => ({
         items: localStorage.getItem("lifeos-db:items"),
         annual: localStorage.getItem("lifeos-db:annual-goals"),
-        path: document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")
+        path: document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")
       }))()`);
       await evaluate(`
         window.__originalSetItem = Storage.prototype.setItem;
@@ -1196,20 +1205,20 @@ const tests = [
       `);
       try {
         await clickEdgePath(evaluate, mouse, "w1");
-        await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("stroke") === "#a45c50"`, "rollback fixture selection");
+        await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="w1"]').getAttribute("stroke") === "#a45c50"`, "rollback fixture selection");
         await pressKey(evaluate, "Delete");
         await waitFor(evaluate, `document.querySelector('#relationNotice').textContent.includes("保存失败，已撤销")`, "disconnect rollback notice");
         await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
         assert.equal(await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").parent_id`), "m1");
-        assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').dataset.target`), "m1");
-        assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`), before.path);
+        assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').dataset.target`), "m1");
+        assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("d")`), before.path);
         assert.equal(await evaluate(`window.__failItemWrite`), false);
         assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /模拟断开保存失败/);
         assert.equal(await evaluate(`document.querySelector('#relationBoard').getAttribute('aria-busy')`), "false");
         await clickEdgePath(evaluate, mouse, "w1");
-        await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("stroke") === "#a45c50"`, "the restored edge must stay selectable after rollback");
+        await waitFor(evaluate, `document.querySelector('#relationLines path[data-source="w1"]').getAttribute("stroke") === "#a45c50"`, "the restored edge must stay selectable after rollback");
         await pressKey(evaluate, "Escape");
       } finally {
         await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__failItemWrite;`);
@@ -1233,7 +1242,7 @@ const tests = [
       await openPage("目标关系.html", 440, 843);
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelectorAll('#relationGraph path[data-source]').length === 2`, "narrow relation fixture");
+      await waitFor(evaluate, `document.querySelectorAll('#relationLines path[data-source]').length === 2`, "narrow relation fixture");
       const layout = await evaluate(`(() => {
         const relationScroll = document.querySelector("#relationScroll");
         return {
@@ -1252,17 +1261,17 @@ const tests = [
       assert.ok(await evaluate(`document.querySelector("#relationScroll").scrollLeft > 0`), "the board must actually scroll horizontally");
       const endpoints = await evaluate(`(() => {
         const boardRect = document.querySelector("#relationBoard").getBoundingClientRect();
-        return Array.from(document.querySelectorAll("#relationGraph path[data-source]"), (path) => {
+        return Array.from(document.querySelectorAll("#relationLines path[data-source]"), (path) => {
           const values = path.getAttribute("d").match(/-?\\d+(?:\\.\\d+)?/g).map(Number);
-          const source = document.querySelector('.x6-node:has(.relation-card[data-item-id="' + path.dataset.source + '"]) .relation-port[port-group="out"]').getBoundingClientRect();
-          const target = document.querySelector('.x6-node:has(.relation-card[data-item-id="' + path.dataset.target + '"]) .relation-port[port-group="in"]').getBoundingClientRect();
+          const source = document.querySelector('.relation-card[data-item-id="' + path.dataset.source + '"]').getBoundingClientRect();
+          const target = document.querySelector('.relation-card[data-item-id="' + path.dataset.target + '"]').getBoundingClientRect();
           return {
             id: path.dataset.source,
             actual: { startX: values[0], startY: values[1], endX: values[6], endY: values[7] },
             expected: {
-              startX: source.left + source.width / 2 - boardRect.left,
+              startX: source.right - boardRect.left,
               startY: source.top + source.height / 2 - boardRect.top,
-              endX: target.left + target.width / 2 - boardRect.left,
+              endX: target.left - boardRect.left,
               endY: target.top + target.height / 2 - boardRect.top
             }
           };
@@ -1270,8 +1279,7 @@ const tests = [
       })()`);
       for (const endpoint of endpoints) {
         for (const key of ["startX", "startY", "endX", "endY"]) {
-          const tolerance = key.endsWith("X") ? 12 : 0.01;
-          assert.ok(Math.abs(endpoint.actual[key] - endpoint.expected[key]) < tolerance, `${endpoint.id} ${key} must align with its port after scrolling: ${JSON.stringify(endpoint)}`);
+          assert.ok(Math.abs(endpoint.actual[key] - endpoint.expected[key]) < 0.05, `${endpoint.id} ${key} must align with its card after scrolling: ${JSON.stringify(endpoint)}`);
         }
       }
     }
@@ -1293,7 +1301,7 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture());
       await waitForSettledLayout(evaluate);
-      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationGraph path[data-source="w1"]')`, "save lifecycle fixture");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationLines path[data-source="w1"]')`, "save lifecycle fixture");
       await delay(100);
       const rafBefore = await evaluate(`({ ...window.__relationRafStats })`);
       await delay(350);

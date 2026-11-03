@@ -7,7 +7,6 @@
     escapeHtml,
     toErrorMessage
   } = window.LifeOSShared;
-  const { Graph, Shape } = window.X6;
   const tauriInvoke = window.__TAURI__?.core?.invoke;
   const fallbackKeys = {
     frogs: "lifeos-db:frogs",
@@ -16,15 +15,10 @@
     annualGoals: "lifeos-db:annual-goals"
   };
   const board = document.getElementById("relationBoard");
-  const scroll = document.getElementById("relationScroll");
-  const graphContainer = document.getElementById("relationGraph");
   const notice = document.getElementById("relationNotice");
+  const lineGroup = document.getElementById("relationLines");
+  const temporaryLine = document.getElementById("temporaryLine");
   const TARGET_SCOPE = { week: "month", month: "year" };
-  const NODE_FALLBACK_HEIGHT = 120;
-  const NODE_GAP = 14;
-  const NODE_TOP = 92;
-  const BOARD_PADDING = 30;
-  const COLUMN_GAP = 64;
   const containers = {
     week: document.getElementById("weekCards"),
     month: document.getElementById("monthCards"),
@@ -35,11 +29,11 @@
     columns: { week: [], month: [], year: [] },
     saving: false,
     drag: null,
+    connection: null,
     newCard: null,
-    layout: null,
-    heights: new Map(),
-    measureQueued: false,
-    selectedEdge: null
+    editingId: null,
+    selectedEdge: null,
+    drawFrame: 0
   };
   const currentDate = formatDate(new Date());
   const currentWeek = weekKey(currentDate);
@@ -50,58 +44,6 @@
   const EDGE_COLOR = "#687d5b";
   const EDGE_SELECTED_COLOR = "#a45c50";
   const SELECTION_HINT = "已选中连线：按 Delete / Backspace 断开，Esc 取消选择。";
-  const portGroups = {
-    in: portGroup("in"),
-    out: portGroup("out")
-  };
-
-  Shape.HTML.register({
-    shape: "relation-card-node",
-    width: 280,
-    height: NODE_FALLBACK_HEIGHT,
-    effect: ["data"],
-    html(cell) {
-      const { scope, item, unavailable, editing } = cell.getData();
-      return renderCard(scope, item, unavailable, editing);
-    }
-  });
-
-  const graph = new Graph({
-    container: graphContainer,
-    width: Math.max(960, scroll.clientWidth - 4),
-    height: 420,
-    background: false,
-    grid: false,
-    panning: false,
-    interacting: {
-      nodeMovable: false,
-      edgeMovable: false,
-      edgeLabelMovable: false
-    },
-    connecting: {
-      snap: { radius: 24 },
-      allowBlank: false,
-      allowLoop: false,
-      allowNode: false,
-      allowEdge: false,
-      allowMulti: false,
-      highlight: true,
-      connector: { name: "smooth" },
-      validateMagnet({ magnet }) {
-        return Boolean(state.snapshot) && !state.saving && magnet.getAttribute("port-group") === "out";
-      },
-      validateConnection({ sourceCell, targetCell, sourceMagnet, targetMagnet }) {
-        if (state.saving || !sourceCell || !targetCell || !sourceMagnet || !targetMagnet) return false;
-        if (sourceMagnet.getAttribute("port-group") !== "out" || targetMagnet.getAttribute("port-group") !== "in") return false;
-        const sourceScope = sourceCell.getData().scope;
-        const targetScope = targetCell.getData().scope;
-        return TARGET_SCOPE[sourceScope] === targetScope;
-      },
-      createEdge() {
-        return new Shape.Edge(edgeOptions(false));
-      }
-    }
-  });
 
   window.LifeOSBackground.install({ layer: document.getElementById("wallpaperLayer") });
   const backLink = document.querySelector(".relation-back");
@@ -109,55 +51,24 @@
   backLink.href = fromJournal ? "晨间日记页面.html" : "index.html";
   backLink.textContent = fromJournal ? "← 返回晨间日记" : "← 返回日历";
   document.getElementById("relationPeriod").textContent = `${weekRangeLabel(currentWeek)} · ${currentMonth} · ${currentYear}`;
-  installGraphHandlers();
+  installDrawTriggers();
   installSortHandlers();
+  installConnectionHandlers();
   installEditHandlers();
   board.addEventListener("click", (event) => {
-    if (!event.target.closest(".x6-edge")) clearEdgeSelection();
+    const path = event.target.closest("#relationLines path[data-source]");
+    if (path && !state.saving && !state.drag && !state.connection) selectEdge(path);
+    else clearEdgeSelection();
   });
   board.addEventListener("click", disconnect);
   board.addEventListener("click", addCard);
   window.addEventListener("keydown", onGlobalKeydown);
-  window.addEventListener("resize", resizeGraph);
   window.addEventListener("beforeunload", (event) => {
     if (!state.saving) return;
     event.preventDefault();
     event.returnValue = "";
   });
   boot();
-
-  function portGroup(group) {
-    return {
-      position: group === "in" ? "left" : "right",
-      attrs: {
-        circle: {
-          class: "relation-port",
-          "data-connect": "true",
-          r: 4,
-          magnet: true,
-          stroke: EDGE_COLOR,
-          strokeWidth: 1.5,
-          fill: "#fffdf7"
-        }
-      }
-    };
-  }
-
-  function edgeOptions(formal, sourceId = "", targetId = "") {
-    return {
-      data: { formal },
-      attrs: {
-        line: {
-          stroke: EDGE_COLOR,
-          strokeWidth: 2,
-          targetMarker: { name: "block", width: 9, height: 7 },
-          ...(formal ? { "data-source": sourceId, "data-target": targetId } : {})
-        }
-      },
-      connector: { name: "smooth" },
-      zIndex: 0
-    };
-  }
 
   async function boot() {
     setBoardEnabled(false);
@@ -172,7 +83,7 @@
       setNotice(defaultNotice());
     } catch (error) {
       state.snapshot = null;
-      graph.clearCells();
+      lineGroup.replaceChildren();
       setBoardEnabled(false);
       setNotice(`读取失败：${toErrorMessage(error)}`, true);
     }
@@ -235,7 +146,7 @@
       year: record.year,
       items: (record.items || []).filter((item) => String(item.text || "").trim()).map((item) => ({
         id: item.id || uid("year"),
-        text: String(item.text).trim(),
+        text: String(item.text || "").trim(),
         done: Boolean(item.done),
         created_at: item.created_at || nowSeconds(),
         updated_at: item.updated_at || null,
@@ -306,149 +217,28 @@
     return relations;
   }
 
-  function calculateLayout() {
-    const width = Math.max(960, scroll.clientWidth - 4);
-    const nodeWidth = (width - BOARD_PADDING * 2 - COLUMN_GAP * 2) / 3;
-    return {
-      width,
-      nodeWidth,
-      x: {
-        week: BOARD_PADDING,
-        month: BOARD_PADDING + nodeWidth + COLUMN_GAP,
-        year: BOARD_PADDING + (nodeWidth + COLUMN_GAP) * 2
-      }
-    };
-  }
-
-  function updateBoardSize() {
-    state.layout = { ...calculateLayout(), height: state.layout?.height || 420 };
-    board.style.width = `${state.layout.width}px`;
-    measureNodes();
-    layoutColumns();
-  }
-
-  function refreshLayout() {
-    updateBoardSize();
-    scheduleMeasure();
-  }
-
-  function scheduleMeasure() {
-    if (!state.snapshot || state.measureQueued) return;
-    state.measureQueued = true;
-    requestAnimationFrame(() => {
-      state.measureQueued = false;
-      if (!state.snapshot) return;
-      updateBoardSize();
-    });
-  }
-
-  const mountObserver = new MutationObserver(() => scheduleMeasure());
-  mountObserver.observe(graphContainer, { childList: true, subtree: true });
-
-  function measureNodes() {
-    state.heights.clear();
-    for (const node of graph.getNodes()) {
-      const card = graph.findView(node)?.container.querySelector(".relation-card");
-      const height = card?.offsetHeight || NODE_FALLBACK_HEIGHT;
-      state.heights.set(String(node.id), height);
-      node.resize(state.layout.nodeWidth, height);
-    }
-  }
-
-  function layoutColumns() {
-    let bottom = NODE_TOP;
-    for (const scope of ["week", "month", "year"]) {
-      let y = NODE_TOP;
-      for (const item of state.columns[scope]) {
-        const id = String(item.id);
-        const node = graph.getCellById(id);
-        if (!node) continue;
-        node.position(state.layout.x[scope], y);
-        y += (state.heights.get(id) || NODE_FALLBACK_HEIGHT) + NODE_GAP;
-      }
-      bottom = Math.max(bottom, y);
-    }
-    state.layout.height = Math.max(420, bottom - NODE_GAP + BOARD_PADDING);
-    board.style.height = `${state.layout.height}px`;
-    graph.resize(state.layout.width, state.layout.height);
-  }
-
   function render() {
     clearEdgeSelection();
     selectCurrentColumns();
     const visible = visibleMap();
-    const desiredIds = new Set(Object.values(state.columns).flat().map((item) => String(item.id)));
-    for (const node of graph.getNodes()) {
-      if (!desiredIds.has(String(node.id))) node.remove();
-    }
-    state.layout = { ...calculateLayout(), height: state.layout?.height || 420 };
-    board.style.width = `${state.layout.width}px`;
     for (const scope of ["week", "month", "year"]) {
       const items = state.columns[scope];
-      containers[scope].innerHTML = items.length ? "" : `<p class="relation-empty">${emptyLabels[scope]}</p>`;
-      items.forEach((item) => {
-        const id = String(item.id);
-        const existing = graph.getCellById(id);
-        if (existing) {
-          if (!existing.getData().editing) {
-            existing.setData({
-              scope,
-              item,
-              unavailable: scope !== "year" && item.parent_id && !parentTarget(scope, item, visible)
-            });
-          }
-          return;
-        }
-        const ports = [];
-        if (scope !== "week") ports.push({ id: `${id}-in`, group: "in" });
-        if (scope !== "year") ports.push({ id: `${id}-out`, group: "out" });
-        graph.addNode({
-          id,
-          shape: "relation-card-node",
-          x: state.layout.x[scope],
-          y: NODE_TOP,
-          width: state.layout.nodeWidth,
-          height: NODE_FALLBACK_HEIGHT,
-          data: {
-            scope,
-            item,
-            unavailable: scope !== "year" && item.parent_id && !parentTarget(scope, item, visible)
-          },
-          portMarkup: [{ tagName: "circle", selector: "circle" }],
-          ports: { groups: portGroups, items: ports },
-          zIndex: 1
-        });
-      });
+      containers[scope].innerHTML = items.length
+        ? items.map((item) => renderCard(scope, item, visible)).join("")
+        : `<p class="relation-empty">${emptyLabels[scope]}</p>`;
     }
-    refreshLayout();
-    const desiredRelations = new Map(formalRelations().map((relation) => {
-      const sourceId = String(relation.source.id);
-      const targetId = String(relation.target.id);
-      return [`${sourceId}\u0000${targetId}`, { sourceId, targetId }];
-    }));
-    for (const edge of graph.getEdges()) {
-      const key = `${edge.getSourceCellId()}\u0000${edge.getTargetCellId()}`;
-      if (edge.getData()?.formal && desiredRelations.has(key)) {
-        syncEdgeView(edge);
-        desiredRelations.delete(key);
-      } else {
-        edge.remove();
-      }
-    }
-    for (const { sourceId, targetId } of desiredRelations.values()) {
-      graph.addEdge({
-        ...edgeOptions(true, sourceId, targetId),
-        source: { cell: sourceId, port: `${sourceId}-out` },
-        target: { cell: targetId, port: `${targetId}-in` }
-      });
-    }
+    scheduleDraw();
   }
 
-  function renderCard(scope, item, unavailable, editing) {
+  function renderCard(scope, item, visible) {
     const id = String(item.id);
     const text = String(item.text || "未命名目标");
+    const editing = state.editingId === id;
+    const unavailable = scope !== "year" && item.parent_id && !parentTarget(scope, item, visible);
     return `
       <article class="relation-card${item.done ? " is-done" : ""}${editing ? " is-editing" : ""}" data-scope="${scope}" data-item-id="${escapeHtml(id)}" title="双击编辑文字 · 按住上下拖动排序">
+        ${scope !== "week" ? '<span class="relation-connect relation-connect-in" data-connect="in" aria-hidden="true"></span>' : ""}
+        ${scope !== "year" ? '<span class="relation-connect relation-connect-out" data-connect="out" aria-hidden="true"></span>' : ""}
         <div class="relation-card-head">
           <span class="relation-card-kind">${cardPeriodLabel(scope, item)}${item.done ? " · 已完成" : ""}</span>
         </div>
@@ -475,52 +265,56 @@
     return period === currentYear ? `今年-${period}年` : `${period}年`;
   }
 
-  function resizeGraph() {
-    if (!state.snapshot) return;
-    refreshLayout();
+  function curvePath(source, target) {
+    const middle = (source.x + target.x) / 2;
+    return `M ${source.x} ${source.y} C ${middle} ${source.y} ${middle} ${target.y} ${target.x} ${target.y}`;
   }
 
-  function installGraphHandlers() {
-    board.addEventListener("mouseover", (event) => {
-      const node = event.target.closest(".x6-node");
-      if (node && (!event.relatedTarget || !node.contains(event.relatedTarget))) node.classList.add("ports-visible");
-      event.target.closest(".relation-port")?.classList.add("is-port-active");
+  function boardPoint(rect, side) {
+    const boardRect = board.getBoundingClientRect();
+    return {
+      x: (side === "right" ? rect.right : rect.left) - boardRect.left,
+      y: rect.top + rect.height / 2 - boardRect.top
+    };
+  }
+
+  function drawLines() {
+    lineGroup.replaceChildren();
+    if (!state.snapshot) return;
+    for (const relation of formalRelations()) {
+      const sourceCard = document.querySelector(`[data-item-id="${CSS.escape(String(relation.source.id))}"]`);
+      const targetCard = document.querySelector(`[data-item-id="${CSS.escape(String(relation.target.id))}"]`);
+      if (!sourceCard || !targetCard) continue;
+      const source = boardPoint(sourceCard.getBoundingClientRect(), "right");
+      const target = boardPoint(targetCard.getBoundingClientRect(), "left");
+      const sourceId = String(relation.source.id);
+      const selected = state.selectedEdge === sourceId;
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", curvePath(source, target));
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", selected ? EDGE_SELECTED_COLOR : EDGE_COLOR);
+      path.setAttribute("stroke-width", selected ? "3" : "2");
+      path.setAttribute("marker-end", `url(#${selected ? "relationArrowSelected" : "relationArrow"})`);
+      path.dataset.source = sourceId;
+      path.dataset.target = String(relation.target.id);
+      lineGroup.append(path);
+    }
+  }
+
+  function scheduleDraw() {
+    if (state.drawFrame) return;
+    state.drawFrame = requestAnimationFrame(() => {
+      state.drawFrame = 0;
+      drawLines();
     });
-    board.addEventListener("mouseout", (event) => {
-      const node = event.target.closest(".x6-node");
-      if (node && (!event.relatedTarget || !node.contains(event.relatedTarget))) node.classList.remove("ports-visible");
-      event.target.closest(".relation-port")?.classList.remove("is-port-active");
-    });
-    graph.on("edge:connected", async ({ edge, isNew }) => {
-      if (!isNew || state.saving) return;
-      const sourceId = edge.getSourceCellId();
-      const targetId = edge.getTargetCellId();
-      const item = state.snapshot?.items.items.find((entry) => String(entry.id) === sourceId);
-      if (!item || !targetId) {
-        edge.remove();
-        return;
-      }
-      if (String(item.parent_id || "") === targetId) {
-        edge.remove();
-        return;
-      }
-      const before = structuredClone(state.snapshot);
-      item.parent_id = targetId;
-      for (const candidate of graph.getEdges()) {
-        if (candidate.id !== edge.id && candidate.getSourceCellId() === sourceId) candidate.remove();
-      }
-      edge.setData({ formal: true });
-      syncEdgeView(edge);
-      syncNodeData(sourceId);
-      await saveSnapshot(before, "items");
-    });
-    graph.on("edge:click", ({ edge }) => {
-      if (!edge.getData()?.formal || state.saving || state.drag) return;
-      selectEdge(edge);
-    });
-    graph.on("cell:removed", ({ cell }) => {
-      if (cell === state.selectedEdge) clearEdgeSelection();
-    });
+  }
+
+  function installDrawTriggers() {
+    const observer = new ResizeObserver(scheduleDraw);
+    observer.observe(board);
+    for (const column of document.querySelectorAll(".relation-column")) observer.observe(column);
+    document.fonts.ready.then(scheduleDraw);
+    window.addEventListener("resize", scheduleDraw);
   }
 
   function defaultNotice() {
@@ -529,26 +323,26 @@
       : "当前是浏览器预览，仅展示本地缓存中的目标关系。拖动卡片排序；点击连线选中后按 Delete 断开。";
   }
 
-  function selectEdge(edge) {
-    if (state.selectedEdge === edge) return;
+  function selectEdge(path) {
+    if (state.selectedEdge === path.dataset.source) return;
     clearEdgeSelection();
-    state.selectedEdge = edge;
-    applyEdgeSelectionStyle(edge, true);
+    state.selectedEdge = path.dataset.source;
+    applyEdgeSelectionStyle(path, true);
     setNotice(SELECTION_HINT);
   }
 
   function clearEdgeSelection() {
-    const edge = state.selectedEdge;
-    if (!edge) return;
+    if (!state.selectedEdge) return;
+    const path = lineGroup.querySelector(`path[data-source="${CSS.escape(state.selectedEdge)}"]`);
     state.selectedEdge = null;
-    applyEdgeSelectionStyle(edge, false);
+    if (path) applyEdgeSelectionStyle(path, false);
     if (notice.textContent === SELECTION_HINT) setNotice(defaultNotice());
   }
 
-  function applyEdgeSelectionStyle(edge, selected) {
-    edge.attr("line/stroke", selected ? EDGE_SELECTED_COLOR : EDGE_COLOR);
-    edge.attr("line/strokeWidth", selected ? 3 : 2);
-    edge.attr("line/targetMarker/fill", selected ? EDGE_SELECTED_COLOR : EDGE_COLOR);
+  function applyEdgeSelectionStyle(path, selected) {
+    path.setAttribute("stroke", selected ? EDGE_SELECTED_COLOR : EDGE_COLOR);
+    path.setAttribute("stroke-width", selected ? "3" : "2");
+    path.setAttribute("marker-end", `url(#${selected ? "relationArrowSelected" : "relationArrow"})`);
   }
 
   function onGlobalKeydown(event) {
@@ -558,14 +352,12 @@
       return;
     }
     if (event.key !== "Delete" && event.key !== "Backspace") return;
-    const edge = state.selectedEdge;
-    if (!edge || state.saving || state.drag) return;
+    if (!state.selectedEdge || state.saving || state.drag || state.connection) return;
     event.preventDefault();
-    disconnectEdge(edge);
+    disconnectEdge(state.selectedEdge);
   }
 
-  async function disconnectEdge(edge) {
-    const sourceId = edge.getSourceCellId();
+  async function disconnectEdge(sourceId) {
     const item = state.snapshot?.items.items.find((entry) => String(entry.id) === sourceId);
     clearEdgeSelection();
     if (!item || !item.parent_id) return;
@@ -575,29 +367,9 @@
     await saveSnapshot(before, "items");
   }
 
-  function syncEdgeView(edge) {
-    if (!edge.getData()?.formal) return;
-    edge.attr("line/data-source", edge.getSourceCellId());
-    edge.attr("line/data-target", edge.getTargetCellId());
-  }
-
-  function syncNodeData(itemId, editing = false) {
-    const node = graph.getCellById(itemId);
-    if (!node) return;
-    const scope = node.getData().scope;
-    const item = state.columns[scope].find((entry) => String(entry.id) === itemId);
-    if (!item) return;
-    node.setData({
-      scope,
-      item,
-      unavailable: Boolean(item.parent_id) && !parentTarget(scope, item, visibleMap()),
-      editing
-    });
-  }
-
   function addCard(event) {
     const button = event.target.closest("[data-add-card]");
-    if (!button || state.saving || state.drag || !state.snapshot) return;
+    if (!button || state.saving || state.drag || state.connection || !state.snapshot) return;
     const scope = button.dataset.addCard;
     const id = uid(scope);
     const timestamp = nowSeconds();
@@ -635,13 +407,14 @@
     if (!state.newCard) return;
     state.snapshot = state.newCard.before;
     state.newCard = null;
+    state.editingId = null;
     render();
   }
 
   function installEditHandlers() {
     board.addEventListener("dblclick", (event) => {
-      if (state.saving || state.drag) return;
-      if (event.target.closest("button, input")) return;
+      if (state.saving || state.drag || state.connection) return;
+      if (event.target.closest("button, input, [data-connect]")) return;
       const card = event.target.closest(".relation-card");
       if (card) startEdit(card.dataset.itemId);
     });
@@ -664,64 +437,51 @@
   }
 
   function startEdit(id) {
-    const node = graph.getCellById(id);
-    const data = node?.getData();
-    if (!node || data.editing) return;
-    node.setData({ ...data, editing: true });
-    refreshLayout();
-    focusEditInput(node);
-  }
-
-  function focusEditInput(node) {
-    const input = graph.findView(node)?.container.querySelector("[data-edit-input]");
-    if (input) {
+    if (state.editingId) return;
+    state.editingId = id;
+    render();
+    requestAnimationFrame(() => {
+      if (state.editingId !== id) return;
+      const input = document.querySelector(`[data-item-id="${CSS.escape(id)}"] [data-edit-input]`);
+      if (!input) return;
       input.focus();
       input.select();
-      return;
-    }
-    requestAnimationFrame(() => {
-      if (!node.getData()?.editing) return;
-      const retry = graph.findView(node)?.container.querySelector("[data-edit-input]");
-      if (!retry) return;
-      retry.focus();
-      retry.select();
     });
   }
 
   function commitEdit(input) {
     const id = input.closest(".relation-card")?.dataset.itemId;
-    const node = id && graph.getCellById(id);
-    const data = node?.getData();
-    if (!node || !data.editing) return;
+    if (!id || state.editingId !== id) return;
     const value = String(input.value).trim();
-    const scope = data.scope;
+    const scope = input.closest(".relation-card").dataset.scope;
     const isNew = state.newCard?.id === id;
     if (isNew && !value) {
       discardNewCard();
       return;
     }
-    syncNodeData(id);
-    refreshLayout();
     const record = findRecord(scope, id);
-    if (!record || !value || value === String(record.text || "")) return;
+    if (!record || !value || value === String(record.text || "")) {
+      state.editingId = null;
+      render();
+      return;
+    }
     const before = isNew ? state.newCard.before : structuredClone(state.snapshot);
     record.text = value;
     if (isNew) state.newCard = null;
-    syncNodeData(id);
-    refreshLayout();
+    state.editingId = null;
+    render();
     saveSnapshot(before, scope === "year" ? "annual" : "items");
   }
 
   function cancelEdit(input) {
     const id = input.closest(".relation-card")?.dataset.itemId;
-    const node = id && graph.getCellById(id);
-    if (!node || !node.getData().editing) return;
+    if (!id || state.editingId !== id) return;
     if (state.newCard?.id === id) {
       discardNewCard();
       return;
     }
-    syncNodeData(id);
-    refreshLayout();
+    state.editingId = null;
+    render();
   }
 
   function installSortHandlers() {
@@ -732,28 +492,20 @@
   }
 
   function startSort(event) {
-    if (state.saving || state.drag || event.button !== 0) return;
-    if (event.target.closest("button, input")) return;
+    if (state.saving || state.drag || state.connection || event.button !== 0) return;
+    if (event.target.closest("button, input, [data-connect]")) return;
     const card = event.target.closest(".relation-card");
-    if (!card) return;
-    const node = graph.getCellById(card.dataset.itemId);
-    if (!node || node.getData().editing) return;
+    if (!card || card.classList.contains("is-editing")) return;
     const scope = card.dataset.scope;
-    const order = state.columns[scope].map((item) => String(item.id));
-    const id = String(node.id);
     state.drag = {
       card,
-      node,
+      list: card.parentElement,
       scope,
       before: structuredClone(state.snapshot),
-      beforeOrder: order,
-      order: [...order],
-      others: order.filter((entry) => entry !== id),
-      index: order.indexOf(id),
+      beforeOrder: state.columns[scope].map((item) => String(item.id)),
       pointerId: event.pointerId,
       startY: event.clientY,
-      startNodeY: node.getPosition().y,
-      pointerBoardY: event.clientY - board.getBoundingClientRect().top,
+      startLayoutTop: card.getBoundingClientRect().top,
       moved: false
     };
     card.setPointerCapture(event.pointerId);
@@ -764,51 +516,23 @@
   function moveSort(event) {
     const drag = state.drag;
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
-    const deltaY = event.clientY - drag.startY;
+    const delta = event.clientY - drag.startY;
     if (!drag.moved) {
-      if (Math.abs(deltaY) < 3) return;
+      if (Math.abs(delta) < 3) return;
       drag.moved = true;
       drag.card.classList.add("is-dragging");
     }
-    drag.node.position(state.layout.x[drag.scope], drag.startNodeY + deltaY);
-    syncDragView(drag);
-    const pointerY = drag.pointerBoardY + deltaY;
-    let index = 0;
-    for (const id of drag.others) {
-      const sibling = graph.getCellById(id);
-      if (!sibling) continue;
-      const position = sibling.getPosition();
-      if (pointerY > position.y + sibling.getSize().height / 2) index += 1;
-    }
-    if (index !== drag.index) {
-      drag.index = index;
-      drag.order = [...drag.others];
-      drag.order.splice(index, 0, String(drag.node.id));
-      applyColumnOrder(drag);
-    }
+    const siblings = [...drag.list.querySelectorAll(".relation-card")].filter((card) => card !== drag.card);
+    const next = siblings.find((card) => {
+      const rect = card.getBoundingClientRect();
+      return event.clientY < rect.top + rect.height / 2;
+    });
+    if (drag.card.nextElementSibling !== next) drag.list.insertBefore(drag.card, next || null);
+    drag.card.style.transform = "none";
+    const layoutTop = drag.card.getBoundingClientRect().top;
+    drag.card.style.transform = `translateY(${drag.startLayoutTop + delta - layoutTop}px)`;
+    scheduleDraw();
     event.preventDefault();
-  }
-
-  function applyColumnOrder(drag) {
-    let y = NODE_TOP;
-    for (const id of drag.order) {
-      const node = graph.getCellById(id);
-      if (!node) continue;
-      if (id !== String(drag.node.id)) node.position(state.layout.x[drag.scope], y);
-      y += (state.heights.get(id) || NODE_FALLBACK_HEIGHT) + NODE_GAP;
-    }
-  }
-
-  function syncDragView(drag) {
-    const view = graph.findView(drag.node);
-    if (!view) return;
-    const { x, y } = drag.node.getPosition();
-    view.container.style.transform = `translate(${x}px, ${y}px)`;
-  }
-
-  function clearDragView(drag) {
-    const view = graph.findView(drag.node);
-    if (view) view.container.style.transform = "";
   }
 
   async function finishSort(event) {
@@ -816,14 +540,12 @@
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
     state.drag = null;
     if (drag.card.hasPointerCapture(event.pointerId)) drag.card.releasePointerCapture(event.pointerId);
+    drag.card.style.transform = "";
     drag.card.classList.remove("is-dragging");
-    clearDragView(drag);
-    if (!drag.moved) return;
-    if (drag.order.join("\u0000") === drag.beforeOrder.join("\u0000")) {
-      layoutColumns();
-      return;
-    }
-    drag.order.forEach((id, index) => {
+    const ids = [...drag.list.querySelectorAll(".relation-card")].map((card) => card.dataset.itemId);
+    scheduleDraw();
+    if (!drag.moved || ids.join("\u0000") === drag.beforeOrder.join("\u0000")) return;
+    ids.forEach((id, index) => {
       const item = findRecord(drag.scope, id);
       if (item) item.sort_order = index + 1;
     });
@@ -845,15 +567,93 @@
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
     state.drag = null;
     if (drag.card.hasPointerCapture(event.pointerId)) drag.card.releasePointerCapture(event.pointerId);
-    drag.card.classList.remove("is-dragging");
-    clearDragView(drag);
     state.snapshot = drag.before;
     render();
   }
 
+  function installConnectionHandlers() {
+    board.addEventListener("pointerdown", startConnection);
+    board.addEventListener("pointermove", moveConnection);
+    board.addEventListener("pointerup", finishConnection);
+    board.addEventListener("pointercancel", cancelConnection);
+  }
+
+  function startConnection(event) {
+    const handle = event.target.closest('[data-connect="out"]');
+    if (!handle || state.saving || state.drag || state.connection || event.button !== 0) return;
+    const card = handle.closest(".relation-card");
+    const sourceId = card?.dataset.itemId;
+    const sourceScope = card?.dataset.scope;
+    const targetScope = TARGET_SCOPE[sourceScope];
+    if (!sourceId || !targetScope || card.classList.contains("is-editing")) return;
+    state.connection = { sourceId, sourceScope, pointerId: event.pointerId, handle };
+    handle.setPointerCapture(event.pointerId);
+    board.classList.add("is-connecting");
+    temporaryLine.classList.add("is-active");
+    for (const target of containers[targetScope].querySelectorAll(".relation-card")) {
+      target.classList.add("is-valid-target");
+    }
+    updateTemporaryLine(event);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function moveConnection(event) {
+    if (!state.connection || state.saving || state.connection.pointerId !== event.pointerId) return;
+    updateTemporaryLine(event);
+    event.preventDefault();
+  }
+
+  function updateTemporaryLine(event) {
+    const connection = state.connection;
+    const sourceCard = document.querySelector(`[data-item-id="${CSS.escape(connection.sourceId)}"]`);
+    if (!sourceCard) return;
+    const source = boardPoint(sourceCard.getBoundingClientRect(), "right");
+    const boardRect = board.getBoundingClientRect();
+    const target = { x: event.clientX - boardRect.left, y: event.clientY - boardRect.top };
+    temporaryLine.setAttribute("d", curvePath(source, target));
+  }
+
+  async function finishConnection(event) {
+    const connection = state.connection;
+    if (!connection || state.saving || connection.pointerId !== event.pointerId) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".relation-card");
+    const targetId = target?.dataset.itemId;
+    const valid = targetId && target.dataset.scope === TARGET_SCOPE[connection.sourceScope];
+    clearConnection();
+    if (!valid) return;
+    const item = state.snapshot.items.items.find((entry) => String(entry.id) === connection.sourceId);
+    if (!item || String(item.parent_id || "") === targetId) return;
+    const before = structuredClone(state.snapshot);
+    item.parent_id = targetId;
+    render();
+    await saveSnapshot(before, "items");
+    event.preventDefault();
+  }
+
+  function cancelConnection(event) {
+    if (!state.connection || state.connection.pointerId !== event.pointerId) return;
+    clearConnection();
+  }
+
+  function clearConnection() {
+    const connection = state.connection;
+    if (!connection) return;
+    state.connection = null;
+    if (connection.handle.hasPointerCapture(connection.pointerId)) {
+      connection.handle.releasePointerCapture(connection.pointerId);
+    }
+    board.classList.remove("is-connecting");
+    temporaryLine.classList.remove("is-active");
+    temporaryLine.setAttribute("d", "");
+    for (const target of document.querySelectorAll(".relation-card.is-valid-target")) {
+      target.classList.remove("is-valid-target");
+    }
+  }
+
   async function disconnect(event) {
     const button = event.target.closest("[data-disconnect]");
-    if (!button || state.saving || state.drag) return;
+    if (!button || state.saving || state.drag || state.connection) return;
     const sourceId = button.closest(".relation-card")?.dataset.itemId;
     const item = state.snapshot.items.items.find((entry) => String(entry.id) === sourceId);
     if (!item || !item.parent_id) return;
@@ -885,6 +685,7 @@
     } finally {
       state.saving = false;
       setControlsDisabled(false);
+      scheduleDraw();
     }
   }
 
