@@ -230,7 +230,7 @@ async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging)
   await mouse("mousePressed", points.start.x, points.start.y);
   await mouse("mouseMoved", points.end.x, points.end.y);
   await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
-  if (whileDragging) await whileDragging();
+  if (whileDragging) await whileDragging(points);
   await mouse("mouseReleased", points.end.x, points.end.y);
 }
 
@@ -509,6 +509,19 @@ const tests = [
       assert.deepEqual(cards.week, ["w1", "w2"]);
       assert.deepEqual(cards.month, ["m1", "m2"]);
       assert.deepEqual(cards.year, ["y1", "y2"]);
+      const expectedPeriodLabels = await evaluate(`(() => {
+        const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
+        const years = JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years;
+        const [weekYear, weekMonth, weekDay] = items.find((item) => item.id === "w1").period.split("-").map(Number);
+        const [monthYear, month] = items.find((item) => item.id === "m1").period.split("-").map(Number);
+        const year = years.find((record) => record.items.some((item) => item.id === "y1")).year;
+        return [
+          "本周-" + weekYear + "年" + weekMonth + "月" + weekDay + "日",
+          "本月-" + monthYear + "年" + month + "月",
+          "今年-" + year + "年"
+        ];
+      })()`);
+      assert.deepEqual(await evaluate(`["w1", "m1", "y1"].map((id) => document.querySelector('[data-item-id="' + id + '"] .relation-card-kind').textContent)`), expectedPeriodLabels);
       assert.equal(await evaluate(`document.querySelectorAll("#relationGraph path[data-source]").length`), 2);
       assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').dataset.target`), "m1");
       assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="m1"]').dataset.target`), "y1");
@@ -524,6 +537,29 @@ const tests = [
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('.relation-card[data-item-id="w1"]')).cursor`), "grab", "cards must advertise whole-card dragging");
       assert.ok(await evaluate(`["w1", "m1"].every((id) => document.querySelector('.x6-node:has(.relation-card[data-item-id="' + id + '"]) .relation-port'))`));
       assert.match(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("marker-end")`), /url\(/);
+    }
+  },
+  {
+    name: "relation blank canvas drag does not pan the board",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
+      const positions = `Array.from(document.querySelectorAll(".relation-card")).map((card) => {
+        const rect = card.getBoundingClientRect();
+        return [card.dataset.itemId, rect.left, rect.top];
+      })`;
+      const before = await evaluate(positions);
+      const point = await evaluate(`(() => {
+        const rect = document.getElementById("relationBoard").getBoundingClientRect();
+        return { x: rect.left + 40, y: rect.top + 60 };
+      })()`);
+      await mouse("mouseMoved", point.x, point.y);
+      await mouse("mousePressed", point.x, point.y);
+      await mouse("mouseMoved", point.x + 120, point.y + 60);
+      await mouse("mouseReleased", point.x + 120, point.y + 60);
+      await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+      assert.deepEqual(await evaluate(positions), before);
     }
   },
   {
@@ -557,9 +593,12 @@ const tests = [
       await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationGraph path[data-source="w1"]')`, "week sort fixture");
       const beforePath = await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`);
+      const beforeTop = await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect().top`);
       const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
       const beforeItems = await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items`);
-      await dragCardBelow(evaluate, mouse, "w1", "w2", async () => {
+      await dragCardBelow(evaluate, mouse, "w1", "w2", async (points) => {
+        const duringTop = await evaluate(`document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect().top`);
+        assert.ok(Math.abs(duringTop - (beforeTop + points.end.y - points.start.y)) < 1, "dragged card must follow the pointer before pointerup");
         const duringPath = await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`);
         assert.notEqual(duringPath, beforePath, "formal path must follow the card before pointerup");
       });
@@ -587,7 +626,7 @@ const tests = [
     }
   },
   {
-    name: "relation cards size to content and slot drag never overlaps",
+    name: "relation cards size to content and drag preserves variable-height order",
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       const now = new Date();
@@ -612,13 +651,7 @@ const tests = [
       }))()`);
       assert.ok(heights.long > heights.short, "a two-line card must be taller than a one-line card");
       assert.ok(heights.short < 136, "cards must hug their content instead of the old fixed height");
-      await dragCardBelow(evaluate, mouse, "w-short", "w-long", async () => {
-        const overlap = await evaluate(`(() => {
-          const rects = Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).map((card) => card.getBoundingClientRect());
-          return rects.some((a, i) => rects.some((b, j) => i < j && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
-        })()`);
-        assert.equal(overlap, false, "cards must never overlap while dragging");
-      });
+      await dragCardBelow(evaluate, mouse, "w-short", "w-long");
       await waitFor(evaluate, `(() => {
         const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
         return items.find((item) => item.id === "w-long").sort_order === 1 && items.find((item) => item.id === "w-short").sort_order === 2;

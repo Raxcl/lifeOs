@@ -71,6 +71,7 @@
     height: 420,
     background: false,
     grid: false,
+    panning: false,
     interacting: {
       nodeMovable: false,
       edgeMovable: false,
@@ -447,7 +448,7 @@
     return `
       <article class="relation-card${item.done ? " is-done" : ""}${editing ? " is-editing" : ""}" data-scope="${scope}" data-item-id="${escapeHtml(id)}" title="双击编辑文字 · 按住上下拖动排序">
         <div class="relation-card-head">
-          <span class="relation-card-kind">${labels[scope]}${item.done ? " · 已完成" : ""}</span>
+          <span class="relation-card-kind">${cardPeriodLabel(scope, item)}${item.done ? " · 已完成" : ""}</span>
         </div>
         ${editing
           ? `<input class="relation-card-edit" type="text" data-edit-input value="${escapeHtml(String(item.text || ""))}" aria-label="编辑${labels[scope]}文字" />`
@@ -455,6 +456,21 @@
         ${unavailable ? `<div class="relation-card-actions"><button class="relation-unavailable" type="button" data-disconnect title="点击清除失效的上级关系" aria-label="清除失效的上级关系：${escapeHtml(text)}">上级不可用</button></div>` : ""}
       </article>
     `;
+  }
+
+  function cardPeriodLabel(scope, item) {
+    const period = scope === "year" ? currentYear : String(item.period || "");
+    if (scope === "week") {
+      const [year, month, day] = period.split("-").map(Number);
+      const label = `${year}年${month}月${day}日`;
+      return period === currentWeek ? `本周-${label}` : label;
+    }
+    if (scope === "month") {
+      const [year, month] = period.split("-").map(Number);
+      const label = `${year}年${month}月`;
+      return period === currentMonth ? `本月-${label}` : label;
+    }
+    return period === currentYear ? `今年-${period}年` : `${period}年`;
   }
 
   function resizeGraph() {
@@ -681,6 +697,7 @@
       index: order.indexOf(id),
       pointerId: event.pointerId,
       startY: event.clientY,
+      startNodeY: node.getPosition().y,
       pointerBoardY: event.clientY - board.getBoundingClientRect().top,
       moved: false
     };
@@ -698,6 +715,7 @@
       drag.moved = true;
       drag.card.classList.add("is-dragging");
     }
+    drag.node.position(state.layout.x[drag.scope], drag.startNodeY + deltaY);
     const pointerY = drag.pointerBoardY + deltaY;
     let index = 0;
     for (const id of drag.others) {
@@ -706,11 +724,12 @@
       const position = sibling.getPosition();
       if (pointerY > position.y + sibling.getSize().height / 2) index += 1;
     }
-    if (index === drag.index) return;
-    drag.index = index;
-    drag.order = [...drag.others];
-    drag.order.splice(index, 0, String(drag.node.id));
-    applyColumnOrder(drag);
+    if (index !== drag.index) {
+      drag.index = index;
+      drag.order = [...drag.others];
+      drag.order.splice(index, 0, String(drag.node.id));
+      applyColumnOrder(drag);
+    }
     event.preventDefault();
   }
 
@@ -719,7 +738,7 @@
     for (const id of drag.order) {
       const node = graph.getCellById(id);
       if (!node) continue;
-      node.position(state.layout.x[drag.scope], y);
+      if (id !== String(drag.node.id)) node.position(state.layout.x[drag.scope], y);
       y += (state.heights.get(id) || NODE_FALLBACK_HEIGHT) + NODE_GAP;
     }
   }
