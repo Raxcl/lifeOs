@@ -155,21 +155,24 @@ button { -webkit-app-region: no-drag; }
 
 .relation-graph { position: absolute; inset: 0; }
 .relation-graph body { min-height: 0; }
-.relation-graph .x6-edge { pointer-events: none; }
 
 .relation-card {
   width: 100%;
-  height: 100%;
   touch-action: none;
   padding: 15px;
   border: 1px solid rgba(48, 55, 47, .12);
   border-radius: var(--radius);
   background: var(--panel);
   box-shadow: 0 8px 24px rgba(48, 55, 47, .06);
-  transition: box-shadow .18s ease;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: box-shadow .18s ease, border-color .18s ease;
 }
 
-.relation-card.is-dragging { box-shadow: var(--drag-shadow); }
+.relation-card:hover { border-color: rgba(104, 125, 91, .5); }
+.relation-card.is-dragging { box-shadow: var(--drag-shadow); cursor: grabbing; }
+.relation-card.is-editing { cursor: default; }
 .relation-card.is-done { opacity: .58; }
 .relation-board.is-disabled .relation-card { pointer-events: none; }
 
@@ -200,48 +203,41 @@ button { -webkit-app-region: no-drag; }
   -webkit-line-clamp: 2;
 }
 
-.relation-card-actions { min-height: 28px; }
+.relation-card-edit {
+  width: 100%;
+  margin: 10px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: #fffdf7;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
 
-.relation-handle,
-.relation-action {
-  border: 1px solid var(--line);
+.relation-card-actions { justify-content: flex-end; }
+
+.relation-unavailable {
+  margin-left: auto;
+  padding: 3px 9px;
+  border: 1px solid rgba(164, 92, 80, .4);
+  border-radius: 999px;
   background: transparent;
-  color: var(--muted);
+  color: var(--danger);
+  font-size: 11px;
   cursor: pointer;
 }
 
-.relation-handle {
-  width: 28px;
-  height: 26px;
-  padding: 0;
-  border-radius: 8px;
-  line-height: 1;
-  cursor: ns-resize;
+.relation-unavailable:hover {
+  border-color: var(--danger);
+  background: rgba(164, 92, 80, .1);
 }
 
-.relation-action {
-  min-height: 28px;
-  padding: 4px 9px;
-  border-radius: 9px;
-  font-size: 11px;
-}
-
-.relation-handle:hover,
-.relation-action:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.relation-handle:disabled,
-.relation-action:disabled { cursor: default; opacity: .45; }
-
-.relation-unavailable {
-  display: inline-block;
-  margin-left: auto;
-  color: var(--danger);
-  font-size: 11px;
-}
+.relation-unavailable:disabled { cursor: default; opacity: .45; }
 
 .x6-node .relation-port {
   visibility: hidden;

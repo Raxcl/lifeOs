@@ -161,7 +161,7 @@ async function withChrome(run) {
     }
 
     let mouseDown = false;
-    async function mouse(type, x, y) {
+    async function mouse(type, x, y, clickCount = 1) {
       if (type === "mousePressed") mouseDown = true;
       if (type === "mouseReleased") mouseDown = false;
       await send("Input.dispatchMouseEvent", {
@@ -170,7 +170,7 @@ async function withChrome(run) {
         y,
         button: "left",
         buttons: mouseDown ? 1 : 0,
-        clickCount: type === "mouseMoved" ? 0 : 1
+        clickCount: type === "mouseMoved" ? 0 : clickCount
       });
     }
 
@@ -214,16 +214,16 @@ async function clickSelector(evaluate, mouse, selector) {
 
 async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging) {
   const points = await evaluate(`(async () => {
-    const handle = document.querySelector('[data-item-id="${sourceId}"] [data-sort-handle]');
+    const card = document.querySelector('.relation-card[data-item-id="${sourceId}"]');
     const target = document.querySelector('[data-item-id="${targetId}"]');
-    if (!handle || !target) throw new Error("Missing sort drag fixture");
+    if (!card || !target) throw new Error("Missing sort drag fixture");
     target.scrollIntoView({ block: "center", inline: "center" });
-    handle.scrollIntoView({ block: "center", inline: "center" });
+    card.scrollIntoView({ block: "center", inline: "center" });
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    const handleRect = handle.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
     return {
-      start: { x: handleRect.left + handleRect.width / 2, y: handleRect.top + handleRect.height / 2 },
+      start: { x: cardRect.left + cardRect.width / 2, y: cardRect.top + cardRect.height / 2 },
       end: { x: targetRect.left + targetRect.width / 2, y: targetRect.bottom + 8 }
     };
   })()`);
@@ -232,6 +232,69 @@ async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging)
   await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
   if (whileDragging) await whileDragging();
   await mouse("mouseReleased", points.end.x, points.end.y);
+}
+
+async function clickEdgePath(evaluate, mouse, sourceId) {
+  const point = await evaluate(`(() => {
+    const path = document.querySelector('#relationGraph path[data-source="${sourceId}"]');
+    if (!path) throw new Error("Missing formal edge path for ${sourceId}");
+    const middle = path.getPointAtLength(path.getTotalLength() / 2);
+    const mapped = middle.matrixTransform(path.getScreenCTM());
+    const top = document.elementFromPoint(mapped.x, mapped.y);
+    if (!top || !top.closest(".x6-edge")) {
+      throw new Error("Edge midpoint for ${sourceId} is covered by " + (top ? top.tagName + " " + (top.getAttribute("class") || "") : "null"));
+    }
+    return { x: mapped.x, y: mapped.y };
+  })()`);
+  await mouse("mouseMoved", point.x, point.y);
+  await mouse("mousePressed", point.x, point.y);
+  await mouse("mouseReleased", point.x, point.y);
+}
+
+async function pressKey(evaluate, key) {
+  await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true }))`);
+}
+
+async function waitForSettledLayout(evaluate) {
+  await waitFor(evaluate, `(() => {
+    const nodes = Array.from(document.querySelectorAll('#relationGraph .x6-node'));
+    return nodes.length > 0 && nodes.every((node) => {
+      const frame = node.querySelector('foreignObject');
+      const card = node.querySelector('.relation-card');
+      return Boolean(frame && card) && Math.abs(Number(frame.getAttribute('height')) - card.offsetHeight) < 1;
+    });
+  })()`, "relation layout to settle");
+}
+
+async function doubleClickCard(evaluate, mouse, itemId) {
+  const point = await evaluate(`(async () => {
+    const card = document.querySelector('.relation-card[data-item-id="${itemId}"]');
+    if (!card) throw new Error("Missing card fixture ${itemId}");
+    card.scrollIntoView({ block: "center", inline: "center" });
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const rect = card.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  })()`);
+  await mouse("mousePressed", point.x, point.y, 1);
+  await mouse("mouseReleased", point.x, point.y, 1);
+  await mouse("mousePressed", point.x, point.y, 2);
+  await mouse("mouseReleased", point.x, point.y, 2);
+}
+
+async function setEditValue(evaluate, value) {
+  await evaluate(`(() => {
+    const input = document.querySelector("[data-edit-input]");
+    if (!input) throw new Error("Missing edit input");
+    input.value = ${JSON.stringify(value)};
+  })()`);
+}
+
+async function pressKeyOn(evaluate, selector, key) {
+  await evaluate(`(() => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!element) throw new Error("Missing key target for pressed key");
+    element.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true }));
+  })()`);
 }
 
 async function dragConnection(evaluate, mouse, sourceId, targetId, { whileDragging, cancel = false } = {}) {
@@ -435,12 +498,12 @@ const tests = [
     async run({ openPage, evaluate, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelectorAll('#relationGraph path[data-source]').length === 2`, "relation cards and formal paths");
       const cards = await evaluate(`(() => {
-        const cardIds = (scope) => Array.from(
-          document.querySelectorAll('.relation-card[data-scope="' + scope + '"]'),
-          (card) => card.dataset.itemId
-        );
+        const cardIds = (scope) => Array.from(document.querySelectorAll('.relation-card[data-scope="' + scope + '"]'))
+          .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+          .map((card) => card.dataset.itemId);
         return { week: cardIds("week"), month: cardIds("month"), year: cardIds("year") };
       })()`);
       assert.deepEqual(cards.week, ["w1", "w2"]);
@@ -454,9 +517,12 @@ const tests = [
       assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w2"]')`), null);
       assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="m2"]')`), null);
       assert.equal(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable').textContent`), "上级不可用");
+      assert.ok(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable[data-disconnect]').matches("button")`), "the orphan badge must remain a clickable button");
       assert.equal(await evaluate(`document.querySelector('[data-item-id="m-other"]')`), null);
-      assert.ok(await evaluate(`["w1", "m1", "y1"].every((id) => document.querySelector('[data-item-id="' + id + '"] [data-sort-handle]'))`));
-      assert.ok(await evaluate(`["w1", "m1"].every((id) => document.querySelector('.x6-node:has(.relation-card[data-item-id="' + id + '"]) .relation-port') && document.querySelector('[data-item-id="' + id + '"] [data-disconnect]'))`));
+      assert.ok(await evaluate(`["w1", "m1", "y1"].every((id) => document.querySelector('[data-item-id="' + id + '"] button') === null)`), "regular cards must render without buttons");
+      assert.equal(await evaluate(`document.querySelectorAll('#relationBoard [data-disconnect]').length`), 1, "only the orphan badge may expose data-disconnect");
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.relation-card[data-item-id="w1"]')).cursor`), "grab", "cards must advertise whole-card dragging");
+      assert.ok(await evaluate(`["w1", "m1"].every((id) => document.querySelector('.x6-node:has(.relation-card[data-item-id="' + id + '"]) .relation-port'))`));
       assert.match(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("marker-end")`), /url\(/);
     }
   },
@@ -465,6 +531,7 @@ const tests = [
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('.x6-node:has(.relation-card[data-item-id="w1"]) .relation-port[port-group="out"]')`, "hover port fixture");
       const points = await evaluate(`(() => {
         const card = document.querySelector('.relation-card[data-item-id="w1"]').getBoundingClientRect();
@@ -487,6 +554,7 @@ const tests = [
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationGraph path[data-source="w1"]')`, "week sort fixture");
       const beforePath = await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`);
       const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
@@ -519,10 +587,106 @@ const tests = [
     }
   },
   {
+    name: "relation cards size to content and slot drag never overlaps",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      const now = new Date();
+      const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      const week = localDate(monday);
+      const year = localDate(now).slice(0, 4);
+      await evaluate(`
+        localStorage.setItem("lifeos-db:items", JSON.stringify({schema_version:1,items:[
+          {id:"w-short",text:"短事项",done:false,note:"",scope:"week",period:${JSON.stringify(week)},parent_id:"",created_at:1,updated_at:1,sort_order:1},
+          {id:"w-long",text:"这是一条足够长的本周事项文字，用来把卡片撑成两行显示效果",done:false,note:"",scope:"week",period:${JSON.stringify(week)},parent_id:"",created_at:2,updated_at:2,sort_order:2}
+        ]}));
+        localStorage.setItem("lifeos-db:annual-goals", JSON.stringify({schema_version:1,years:[{year:${JSON.stringify(year)},updated_at:1,items:[]}]}));
+        location.reload();
+      `);
+      await waitFor(evaluate, `document.querySelectorAll('.relation-card[data-scope="week"]').length === 2`, "content height fixture");
+      await waitForSettledLayout(evaluate);
+      const heights = await evaluate(`(() => ({
+        short: document.querySelector('.relation-card[data-item-id="w-short"]').getBoundingClientRect().height,
+        long: document.querySelector('.relation-card[data-item-id="w-long"]').getBoundingClientRect().height
+      }))()`);
+      assert.ok(heights.long > heights.short, "a two-line card must be taller than a one-line card");
+      assert.ok(heights.short < 136, "cards must hug their content instead of the old fixed height");
+      await dragCardBelow(evaluate, mouse, "w-short", "w-long", async () => {
+        const overlap = await evaluate(`(() => {
+          const rects = Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).map((card) => card.getBoundingClientRect());
+          return rects.some((a, i) => rects.some((b, j) => i < j && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
+        })()`);
+        assert.equal(overlap, false, "cards must never overlap while dragging");
+      });
+      await waitFor(evaluate, `(() => {
+        const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
+        return items.find((item) => item.id === "w-long").sort_order === 1 && items.find((item) => item.id === "w-short").sort_order === 2;
+      })()`, "slot drag save");
+      assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), ["w-long", "w-short"]);
+    }
+  },
+  {
+    name: "relation double click edits card text inline and escape cancels",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
+      await waitFor(evaluate, `document.querySelector('.relation-card[data-item-id="w1"]')`, "edit fixture");
+
+      await doubleClickCard(evaluate, mouse, "w1");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"] [data-edit-input]')`, "edit input opens");
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="w1"] [data-edit-input]').value`), "本周关联事项");
+      await setEditValue(evaluate, "取消了这次修改");
+      await pressKeyOn(evaluate, '[data-item-id="w1"] [data-edit-input]', "Escape");
+      await waitFor(evaluate, `!document.querySelector('[data-item-id="w1"] [data-edit-input]')`, "escape closes the editor");
+      assert.equal(await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").text`), "本周关联事项");
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="w1"] .relation-card-text').textContent`), "本周关联事项");
+
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        window.__writes = { items: 0, annual: 0 };
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items") window.__writes.items += 1;
+          if (key === "lifeos-db:annual-goals") window.__writes.annual += 1;
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      try {
+        await doubleClickCard(evaluate, mouse, "w1");
+        await waitFor(evaluate, `document.querySelector('[data-item-id="w1"] [data-edit-input]')`, "week edit reopen");
+        await setEditValue(evaluate, "改后的本周事项");
+        await pressKeyOn(evaluate, '[data-item-id="w1"] [data-edit-input]', "Enter");
+        await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").text === "改后的本周事项"`, "week edit save");
+        assert.equal(await evaluate(`document.querySelector('[data-item-id="w1"] .relation-card-text').textContent`), "改后的本周事项");
+
+        await doubleClickCard(evaluate, mouse, "w1");
+        await waitFor(evaluate, `document.querySelector('[data-item-id="w1"] [data-edit-input]')`, "second week edit opens");
+        await setEditValue(evaluate, "二次修改");
+        await pressKeyOn(evaluate, '[data-item-id="w1"] [data-edit-input]', "Enter");
+        await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").text === "二次修改"`, "second week edit save");
+        assert.equal(await evaluate(`document.querySelector('[data-item-id="w1"] .relation-card-text').textContent`), "二次修改", "the card must show text edited after an earlier save replaced the snapshot");
+
+        await doubleClickCard(evaluate, mouse, "y1");
+        await waitFor(evaluate, `document.querySelector('[data-item-id="y1"] [data-edit-input]')`, "annual edit opens");
+        await setEditValue(evaluate, "改后的年度目标");
+        await pressKeyOn(evaluate, '[data-item-id="y1"] [data-edit-input]', "Enter");
+        await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years.find((year) => year.items.some((item) => item.id === "y1")).items.find((item) => item.id === "y1").text === "改后的年度目标"`, "annual edit save");
+        const writes = await evaluate(`({ ...window.__writes })`);
+        assert.equal(writes.items, 2, "week edits must save items once each");
+        assert.equal(writes.annual, 1, "annual edit must save annual goals exactly once");
+        assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.relation-card[data-scope="week"]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((card) => card.dataset.itemId)`), ["w1", "w2"], "editing must not reorder cards");
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__writes;`);
+      }
+    }
+  },
+  {
     name: "relation annual sorting saves only annual goals",
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="y2"]')`, "annual sort fixture");
       const beforeItems = await evaluate(`localStorage.getItem("lifeos-db:items")`);
       await dragCardBelow(evaluate, mouse, "y1", "y2");
@@ -554,6 +718,7 @@ const tests = [
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationGraph path[data-source="w1"]')`, "item rollback fixture");
       const before = await evaluate(`(() => ({
         items: localStorage.getItem("lifeos-db:items"),
@@ -586,6 +751,7 @@ const tests = [
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="y2"]') && document.querySelector('#relationGraph path[data-source="m1"]')`, "annual rollback fixture");
       const before = await evaluate(`(() => ({
         annual: localStorage.getItem("lifeos-db:annual-goals"),
@@ -618,6 +784,7 @@ const tests = [
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('.x6-node:has(.relation-card[data-item-id="w2"]) .relation-port')`, "manual connection fixture");
       const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
 
@@ -669,6 +836,7 @@ const tests = [
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('.x6-node:has(.relation-card[data-item-id="w2"]) .relation-port')`, "connection preview fixture");
       await dragConnection(evaluate, mouse, "w2", "m2", {
         whileDragging: async () => {
@@ -694,6 +862,7 @@ const tests = [
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"][data-target="m1"]')`, "connection cancellation fixture");
       const before = await evaluate(`(() => ({
         items: localStorage.getItem("lifeos-db:items"),
@@ -730,10 +899,11 @@ const tests = [
     }
   },
   {
-    name: "relation month connection and disconnect handle valid and unavailable parents",
+    name: "relation month connection and keyboard disconnect handle valid and unavailable parents",
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="m2"] .relation-unavailable')`, "disconnect fixture");
       const beforeAnnual = await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`);
 
@@ -748,10 +918,6 @@ const tests = [
       await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="m2"][data-target="y1"]')`, "month to year path");
       await dragConnection(evaluate, mouse, "w2", "m2");
       await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w2"][data-target="m2"]')`, "valid parent disconnect fixture");
-      await clickSelector(evaluate, mouse, '[data-item-id="w2"] [data-disconnect]');
-      await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id === ""`, "valid parent disconnect");
-      await waitFor(evaluate, `!document.querySelector('#relationGraph path[data-source="w2"]')`, "valid parent path removal");
-      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), beforeAnnual, "connect and disconnect must save only items");
 
       await evaluate(`
         window.__originalSetItem = Storage.prototype.setItem;
@@ -761,9 +927,40 @@ const tests = [
           return window.__originalSetItem.call(this, key, value);
         };
       `);
+      const edgeStroke = `document.querySelector('#relationGraph path[data-source="w2"]').getAttribute("stroke")`;
       try {
-        await clickSelector(evaluate, mouse, '[data-item-id="w2"] [data-disconnect]');
-        assert.equal(await evaluate(`window.__itemWrites`), 0, "disconnecting an empty parent must be a no-op");
+        await clickEdgePath(evaluate, mouse, "w2");
+        await waitFor(evaluate, `${edgeStroke} === "#a45c50"`, "selected edge highlight");
+        assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /已选中连线/, "selection must explain the keyboard shortcut");
+        await pressKey(evaluate, "Escape");
+        await waitFor(evaluate, `${edgeStroke} === "#687d5b"`, "escape must clear the selection");
+        assert.equal(await evaluate(`window.__itemWrites`), 0, "escape must not save");
+
+        await clickEdgePath(evaluate, mouse, "w2");
+        await waitFor(evaluate, `${edgeStroke} === "#a45c50"`, "edge reselection");
+        const blank = await evaluate(`(() => {
+          const rect = document.querySelector("#relationBoard").getBoundingClientRect();
+          const point = { x: rect.right - 12, y: rect.bottom - 12 };
+          if (document.elementFromPoint(point.x, point.y)?.closest(".relation-card, .x6-edge")) {
+            throw new Error("Blank deselect fixture hit a card or edge");
+          }
+          return point;
+        })()`);
+        await mouse("mousePressed", blank.x, blank.y);
+        await mouse("mouseReleased", blank.x, blank.y);
+        await waitFor(evaluate, `${edgeStroke} === "#687d5b"`, "clicking blank space must clear the selection");
+        assert.equal(await evaluate(`window.__itemWrites`), 0, "deselecting must not save");
+
+        await pressKey(evaluate, "Delete");
+        assert.equal(await evaluate(`window.__itemWrites`), 0, "delete without a selection must be a no-op");
+
+        await clickEdgePath(evaluate, mouse, "w2");
+        await waitFor(evaluate, `${edgeStroke} === "#a45c50"`, "selection before keyboard disconnect");
+        await pressKey(evaluate, "Backspace");
+        await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w2").parent_id === ""`, "valid parent disconnect");
+        await waitFor(evaluate, `!document.querySelector('#relationGraph path[data-source="w2"]')`, "valid parent path removal");
+        assert.equal(await evaluate(`window.__itemWrites`), 1, "keyboard disconnect must save items exactly once");
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), beforeAnnual, "connect and disconnect must save only items");
       } finally {
         await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__itemWrites;`);
       }
@@ -774,6 +971,7 @@ const tests = [
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"][data-target="m1"]')`, "connection rollback fixture");
       const before = await evaluate(`(() => ({
         items: localStorage.getItem("lifeos-db:items"),
@@ -811,10 +1009,11 @@ const tests = [
     }
   },
   {
-    name: "relation disconnect save failure restores parent DOM path and storage",
+    name: "relation keyboard disconnect save failure restores parent DOM path and storage",
     async run({ openPage, evaluate, mouse, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"][data-target="m1"]')`, "disconnect rollback fixture");
       const before = await evaluate(`(() => ({
         items: localStorage.getItem("lifeos-db:items"),
@@ -833,7 +1032,9 @@ const tests = [
         };
       `);
       try {
-        await clickSelector(evaluate, mouse, '[data-item-id="w1"] [data-disconnect]');
+        await clickEdgePath(evaluate, mouse, "w1");
+        await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("stroke") === "#a45c50"`, "rollback fixture selection");
+        await pressKey(evaluate, "Delete");
         await waitFor(evaluate, `document.querySelector('#relationNotice').textContent.includes("保存失败，已撤销")`, "disconnect rollback notice");
         await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
         assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
@@ -843,7 +1044,10 @@ const tests = [
         assert.equal(await evaluate(`document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("d")`), before.path);
         assert.equal(await evaluate(`window.__failItemWrite`), false);
         assert.match(await evaluate(`document.querySelector('#relationNotice').textContent`), /模拟断开保存失败/);
-        assert.equal(await evaluate(`document.querySelector('[data-item-id="w1"] [data-disconnect]').disabled`), false);
+        assert.equal(await evaluate(`document.querySelector('#relationBoard').getAttribute('aria-busy')`), "false");
+        await clickEdgePath(evaluate, mouse, "w1");
+        await waitFor(evaluate, `document.querySelector('#relationGraph path[data-source="w1"]').getAttribute("stroke") === "#a45c50"`, "the restored edge must stay selectable after rollback");
+        await pressKey(evaluate, "Escape");
       } finally {
         await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__failItemWrite;`);
       }
@@ -854,6 +1058,7 @@ const tests = [
     async run({ openPage, evaluate, assert }) {
       await openPage("目标关系.html");
       await evaluate(relationFixture({ emptyYear: true }));
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#yearCards .relation-empty')`, "empty relation year column");
       assert.equal(await evaluate(`document.querySelectorAll('.relation-card[data-scope="year"]').length`), 0);
       assert.match(await evaluate(`document.querySelector('#yearCards .relation-empty').textContent`), /暂无/);
@@ -864,6 +1069,7 @@ const tests = [
     async run({ openPage, evaluate, assert }) {
       await openPage("目标关系.html", 440, 843);
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelectorAll('#relationGraph path[data-source]').length === 2`, "narrow relation fixture");
       const layout = await evaluate(`(() => {
         const relationScroll = document.querySelector("#relationScroll");
@@ -923,6 +1129,7 @@ const tests = [
       })();`);
       await openPage("目标关系.html");
       await evaluate(relationFixture());
+      await waitForSettledLayout(evaluate);
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"]') && document.querySelector('#relationGraph path[data-source="w1"]')`, "save lifecycle fixture");
       await delay(100);
       const rafBefore = await evaluate(`({ ...window.__relationRafStats })`);
@@ -940,7 +1147,10 @@ const tests = [
             window.dispatchEvent(event);
             window.__saveLifecycle = {
               prevented: event.defaultPrevented,
-              controlsDisabled: Array.from(document.querySelectorAll("[data-sort-handle], [data-disconnect]")).every((button) => button.disabled),
+              controlsDisabled: (() => {
+                const buttons = document.querySelectorAll('#relationBoard button[data-disconnect]');
+                return buttons.length > 0 && Array.from(buttons).every((button) => button.disabled);
+              })(),
               connectionBlocked: document.querySelector("#relationBoard").getAttribute("aria-busy") === "true",
               scrollEnabled: !document.querySelector("#relationScroll").inert && !document.querySelector("#relationScroll").hasAttribute("disabled"),
               boardEnabled: !document.querySelector("#relationBoard").inert
@@ -954,7 +1164,7 @@ const tests = [
         await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").sort_order === 2`, "lifecycle sort save");
         const duringSave = await evaluate(`window.__saveLifecycle`);
         assert.equal(duringSave.prevented, true, "beforeunload must be prevented while saving");
-        assert.equal(duringSave.controlsDisabled, true, "sort and disconnect controls must be disabled while saving");
+        assert.equal(duringSave.controlsDisabled, true, "orphan disconnect controls must be disabled while saving");
         assert.equal(duringSave.connectionBlocked, true, "new connections must be blocked while saving");
         assert.equal(duringSave.scrollEnabled, true, "horizontal scrolling must remain available while saving");
         assert.equal(duringSave.boardEnabled, true, "saving must not make the whole board inert");
@@ -963,7 +1173,10 @@ const tests = [
           window.dispatchEvent(event);
           return {
             prevented: event.defaultPrevented,
-            controlsEnabled: Array.from(document.querySelectorAll("[data-sort-handle], [data-disconnect]")).every((button) => !button.disabled),
+            controlsEnabled: (() => {
+              const buttons = document.querySelectorAll('#relationBoard button[data-disconnect]');
+              return buttons.length > 0 && Array.from(buttons).every((button) => !button.disabled);
+            })(),
             connectionEnabled: document.querySelector("#relationBoard").getAttribute("aria-busy") === "false"
           };
         })()`);

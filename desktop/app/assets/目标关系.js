@@ -20,7 +20,7 @@
   const graphContainer = document.getElementById("relationGraph");
   const notice = document.getElementById("relationNotice");
   const TARGET_SCOPE = { week: "month", month: "year" };
-  const NODE_HEIGHT = 136;
+  const NODE_FALLBACK_HEIGHT = 120;
   const NODE_GAP = 14;
   const NODE_TOP = 92;
   const BOARD_PADDING = 30;
@@ -35,7 +35,10 @@
     columns: { week: [], month: [], year: [] },
     saving: false,
     drag: null,
-    layout: null
+    layout: null,
+    heights: new Map(),
+    measureQueued: false,
+    selectedEdge: null
   };
   const currentDate = formatDate(new Date());
   const currentWeek = weekKey(currentDate);
@@ -43,6 +46,9 @@
   const currentYear = currentDate.slice(0, 4);
   const labels = { week: "本周", month: "本月", year: "今年" };
   const emptyLabels = { week: "本周暂无事项", month: "本月暂无事项", year: "今年暂无目标" };
+  const EDGE_COLOR = "#687d5b";
+  const EDGE_SELECTED_COLOR = "#a45c50";
+  const SELECTION_HINT = "已选中连线：按 Delete / Backspace 断开，Esc 取消选择。";
   const portGroups = {
     in: portGroup("in"),
     out: portGroup("out")
@@ -51,11 +57,11 @@
   Shape.HTML.register({
     shape: "relation-card-node",
     width: 280,
-    height: NODE_HEIGHT,
+    height: NODE_FALLBACK_HEIGHT,
     effect: ["data"],
     html(cell) {
-      const { scope, item, unavailable } = cell.getData();
-      return renderCard(scope, item, unavailable);
+      const { scope, item, unavailable, editing } = cell.getData();
+      return renderCard(scope, item, unavailable, editing);
     }
   });
 
@@ -103,7 +109,12 @@
   document.getElementById("relationPeriod").textContent = `${weekRangeLabel(currentWeek)} · ${currentMonth} · ${currentYear}`;
   installGraphHandlers();
   installSortHandlers();
+  installEditHandlers();
+  board.addEventListener("click", (event) => {
+    if (!event.target.closest(".x6-edge")) clearEdgeSelection();
+  });
   board.addEventListener("click", disconnect);
+  window.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("resize", resizeGraph);
   window.addEventListener("beforeunload", (event) => {
     if (!state.saving) return;
@@ -121,7 +132,7 @@
           "data-connect": "true",
           r: 4,
           magnet: true,
-          stroke: "#687d5b",
+          stroke: EDGE_COLOR,
           strokeWidth: 1.5,
           fill: "#fffdf7"
         }
@@ -134,7 +145,7 @@
       data: { formal },
       attrs: {
         line: {
-          stroke: "#687d5b",
+          stroke: EDGE_COLOR,
           strokeWidth: 2,
           targetMarker: { name: "block", width: 9, height: 7 },
           ...(formal ? { "data-source": sourceId, "data-target": targetId } : {})
@@ -155,7 +166,7 @@
       selectCurrentColumns();
       render();
       setBoardEnabled(true);
-      setNotice(tauriInvoke ? "已连接本地数据库。" : "当前是浏览器预览，仅展示本地缓存中的目标关系。");
+      setNotice(defaultNotice());
     } catch (error) {
       state.snapshot = null;
       graph.clearCells();
@@ -294,12 +305,9 @@
 
   function calculateLayout() {
     const width = Math.max(960, scroll.clientWidth - 4);
-    const count = Math.max(...Object.values(state.columns).map((items) => items.length), 0);
-    const height = Math.max(420, NODE_TOP + count * (NODE_HEIGHT + NODE_GAP) + BOARD_PADDING);
     const nodeWidth = (width - BOARD_PADDING * 2 - COLUMN_GAP * 2) / 3;
     return {
       width,
-      height,
       nodeWidth,
       x: {
         week: BOARD_PADDING,
@@ -310,37 +318,82 @@
   }
 
   function updateBoardSize() {
-    state.layout = calculateLayout();
+    state.layout = { ...calculateLayout(), height: state.layout?.height || 420 };
     board.style.width = `${state.layout.width}px`;
+    measureNodes();
+    layoutColumns();
+  }
+
+  function refreshLayout() {
+    updateBoardSize();
+    scheduleMeasure();
+  }
+
+  function scheduleMeasure() {
+    if (!state.snapshot || state.measureQueued) return;
+    state.measureQueued = true;
+    requestAnimationFrame(() => {
+      state.measureQueued = false;
+      if (!state.snapshot) return;
+      updateBoardSize();
+    });
+  }
+
+  const mountObserver = new MutationObserver(() => scheduleMeasure());
+  mountObserver.observe(graphContainer, { childList: true, subtree: true });
+
+  function measureNodes() {
+    state.heights.clear();
+    for (const node of graph.getNodes()) {
+      const card = graph.findView(node)?.container.querySelector(".relation-card");
+      const height = card?.offsetHeight || NODE_FALLBACK_HEIGHT;
+      state.heights.set(String(node.id), height);
+      node.resize(state.layout.nodeWidth, height);
+    }
+  }
+
+  function layoutColumns() {
+    let bottom = NODE_TOP;
+    for (const scope of ["week", "month", "year"]) {
+      let y = NODE_TOP;
+      for (const item of state.columns[scope]) {
+        const id = String(item.id);
+        const node = graph.getCellById(id);
+        if (!node) continue;
+        node.position(state.layout.x[scope], y);
+        y += (state.heights.get(id) || NODE_FALLBACK_HEIGHT) + NODE_GAP;
+      }
+      bottom = Math.max(bottom, y);
+    }
+    state.layout.height = Math.max(420, bottom - NODE_GAP + BOARD_PADDING);
     board.style.height = `${state.layout.height}px`;
     graph.resize(state.layout.width, state.layout.height);
   }
 
   function render() {
+    clearEdgeSelection();
     selectCurrentColumns();
-    updateBoardSize();
     const visible = visibleMap();
     const desiredIds = new Set(Object.values(state.columns).flat().map((item) => String(item.id)));
     for (const node of graph.getNodes()) {
       if (!desiredIds.has(String(node.id))) node.remove();
     }
+    state.layout = { ...calculateLayout(), height: state.layout?.height || 420 };
+    board.style.width = `${state.layout.width}px`;
     for (const scope of ["week", "month", "year"]) {
       const items = state.columns[scope];
       containers[scope].innerHTML = items.length ? "" : `<p class="relation-empty">${emptyLabels[scope]}</p>`;
-      items.forEach((item, index) => {
+      items.forEach((item) => {
         const id = String(item.id);
-        const data = {
-          scope,
-          item,
-          unavailable: scope !== "year" && item.parent_id && !parentTarget(scope, item, visible)
-        };
-        const x = state.layout.x[scope];
-        const y = NODE_TOP + index * (NODE_HEIGHT + NODE_GAP);
         const existing = graph.getCellById(id);
         if (existing) {
-          existing.setData(data);
-          existing.resize(state.layout.nodeWidth, NODE_HEIGHT);
-          existing.position(x, y);
+          if (!existing.getData().editing) {
+            existing.setData({
+              scope,
+              item,
+              unavailable: scope !== "year" && item.parent_id && !parentTarget(scope, item, visible)
+            });
+          }
           return;
         }
         const ports = [];
@@ -349,17 +402,22 @@
         graph.addNode({
           id,
           shape: "relation-card-node",
-          x,
-          y,
+          x: state.layout.x[scope],
+          y: NODE_TOP,
           width: state.layout.nodeWidth,
-          height: NODE_HEIGHT,
-          data,
+          height: NODE_FALLBACK_HEIGHT,
+          data: {
+            scope,
+            item,
+            unavailable: scope !== "year" && item.parent_id && !parentTarget(scope, item, visible)
+          },
           portMarkup: [{ tagName: "circle", selector: "circle" }],
           ports: { groups: portGroups, items: ports },
           zIndex: 1
         });
       });
     }
+    refreshLayout();
     const desiredRelations = new Map(formalRelations().map((relation) => {
       const sourceId = String(relation.source.id);
       const targetId = String(relation.target.id);
@@ -383,35 +441,25 @@
     }
   }
 
-  function renderCard(scope, item, unavailable) {
+  function renderCard(scope, item, unavailable, editing) {
     const id = String(item.id);
     const text = String(item.text || "未命名目标");
     return `
-      <article class="relation-card${item.done ? " is-done" : ""}" data-scope="${scope}" data-item-id="${escapeHtml(id)}">
+      <article class="relation-card${item.done ? " is-done" : ""}${editing ? " is-editing" : ""}" data-scope="${scope}" data-item-id="${escapeHtml(id)}" title="双击编辑文字 · 按住上下拖动排序">
         <div class="relation-card-head">
-          <button class="relation-handle" type="button" data-sort-handle aria-label="拖拽排序：${escapeHtml(text)}">↕</button>
           <span class="relation-card-kind">${labels[scope]}${item.done ? " · 已完成" : ""}</span>
         </div>
-        <p class="relation-card-text">${escapeHtml(text)}</p>
-        <div class="relation-card-actions">
-          ${scope !== "year" ? `<button class="relation-action" type="button" data-disconnect aria-label="断开上级关系：${escapeHtml(text)}">断开</button>` : ""}
-          ${unavailable ? '<span class="relation-unavailable">上级不可用</span>' : ""}
-        </div>
+        ${editing
+          ? `<input class="relation-card-edit" type="text" data-edit-input value="${escapeHtml(String(item.text || ""))}" aria-label="编辑${labels[scope]}文字" />`
+          : `<p class="relation-card-text">${escapeHtml(text)}</p>`}
+        ${unavailable ? `<div class="relation-card-actions"><button class="relation-unavailable" type="button" data-disconnect title="点击清除失效的上级关系" aria-label="清除失效的上级关系：${escapeHtml(text)}">上级不可用</button></div>` : ""}
       </article>
     `;
   }
 
   function resizeGraph() {
     if (!state.snapshot) return;
-    updateBoardSize();
-    for (const scope of ["week", "month", "year"]) {
-      state.columns[scope].forEach((item, index) => {
-        const node = graph.getCellById(String(item.id));
-        if (!node) return;
-        node.resize(state.layout.nodeWidth, NODE_HEIGHT);
-        node.position(state.layout.x[scope], NODE_TOP + index * (NODE_HEIGHT + NODE_GAP));
-      });
-    }
+    refreshLayout();
   }
 
   function installGraphHandlers() {
@@ -448,6 +496,65 @@
       syncNodeData(sourceId);
       await saveSnapshot(before, "items");
     });
+    graph.on("edge:click", ({ edge }) => {
+      if (!edge.getData()?.formal || state.saving || state.drag) return;
+      selectEdge(edge);
+    });
+    graph.on("cell:removed", ({ cell }) => {
+      if (cell === state.selectedEdge) clearEdgeSelection();
+    });
+  }
+
+  function defaultNotice() {
+    return tauriInvoke
+      ? "已连接本地数据库。拖动卡片排序；点击连线选中后按 Delete 断开。"
+      : "当前是浏览器预览，仅展示本地缓存中的目标关系。拖动卡片排序；点击连线选中后按 Delete 断开。";
+  }
+
+  function selectEdge(edge) {
+    if (state.selectedEdge === edge) return;
+    clearEdgeSelection();
+    state.selectedEdge = edge;
+    applyEdgeSelectionStyle(edge, true);
+    setNotice(SELECTION_HINT);
+  }
+
+  function clearEdgeSelection() {
+    const edge = state.selectedEdge;
+    if (!edge) return;
+    state.selectedEdge = null;
+    applyEdgeSelectionStyle(edge, false);
+    if (notice.textContent === SELECTION_HINT) setNotice(defaultNotice());
+  }
+
+  function applyEdgeSelectionStyle(edge, selected) {
+    edge.attr("line/stroke", selected ? EDGE_SELECTED_COLOR : EDGE_COLOR);
+    edge.attr("line/strokeWidth", selected ? 3 : 2);
+    edge.attr("line/targetMarker/fill", selected ? EDGE_SELECTED_COLOR : EDGE_COLOR);
+  }
+
+  function onGlobalKeydown(event) {
+    if (event.target.closest?.("[data-edit-input]")) return;
+    if (event.key === "Escape") {
+      clearEdgeSelection();
+      return;
+    }
+    if (event.key !== "Delete" && event.key !== "Backspace") return;
+    const edge = state.selectedEdge;
+    if (!edge || state.saving || state.drag) return;
+    event.preventDefault();
+    disconnectEdge(edge);
+  }
+
+  async function disconnectEdge(edge) {
+    const sourceId = edge.getSourceCellId();
+    const item = state.snapshot?.items.items.find((entry) => String(entry.id) === sourceId);
+    clearEdgeSelection();
+    if (!item || !item.parent_id) return;
+    const before = structuredClone(state.snapshot);
+    item.parent_id = "";
+    render();
+    await saveSnapshot(before, "items");
   }
 
   function syncEdgeView(edge) {
@@ -456,7 +563,7 @@
     edge.attr("line/data-target", edge.getTargetCellId());
   }
 
-  function syncNodeData(itemId) {
+  function syncNodeData(itemId, editing = false) {
     const node = graph.getCellById(itemId);
     if (!node) return;
     const scope = node.getData().scope;
@@ -465,8 +572,85 @@
     node.setData({
       scope,
       item,
-      unavailable: Boolean(item.parent_id) && !parentTarget(scope, item, visibleMap())
+      unavailable: Boolean(item.parent_id) && !parentTarget(scope, item, visibleMap()),
+      editing
     });
+  }
+
+  function installEditHandlers() {
+    board.addEventListener("dblclick", (event) => {
+      if (state.saving || state.drag) return;
+      if (event.target.closest("button, input")) return;
+      const card = event.target.closest(".relation-card");
+      if (card) startEdit(card.dataset.itemId);
+    });
+    board.addEventListener("keydown", (event) => {
+      const input = event.target.closest?.("[data-edit-input]");
+      if (!input) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        commitEdit(input);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelEdit(input);
+      }
+    });
+    board.addEventListener("focusout", (event) => {
+      const input = event.target.closest?.("[data-edit-input]");
+      if (input) commitEdit(input);
+    });
+  }
+
+  function startEdit(id) {
+    const node = graph.getCellById(id);
+    const data = node?.getData();
+    if (!node || data.editing) return;
+    node.setData({ ...data, editing: true });
+    refreshLayout();
+    focusEditInput(node);
+  }
+
+  function focusEditInput(node) {
+    const input = graph.findView(node)?.container.querySelector("[data-edit-input]");
+    if (input) {
+      input.focus();
+      input.select();
+      return;
+    }
+    requestAnimationFrame(() => {
+      if (!node.getData()?.editing) return;
+      const retry = graph.findView(node)?.container.querySelector("[data-edit-input]");
+      if (!retry) return;
+      retry.focus();
+      retry.select();
+    });
+  }
+
+  function commitEdit(input) {
+    const id = input.closest(".relation-card")?.dataset.itemId;
+    const node = id && graph.getCellById(id);
+    const data = node?.getData();
+    if (!node || !data.editing) return;
+    const value = String(input.value).trim();
+    const scope = data.scope;
+    syncNodeData(id);
+    refreshLayout();
+    const record = findRecord(scope, id);
+    if (!record || !value || value === String(record.text || "")) return;
+    const before = structuredClone(state.snapshot);
+    record.text = value;
+    syncNodeData(id);
+    refreshLayout();
+    saveSnapshot(before, scope === "year" ? "annual" : "items");
+  }
+
+  function cancelEdit(input) {
+    const id = input.closest(".relation-card")?.dataset.itemId;
+    const node = id && graph.getCellById(id);
+    if (!node || !node.getData().editing) return;
+    syncNodeData(id);
+    refreshLayout();
   }
 
   function installSortHandlers() {
@@ -477,25 +661,30 @@
   }
 
   function startSort(event) {
-    const handle = event.target.closest("[data-sort-handle]");
-    if (!handle || state.saving || state.drag || event.button !== 0) return;
-    const card = handle.closest(".relation-card");
-    const node = graph.getCellById(card?.dataset.itemId);
-    if (!card || !node) return;
-    const position = node.getPosition();
+    if (state.saving || state.drag || event.button !== 0) return;
+    if (event.target.closest("button, input")) return;
+    const card = event.target.closest(".relation-card");
+    if (!card) return;
+    const node = graph.getCellById(card.dataset.itemId);
+    if (!node || node.getData().editing) return;
+    const scope = card.dataset.scope;
+    const order = state.columns[scope].map((item) => String(item.id));
+    const id = String(node.id);
     state.drag = {
       card,
-      handle,
       node,
-      scope: card.dataset.scope,
+      scope,
       before: structuredClone(state.snapshot),
-      beforeOrder: state.columns[card.dataset.scope].map((item) => String(item.id)),
+      beforeOrder: order,
+      order: [...order],
+      others: order.filter((entry) => entry !== id),
+      index: order.indexOf(id),
       pointerId: event.pointerId,
       startY: event.clientY,
-      startNodeY: position.y
+      pointerBoardY: event.clientY - board.getBoundingClientRect().top,
+      moved: false
     };
-    handle.setPointerCapture(event.pointerId);
-    card.classList.add("is-dragging");
+    card.setPointerCapture(event.pointerId);
     event.preventDefault();
     event.stopPropagation();
   }
@@ -503,47 +692,72 @@
   function moveSort(event) {
     const drag = state.drag;
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
-    const y = Math.max(
-      NODE_TOP,
-      Math.min(drag.startNodeY + event.clientY - drag.startY, state.layout.height - NODE_HEIGHT - BOARD_PADDING)
-    );
-    drag.node.position(state.layout.x[drag.scope], y);
+    const deltaY = event.clientY - drag.startY;
+    if (!drag.moved) {
+      if (Math.abs(deltaY) < 3) return;
+      drag.moved = true;
+      drag.card.classList.add("is-dragging");
+    }
+    const pointerY = drag.pointerBoardY + deltaY;
+    let index = 0;
+    for (const id of drag.others) {
+      const sibling = graph.getCellById(id);
+      if (!sibling) continue;
+      const position = sibling.getPosition();
+      if (pointerY > position.y + sibling.getSize().height / 2) index += 1;
+    }
+    if (index === drag.index) return;
+    drag.index = index;
+    drag.order = [...drag.others];
+    drag.order.splice(index, 0, String(drag.node.id));
+    applyColumnOrder(drag);
     event.preventDefault();
+  }
+
+  function applyColumnOrder(drag) {
+    let y = NODE_TOP;
+    for (const id of drag.order) {
+      const node = graph.getCellById(id);
+      if (!node) continue;
+      node.position(state.layout.x[drag.scope], y);
+      y += (state.heights.get(id) || NODE_FALLBACK_HEIGHT) + NODE_GAP;
+    }
   }
 
   async function finishSort(event) {
     const drag = state.drag;
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
     state.drag = null;
-    if (drag.handle.hasPointerCapture(event.pointerId)) drag.handle.releasePointerCapture(event.pointerId);
+    if (drag.card.hasPointerCapture(event.pointerId)) drag.card.releasePointerCapture(event.pointerId);
     drag.card.classList.remove("is-dragging");
-    drag.node.position(state.layout.x[drag.scope], drag.node.getPosition().y);
-    const ids = graph.getNodes()
-      .filter((node) => node.getData().scope === drag.scope)
-      .sort((a, b) => a.getPosition().y - b.getPosition().y)
-      .map((node) => String(node.id));
-    if (ids.join("\u0000") === drag.beforeOrder.join("\u0000")) return;
-
-    ids.forEach((id, index) => {
-      if (drag.scope === "year") {
-        const year = state.snapshot.annual_goals.years.find((record) => String(record.year) === currentYear);
-        const item = year?.items.find((entry) => String(entry.id) === id);
-        if (item) item.sort_order = index + 1;
-      } else {
-        const item = state.snapshot.items.items.find((entry) => String(entry.id) === id);
-        if (item) item.sort_order = index + 1;
-      }
+    if (!drag.moved) return;
+    if (drag.order.join("\u0000") === drag.beforeOrder.join("\u0000")) {
+      layoutColumns();
+      return;
+    }
+    drag.order.forEach((id, index) => {
+      const item = findRecord(drag.scope, id);
+      if (item) item.sort_order = index + 1;
     });
     render();
     await saveSnapshot(drag.before, drag.scope === "year" ? "annual" : "items");
     event.preventDefault();
   }
 
+  function findRecord(scope, id) {
+    if (scope === "year") {
+      const year = state.snapshot.annual_goals.years.find((record) => String(record.year) === currentYear);
+      return year?.items.find((entry) => String(entry.id) === id) || null;
+    }
+    return state.snapshot.items.items.find((entry) => String(entry.id) === id) || null;
+  }
+
   function cancelSort(event) {
     const drag = state.drag;
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
     state.drag = null;
-    if (drag.handle.hasPointerCapture(event.pointerId)) drag.handle.releasePointerCapture(event.pointerId);
+    if (drag.card.hasPointerCapture(event.pointerId)) drag.card.releasePointerCapture(event.pointerId);
+    drag.card.classList.remove("is-dragging");
     state.snapshot = drag.before;
     render();
   }
@@ -573,6 +787,7 @@
         const saved = await invoke("save_annual_goal_database", { years: state.snapshot.annual_goals.years });
         state.snapshot.annual_goals = saved;
       }
+      render();
       setNotice("已保存", "saved");
     } catch (error) {
       state.snapshot = before;
