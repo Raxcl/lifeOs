@@ -237,6 +237,32 @@ async function dragCardBelow(evaluate, mouse, sourceId, targetId, whileDragging,
   await mouse("mouseReleased", points.end.x, points.end.y);
 }
 
+async function dragInboxCard(evaluate, mouse, sourceId, scope, targetId, { whileDragging, cancel = false } = {}) {
+  const points = await evaluate(`(async () => {
+    const card = document.querySelector('.relation-card[data-item-id="${sourceId}"]');
+    const target = ${targetId ? `document.querySelector('.relation-card[data-item-id="${targetId}"]')` : "null"};
+    const list = document.querySelector('#${scope}Cards');
+    if (!card || !list || (${Boolean(targetId)} && !target)) throw new Error("Missing inbox drag fixture");
+    card.scrollIntoView({ block: "center", inline: "center" });
+    (target || list).scrollIntoView({ block: "center", inline: "center" });
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const cardRect = card.getBoundingClientRect();
+    const targetRect = (target || list).getBoundingClientRect();
+    return {
+      start: { x: cardRect.left + cardRect.width / 2, y: cardRect.top + cardRect.height / 2 },
+      end: { x: targetRect.left + targetRect.width / 2, y: target ? targetRect.bottom + 8 : targetRect.top + 20 }
+    };
+  })()`);
+  await mouse("mousePressed", points.start.x, points.start.y);
+  await mouse("mouseMoved", points.end.x, points.end.y);
+  await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+  if (whileDragging) await whileDragging(points);
+  if (cancel) {
+    await evaluate(`document.querySelector('.relation-card[data-item-id="${sourceId}"]').dispatchEvent(new PointerEvent("pointercancel", { bubbles: true, pointerId: 1 }))`);
+  }
+  await mouse("mouseReleased", points.end.x, points.end.y);
+}
+
 async function clickEdgePath(evaluate, mouse, sourceId) {
   const point = await evaluate(`(() => {
     const path = document.querySelector('#relationLines path[data-source="${sourceId}"]');
@@ -352,7 +378,7 @@ function localDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
-function relationFixture({ emptyYear = false } = {}) {
+function relationFixture({ emptyYear = false, withInbox = false } = {}) {
   const now = new Date();
   const today = localDateKey(now);
   const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -362,6 +388,7 @@ function relationFixture({ emptyYear = false } = {}) {
   const currentYear = today.slice(0, 4);
   const otherYear = String(Number(currentYear) - 1);
   const otherMonth = localDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 1)).slice(0, 7);
+  const previousWeek = localDateKey(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7));
   const items = {
     schema_version: 1,
     items: [
@@ -369,7 +396,14 @@ function relationFixture({ emptyYear = false } = {}) {
       { id: "w2", text: "本周已完成事项", done: true, note: "", scope: "week", period: currentWeek, parent_id: "", created_at: 2, updated_at: 2, sort_order: 2 },
       { id: "m1", text: "本月关联事项", done: false, note: "", scope: "month", period: currentMonth, parent_id: "y1", created_at: 3, updated_at: 3, sort_order: 1 },
       { id: "m2", text: "本月悬空事项", done: false, note: "", scope: "month", period: currentMonth, parent_id: "missing-year", created_at: 4, updated_at: 4, sort_order: 2 },
-      { id: "m-other", text: "其他月份事项", done: false, note: "", scope: "month", period: otherMonth, parent_id: "", created_at: 5, updated_at: 5, sort_order: 3 }
+      { id: "m-other", text: "其他月份事项", done: false, note: "", scope: "month", period: otherMonth, parent_id: "", created_at: 5, updated_at: 5, sort_order: 3 },
+      ...(withInbox ? [
+        { id: "i1", text: "待归属事项", done: false, note: "保留这条备注", scope: "inbox", period: "", parent_id: "", created_at: 9, updated_at: 9, sort_order: 1 },
+        { id: "i2", text: "第二待归属事项", done: false, note: "", scope: "inbox", period: "", parent_id: "", created_at: 10, updated_at: 10, sort_order: 2 },
+        { id: "i-done", text: "已完成收集箱事项", done: true, note: "", scope: "inbox", period: "", parent_id: "", created_at: 11, updated_at: 11, sort_order: 3 },
+        { id: "i-overdue", text: "过期未完成事项", done: false, note: "", scope: "week", period: previousWeek, parent_id: "", created_at: 12, updated_at: 12, sort_order: 4 },
+        { id: "i-overdue-done", text: "过期已完成事项", done: true, note: "", scope: "week", period: previousWeek, parent_id: "", created_at: 13, updated_at: 13, sort_order: 5 }
+      ] : [])
     ]
   };
   const annualGoals = {
@@ -539,6 +573,128 @@ const tests = [
       assert.ok(await evaluate(`["w1", "m1"].every((id) => document.querySelector('.relation-card[data-item-id="' + id + '"] [data-connect="out"]'))`));
       assert.ok(await evaluate(`["m1", "y1"].every((id) => document.querySelector('.relation-card[data-item-id="' + id + '"] [data-connect="in"]'))`));
       assert.match(await evaluate(`document.querySelector('#relationLines path[data-source="w1"]').getAttribute("marker-end")`), /url\(/);
+    }
+  },
+  {
+    name: "relation inbox shows unassigned and overdue unfinished items without creating formal links",
+    async run({ openPage, evaluate, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ withInbox: true }));
+      await waitFor(evaluate, `document.querySelectorAll('#inboxCards .relation-card').length === 4`, "relation inbox fixture");
+      assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#inboxCards .relation-card'), (card) => card.dataset.itemId)`), ["i1", "i2", "i-done", "i-overdue"]);
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="i-overdue-done"]')`), null);
+      assert.equal(await evaluate(`document.querySelectorAll('#relationLines path[data-source]').length`), 2);
+      assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source^="i-"]')`), null);
+    }
+  },
+  {
+    name: "relation inbox drag to week preserves item fields and saves the drop order",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ withInbox: true }));
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-item-id="i1"]')`, "inbox to week fixture");
+      const before = await evaluate(`(() => ({
+        annual: localStorage.getItem("lifeos-db:annual-goals"),
+        item: JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "i1"),
+        period: JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "w1").period,
+        left: document.querySelector('[data-item-id="i1"]').getBoundingClientRect().left,
+        top: document.querySelector('[data-item-id="i1"]').getBoundingClientRect().top
+      }))()`);
+      await dragInboxCard(evaluate, mouse, "i1", "week", "w2", {
+        whileDragging: async (points) => {
+          assert.ok(await evaluate(`document.querySelector('#weekCards').classList.contains('is-drop-target')`), "the destination column must highlight while dragging");
+          assert.ok(await evaluate(`document.querySelector('[data-item-id="i1"]').parentElement.id === 'weekCards'`), "the dragged card must preview its insertion position");
+          const rect = await evaluate(`(() => { const rect = document.querySelector('[data-item-id="i1"]').getBoundingClientRect(); return { left: rect.left, top: rect.top }; })()`);
+          assert.ok(Math.abs(rect.left - (before.left + points.end.x - points.start.x)) < 1 && Math.abs(rect.top - (before.top + points.end.y - points.start.y)) < 1, "the inbox card must follow the pointer in both axes");
+        }
+      });
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "i1").scope === "week"`, "inbox to week save");
+      const saved = await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "i1")`);
+      assert.deepEqual(saved, { ...before.item, scope: "week", period: before.period, parent_id: "", sort_order: 3, updated_at: saved.updated_at });
+      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
+      assert.equal(await evaluate(`document.querySelector('#inboxCards [data-item-id="i1"]')`), null);
+      assert.equal(await evaluate(`document.querySelector('#weekCards').classList.contains('is-drop-target')`), false);
+    }
+  },
+  {
+    name: "relation inbox drag to month sets current period and clears its parent",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ withInbox: true }));
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-item-id="i2"]')`, "inbox to month fixture");
+      const period = await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "m1").period`);
+      await dragInboxCard(evaluate, mouse, "i2", "month", "m2");
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "i2").scope === "month"`, "inbox to month save");
+      const saved = await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((item) => item.id === "i2")`);
+      assert.equal(saved.period, period);
+      assert.equal(saved.parent_id, "");
+      assert.equal(saved.sort_order, 3);
+      assert.equal(saved.note, "");
+    }
+  },
+  {
+    name: "relation inbox drag to empty year converts the item into an annual goal",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ withInbox: true, emptyYear: true }));
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-item-id="i1"]') && document.querySelector('#yearCards .relation-empty')`, "inbox to year fixture");
+      await dragInboxCard(evaluate, mouse, "i1", "year", null);
+      await waitFor(evaluate, `!JSON.parse(localStorage.getItem("lifeos-db:items")).items.some((item) => item.id === "i1") && JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years.flatMap((year) => year.items).some((item) => item.id === "i1")`, "inbox annual conversion");
+      const saved = await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years.flatMap((year) => year.items).find((item) => item.id === "i1")`);
+      assert.deepEqual(saved, { id: "i1", text: "待归属事项", done: false, created_at: 9, updated_at: saved.updated_at, sort_order: 1 });
+      assert.equal(Object.hasOwn(saved, "note"), false);
+      assert.equal(await evaluate(`document.querySelector('#yearCards [data-item-id="i1"]').dataset.scope`), "year");
+      assert.equal(await evaluate(`document.querySelector('#inboxCards [data-item-id="i1"]')`), null);
+    }
+  },
+  {
+    name: "relation cancelled inbox drag restores its column without saving",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ withInbox: true }));
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-item-id="i1"]')`, "inbox cancellation fixture");
+      const before = await evaluate(`({ items: localStorage.getItem("lifeos-db:items"), annual: localStorage.getItem("lifeos-db:annual-goals") })`);
+      await dragInboxCard(evaluate, mouse, "i1", "week", "w2", { cancel: true });
+      await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
+      assert.equal(await evaluate(`localStorage.getItem("lifeos-db:annual-goals")`), before.annual);
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="i1"]').parentElement.id`), "inboxCards");
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="i1"]').style.transform`), "");
+      assert.equal(await evaluate(`document.querySelectorAll('.is-drop-target').length`), 0);
+    }
+  },
+  {
+    name: "relation annual conversion item failure rolls back both databases and the inbox card",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ withInbox: true }));
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-item-id="i1"]')`, "annual conversion rollback fixture");
+      const before = await evaluate(`({ items: localStorage.getItem("lifeos-db:items"), annual: localStorage.getItem("lifeos-db:annual-goals") })`);
+      await evaluate(`
+        window.__originalSetItem = Storage.prototype.setItem;
+        window.__failConversionItems = true;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "lifeos-db:items" && window.__failConversionItems) {
+            window.__failConversionItems = false;
+            throw new Error("模拟年度转换事项保存失败");
+          }
+          return window.__originalSetItem.call(this, key, value);
+        };
+      `);
+      try {
+        await dragInboxCard(evaluate, mouse, "i1", "year", "y2");
+        await waitFor(evaluate, `document.querySelector('#relationNotice').textContent.includes("保存失败，已撤销")`, "annual conversion rollback notice");
+        assert.equal(await evaluate(`localStorage.getItem("lifeos-db:items")`), before.items);
+        assert.deepEqual(
+          await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years.sort((a, b) => a.year.localeCompare(b.year))`),
+          [...JSON.parse(before.annual).years].sort((a, b) => a.year.localeCompare(b.year))
+        );
+        assert.equal(await evaluate(`document.querySelector('[data-item-id="i1"]').parentElement.id`), "inboxCards");
+        assert.equal(await evaluate(`document.querySelector('#yearCards [data-item-id="i1"]')`), null);
+        assert.equal(await evaluate(`document.querySelector('#relationBoard').getAttribute('aria-busy')`), "false");
+      } finally {
+        await evaluate(`Storage.prototype.setItem = window.__originalSetItem; delete window.__originalSetItem; delete window.__failConversionItems;`);
+      }
     }
   },
   {

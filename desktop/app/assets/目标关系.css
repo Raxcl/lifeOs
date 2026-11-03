@@ -115,7 +115,7 @@ button { -webkit-app-region: no-drag; }
 
 .relation-board {
   position: relative;
-  min-width: 960px;
+  min-width: 1372px;
   min-height: 420px;
 }
 
@@ -123,7 +123,7 @@ button { -webkit-app-region: no-drag; }
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  grid-template-columns: repeat(4, minmax(280px, 1fr));
   gap: 64px;
   padding: 30px;
   pointer-events: none;
@@ -165,6 +165,13 @@ button { -webkit-app-region: no-drag; }
   display: flex;
   flex-direction: column;
   gap: 14px;
+  border-radius: var(--radius);
+}
+
+.relation-cards.is-drop-target {
+  outline: 2px dashed rgba(104, 125, 91, .55);
+  outline-offset: 8px;
+  background: rgba(228, 234, 220, .28);
 }
 
 .relation-empty {

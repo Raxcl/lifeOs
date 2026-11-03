@@ -20,13 +20,14 @@
   const temporaryLine = document.getElementById("temporaryLine");
   const TARGET_SCOPE = { week: "month", month: "year" };
   const containers = {
+    inbox: document.getElementById("inboxCards"),
     week: document.getElementById("weekCards"),
     month: document.getElementById("monthCards"),
     year: document.getElementById("yearCards")
   };
   const state = {
     snapshot: null,
-    columns: { week: [], month: [], year: [] },
+    columns: { inbox: [], week: [], month: [], year: [] },
     saving: false,
     drag: null,
     connection: null,
@@ -39,8 +40,8 @@
   const currentWeek = weekKey(currentDate);
   const currentMonth = currentDate.slice(0, 7);
   const currentYear = currentDate.slice(0, 4);
-  const labels = { week: "本周", month: "本月", year: "今年" };
-  const emptyLabels = { week: "本周暂无事项", month: "本月暂无事项", year: "今年暂无目标" };
+  const labels = { inbox: "收集箱", week: "本周", month: "本月", year: "今年" };
+  const emptyLabels = { inbox: "收集箱暂无事项", week: "本周暂无事项", month: "本月暂无事项", year: "今年暂无目标" };
   const EDGE_COLOR = "#687d5b";
   const EDGE_SELECTED_COLOR = "#a45c50";
   const SELECTION_HINT = "已选中连线：按 Delete / Backspace 断开，Esc 取消选择。";
@@ -172,6 +173,9 @@
   function selectCurrentColumns() {
     const items = Array.isArray(state.snapshot?.items?.items) ? state.snapshot.items.items : [];
     const years = Array.isArray(state.snapshot?.annual_goals?.years) ? state.snapshot.annual_goals.years : [];
+    state.columns.inbox = items
+      .filter((item) => item.scope === "inbox" || (!item.done && isOverdue(item)))
+      .sort(compareItems);
     state.columns.week = items
       .filter((item) => item.scope === "week" && item.period === currentWeek)
       .sort(compareItems);
@@ -184,6 +188,13 @@
       .sort(compareItems);
   }
 
+  function isOverdue(item) {
+    if (item.scope === "week") return item.period < currentWeek;
+    if (item.scope === "month") return item.period < currentMonth;
+    if (item.scope === "year") return item.period < currentYear;
+    return false;
+  }
+
   function compareItems(a, b) {
     return ((a.sort_order || 0) - (b.sort_order || 0))
       || ((a.created_at || 0) - (b.created_at || 0))
@@ -192,7 +203,8 @@
 
   function visibleMap() {
     const visible = new Map();
-    for (const [scope, items] of Object.entries(state.columns)) {
+    for (const scope of ["week", "month", "year"]) {
+      const items = state.columns[scope];
       for (const item of items) visible.set(String(item.id), { item, scope });
     }
     return visible;
@@ -221,7 +233,7 @@
     clearEdgeSelection();
     selectCurrentColumns();
     const visible = visibleMap();
-    for (const scope of ["week", "month", "year"]) {
+    for (const scope of ["inbox", "week", "month", "year"]) {
       const items = state.columns[scope];
       containers[scope].innerHTML = items.length
         ? items.map((item) => renderCard(scope, item, visible)).join("")
@@ -234,11 +246,11 @@
     const id = String(item.id);
     const text = String(item.text || "未命名目标");
     const editing = state.editingId === id;
-    const unavailable = scope !== "year" && item.parent_id && !parentTarget(scope, item, visible);
+    const unavailable = !["inbox", "year"].includes(scope) && item.parent_id && !parentTarget(scope, item, visible);
     return `
-      <article class="relation-card${item.done ? " is-done" : ""}${editing ? " is-editing" : ""}" data-scope="${scope}" data-item-id="${escapeHtml(id)}" title="双击编辑文字 · 按住上下拖动排序">
-        ${scope !== "week" ? '<span class="relation-connect relation-connect-in" data-connect="in" aria-hidden="true"></span>' : ""}
-        ${scope !== "year" ? '<span class="relation-connect relation-connect-out" data-connect="out" aria-hidden="true"></span>' : ""}
+      <article class="relation-card${item.done ? " is-done" : ""}${editing ? " is-editing" : ""}" data-scope="${scope}" data-item-id="${escapeHtml(id)}" title="${scope === "inbox" ? "双击编辑文字 · 拖到周月年列归类" : "双击编辑文字 · 按住上下拖动排序"}">
+        ${["month", "year"].includes(scope) ? '<span class="relation-connect relation-connect-in" data-connect="in" aria-hidden="true"></span>' : ""}
+        ${["week", "month"].includes(scope) ? '<span class="relation-connect relation-connect-out" data-connect="out" aria-hidden="true"></span>' : ""}
         <div class="relation-card-head">
           <span class="relation-card-kind">${cardPeriodLabel(scope, item)}${item.done ? " · 已完成" : ""}</span>
         </div>
@@ -251,6 +263,7 @@
   }
 
   function cardPeriodLabel(scope, item) {
+    if (scope === "inbox") return item.scope === "inbox" ? "收集箱" : "已过期";
     const period = scope === "year" ? currentYear : String(item.period || "");
     if (scope === "week") {
       const [year, month, day] = period.split("-").map(Number);
@@ -497,15 +510,19 @@
     const card = event.target.closest(".relation-card");
     if (!card || card.classList.contains("is-editing")) return;
     const scope = card.dataset.scope;
+    const rect = card.getBoundingClientRect();
     state.drag = {
       card,
       list: card.parentElement,
       scope,
+      targetScope: scope,
       before: structuredClone(state.snapshot),
       beforeOrder: state.columns[scope].map((item) => String(item.id)),
       pointerId: event.pointerId,
+      startX: event.clientX,
       startY: event.clientY,
-      startLayoutTop: card.getBoundingClientRect().top,
+      startLayoutLeft: rect.left,
+      startLayoutTop: rect.top,
       moved: false
     };
     card.setPointerCapture(event.pointerId);
@@ -516,23 +533,56 @@
   function moveSort(event) {
     const drag = state.drag;
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
-    const delta = event.clientY - drag.startY;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
     if (!drag.moved) {
-      if (Math.abs(delta) < 3) return;
+      if (Math.hypot(deltaX, deltaY) < 3) return;
       drag.moved = true;
       drag.card.classList.add("is-dragging");
     }
-    const siblings = [...drag.list.querySelectorAll(".relation-card")].filter((card) => card !== drag.card);
+    const targetScope = drag.scope === "inbox" ? dropScope(event.clientX, event.clientY) : drag.scope;
+    const list = containers[targetScope || "inbox"];
+    const siblings = [...list.querySelectorAll(".relation-card")].filter((card) => card !== drag.card);
     const next = siblings.find((card) => {
       const rect = card.getBoundingClientRect();
       return event.clientY < rect.top + rect.height / 2;
     });
-    if (drag.card.nextElementSibling !== next) drag.list.insertBefore(drag.card, next || null);
+    if (drag.card.parentElement !== list || drag.card.nextElementSibling !== next) {
+      list.insertBefore(drag.card, next || null);
+      syncEmptyColumns();
+    }
+    drag.list = list;
+    drag.targetScope = targetScope;
+    for (const [scope, container] of Object.entries(containers)) {
+      container.classList.toggle("is-drop-target", scope === targetScope && scope !== "inbox");
+    }
     drag.card.style.transform = "none";
-    const layoutTop = drag.card.getBoundingClientRect().top;
-    drag.card.style.transform = `translateY(${drag.startLayoutTop + delta - layoutTop}px)`;
+    const rect = drag.card.getBoundingClientRect();
+    drag.card.style.transform = drag.scope === "inbox"
+      ? `translate(${drag.startLayoutLeft + deltaX - rect.left}px, ${drag.startLayoutTop + deltaY - rect.top}px)`
+      : `translateY(${drag.startLayoutTop + deltaY - rect.top}px)`;
     scheduleDraw();
     event.preventDefault();
+  }
+
+  function dropScope(x, y) {
+    for (const scope of ["week", "month", "year"]) {
+      const rect = document.querySelector(`[data-column="${scope}"]`).getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return scope;
+    }
+    return null;
+  }
+
+  function syncEmptyColumns() {
+    for (const [scope, container] of Object.entries(containers)) {
+      container.querySelector(".relation-empty")?.remove();
+      if (!container.querySelector(".relation-card")) {
+        const empty = document.createElement("p");
+        empty.className = "relation-empty";
+        empty.textContent = emptyLabels[scope];
+        container.append(empty);
+      }
+    }
   }
 
   async function finishSort(event) {
@@ -542,9 +592,21 @@
     if (drag.card.hasPointerCapture(event.pointerId)) drag.card.releasePointerCapture(event.pointerId);
     drag.card.style.transform = "";
     drag.card.classList.remove("is-dragging");
+    for (const container of Object.values(containers)) container.classList.remove("is-drop-target");
     const ids = [...drag.list.querySelectorAll(".relation-card")].map((card) => card.dataset.itemId);
     scheduleDraw();
-    if (!drag.moved || ids.join("\u0000") === drag.beforeOrder.join("\u0000")) return;
+    if (!drag.moved) return;
+    if (drag.scope === "inbox") {
+      if (!drag.targetScope) {
+        state.snapshot = drag.before;
+        render();
+        return;
+      }
+      await saveInboxDrop(drag, ids);
+      event.preventDefault();
+      return;
+    }
+    if (ids.join("\u0000") === drag.beforeOrder.join("\u0000")) return;
     ids.forEach((id, index) => {
       const item = findRecord(drag.scope, id);
       if (item) item.sort_order = index + 1;
@@ -552,6 +614,44 @@
     render();
     await saveSnapshot(drag.before, drag.scope === "year" ? "annual" : "items");
     event.preventDefault();
+  }
+
+  async function saveInboxDrop(drag, ids) {
+    const timestamp = nowSeconds();
+    const source = state.snapshot.items.items.find((item) => String(item.id) === String(drag.card.dataset.itemId));
+    if (!source) {
+      state.snapshot = drag.before;
+      render();
+      return;
+    }
+    if (drag.targetScope === "year") {
+      let year = state.snapshot.annual_goals.years.find((record) => String(record.year) === currentYear);
+      if (!year) {
+        year = { year: currentYear, updated_at: timestamp, items: [] };
+        state.snapshot.annual_goals.years.push(year);
+      }
+      state.snapshot.items.items = state.snapshot.items.items.filter((item) => item !== source);
+      year.items.push({
+        id: source.id,
+        text: source.text,
+        done: source.done,
+        created_at: source.created_at,
+        updated_at: timestamp,
+        sort_order: source.sort_order
+      });
+      year.updated_at = timestamp;
+    } else {
+      source.scope = drag.targetScope;
+      source.period = drag.targetScope === "week" ? currentWeek : currentMonth;
+      source.parent_id = "";
+      source.updated_at = timestamp;
+    }
+    ids.forEach((id, index) => {
+      const item = findRecord(drag.targetScope, id);
+      if (item) item.sort_order = index + 1;
+    });
+    render();
+    await saveSnapshot(drag.before, drag.targetScope === "year" ? "conversion" : "items");
   }
 
   function findRecord(scope, id) {
@@ -567,6 +667,7 @@
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
     state.drag = null;
     if (drag.card.hasPointerCapture(event.pointerId)) drag.card.releasePointerCapture(event.pointerId);
+    for (const container of Object.values(containers)) container.classList.remove("is-drop-target");
     state.snapshot = drag.before;
     render();
   }
@@ -672,6 +773,16 @@
       if (target === "items") {
         const saved = await invoke("save_plan_item_database", { items: state.snapshot.items.items });
         state.snapshot.items = saved;
+      } else if (target === "conversion") {
+        const savedAnnual = await invoke("save_annual_goal_database", { years: state.snapshot.annual_goals.years });
+        state.snapshot.annual_goals = savedAnnual;
+        try {
+          const savedItems = await invoke("save_plan_item_database", { items: state.snapshot.items.items });
+          state.snapshot.items = savedItems;
+        } catch (error) {
+          await invoke("save_annual_goal_database", { years: before.annual_goals.years });
+          throw error;
+        }
       } else {
         const saved = await invoke("save_annual_goal_database", { years: state.snapshot.annual_goals.years });
         state.snapshot.annual_goals = saved;
