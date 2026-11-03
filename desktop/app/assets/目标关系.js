@@ -7,6 +7,7 @@
     escapeHtml,
     toErrorMessage
   } = window.LifeOSShared;
+  const { Graph, Shape } = window.X6;
   const tauriInvoke = window.__TAURI__?.core?.invoke;
   const fallbackKeys = {
     frogs: "lifeos-db:frogs",
@@ -15,10 +16,15 @@
     annualGoals: "lifeos-db:annual-goals"
   };
   const board = document.getElementById("relationBoard");
+  const scroll = document.getElementById("relationScroll");
+  const graphContainer = document.getElementById("relationGraph");
   const notice = document.getElementById("relationNotice");
-  const lineGroup = document.getElementById("relationLines");
-  const temporaryLine = document.getElementById("temporaryLine");
   const TARGET_SCOPE = { week: "month", month: "year" };
+  const NODE_HEIGHT = 136;
+  const NODE_GAP = 14;
+  const NODE_TOP = 92;
+  const BOARD_PADDING = 30;
+  const COLUMN_GAP = 64;
   const containers = {
     week: document.getElementById("weekCards"),
     month: document.getElementById("monthCards"),
@@ -29,8 +35,7 @@
     columns: { week: [], month: [], year: [] },
     saving: false,
     drag: null,
-    connection: null,
-    drawFrame: 0
+    layout: null
   };
   const currentDate = formatDate(new Date());
   const currentWeek = weekKey(currentDate);
@@ -38,6 +43,57 @@
   const currentYear = currentDate.slice(0, 4);
   const labels = { week: "本周", month: "本月", year: "今年" };
   const emptyLabels = { week: "本周暂无事项", month: "本月暂无事项", year: "今年暂无目标" };
+  const portGroups = {
+    in: portGroup("in"),
+    out: portGroup("out")
+  };
+
+  Shape.HTML.register({
+    shape: "relation-card-node",
+    width: 280,
+    height: NODE_HEIGHT,
+    effect: ["data"],
+    html(cell) {
+      const { scope, item, unavailable } = cell.getData();
+      return renderCard(scope, item, unavailable);
+    }
+  });
+
+  const graph = new Graph({
+    container: graphContainer,
+    width: Math.max(960, scroll.clientWidth - 4),
+    height: 420,
+    background: false,
+    grid: false,
+    interacting: {
+      nodeMovable: false,
+      edgeMovable: false,
+      edgeLabelMovable: false
+    },
+    connecting: {
+      snap: { radius: 24 },
+      allowBlank: false,
+      allowLoop: false,
+      allowNode: false,
+      allowEdge: false,
+      allowMulti: false,
+      highlight: true,
+      connector: { name: "smooth" },
+      validateMagnet({ magnet }) {
+        return Boolean(state.snapshot) && !state.saving && magnet.getAttribute("port-group") === "out";
+      },
+      validateConnection({ sourceCell, targetCell, sourceMagnet, targetMagnet }) {
+        if (state.saving || !sourceCell || !targetCell || !sourceMagnet || !targetMagnet) return false;
+        if (sourceMagnet.getAttribute("port-group") !== "out" || targetMagnet.getAttribute("port-group") !== "in") return false;
+        const sourceScope = sourceCell.getData().scope;
+        const targetScope = targetCell.getData().scope;
+        return TARGET_SCOPE[sourceScope] === targetScope;
+      },
+      createEdge() {
+        return new Shape.Edge(edgeOptions(false));
+      }
+    }
+  });
 
   window.LifeOSBackground.install({ layer: document.getElementById("wallpaperLayer") });
   const backLink = document.querySelector(".relation-back");
@@ -45,15 +101,49 @@
   backLink.href = fromJournal ? "晨间日记页面.html" : "index.html";
   backLink.textContent = fromJournal ? "← 返回晨间日记" : "← 返回日历";
   document.getElementById("relationPeriod").textContent = `${weekRangeLabel(currentWeek)} · ${currentMonth} · ${currentYear}`;
-  installDrawTriggers();
+  installGraphHandlers();
   installSortHandlers();
-  installConnectionHandlers();
+  board.addEventListener("click", disconnect);
+  window.addEventListener("resize", resizeGraph);
   window.addEventListener("beforeunload", (event) => {
     if (!state.saving) return;
     event.preventDefault();
     event.returnValue = "";
   });
   boot();
+
+  function portGroup(group) {
+    return {
+      position: group === "in" ? "left" : "right",
+      attrs: {
+        circle: {
+          class: "relation-port",
+          "data-connect": "true",
+          r: 4,
+          magnet: true,
+          stroke: "#687d5b",
+          strokeWidth: 1.5,
+          fill: "#fffdf7"
+        }
+      }
+    };
+  }
+
+  function edgeOptions(formal, sourceId = "", targetId = "") {
+    return {
+      data: { formal },
+      attrs: {
+        line: {
+          stroke: "#687d5b",
+          strokeWidth: 2,
+          targetMarker: { name: "block", width: 9, height: 7 },
+          ...(formal ? { "data-source": sourceId, "data-target": targetId } : {})
+        }
+      },
+      connector: { name: "smooth" },
+      zIndex: 0
+    };
+  }
 
   async function boot() {
     setBoardEnabled(false);
@@ -68,7 +158,7 @@
       setNotice(tauriInvoke ? "已连接本地数据库。" : "当前是浏览器预览，仅展示本地缓存中的目标关系。");
     } catch (error) {
       state.snapshot = null;
-      lineGroup.replaceChildren();
+      graph.clearCells();
       setBoardEnabled(false);
       setNotice(`读取失败：${toErrorMessage(error)}`, true);
     }
@@ -131,7 +221,7 @@
       year: record.year,
       items: (record.items || []).filter((item) => String(item.text || "").trim()).map((item) => ({
         id: item.id || uid("year"),
-        text: String(item.text || "").trim(),
+        text: String(item.text).trim(),
         done: Boolean(item.done),
         created_at: item.created_at || nowSeconds(),
         updated_at: item.updated_at || null,
@@ -202,22 +292,100 @@
     return relations;
   }
 
-  function render() {
-    selectCurrentColumns();
-    const visible = visibleMap();
-    for (const scope of ["week", "month", "year"]) {
-      const items = state.columns[scope];
-      containers[scope].innerHTML = items.length
-        ? items.map((item) => renderCard(scope, item, visible)).join("")
-        : `<p class="relation-empty">${emptyLabels[scope]}</p>`;
-    }
-    scheduleDraw();
+  function calculateLayout() {
+    const width = Math.max(960, scroll.clientWidth - 4);
+    const count = Math.max(...Object.values(state.columns).map((items) => items.length), 0);
+    const height = Math.max(420, NODE_TOP + count * (NODE_HEIGHT + NODE_GAP) + BOARD_PADDING);
+    const nodeWidth = (width - BOARD_PADDING * 2 - COLUMN_GAP * 2) / 3;
+    return {
+      width,
+      height,
+      nodeWidth,
+      x: {
+        week: BOARD_PADDING,
+        month: BOARD_PADDING + nodeWidth + COLUMN_GAP,
+        year: BOARD_PADDING + (nodeWidth + COLUMN_GAP) * 2
+      }
+    };
   }
 
-  function renderCard(scope, item, visible) {
+  function updateBoardSize() {
+    state.layout = calculateLayout();
+    board.style.width = `${state.layout.width}px`;
+    board.style.height = `${state.layout.height}px`;
+    graph.resize(state.layout.width, state.layout.height);
+  }
+
+  function render() {
+    selectCurrentColumns();
+    updateBoardSize();
+    const visible = visibleMap();
+    const desiredIds = new Set(Object.values(state.columns).flat().map((item) => String(item.id)));
+    for (const node of graph.getNodes()) {
+      if (!desiredIds.has(String(node.id))) node.remove();
+    }
+    for (const scope of ["week", "month", "year"]) {
+      const items = state.columns[scope];
+      containers[scope].innerHTML = items.length ? "" : `<p class="relation-empty">${emptyLabels[scope]}</p>`;
+      items.forEach((item, index) => {
+        const id = String(item.id);
+        const data = {
+          scope,
+          item,
+          unavailable: scope !== "year" && item.parent_id && !parentTarget(scope, item, visible)
+        };
+        const x = state.layout.x[scope];
+        const y = NODE_TOP + index * (NODE_HEIGHT + NODE_GAP);
+        const existing = graph.getCellById(id);
+        if (existing) {
+          existing.setData(data);
+          existing.resize(state.layout.nodeWidth, NODE_HEIGHT);
+          existing.position(x, y);
+          return;
+        }
+        const ports = [];
+        if (scope !== "week") ports.push({ id: `${id}-in`, group: "in" });
+        if (scope !== "year") ports.push({ id: `${id}-out`, group: "out" });
+        graph.addNode({
+          id,
+          shape: "relation-card-node",
+          x,
+          y,
+          width: state.layout.nodeWidth,
+          height: NODE_HEIGHT,
+          data,
+          portMarkup: [{ tagName: "circle", selector: "circle" }],
+          ports: { groups: portGroups, items: ports },
+          zIndex: 1
+        });
+      });
+    }
+    const desiredRelations = new Map(formalRelations().map((relation) => {
+      const sourceId = String(relation.source.id);
+      const targetId = String(relation.target.id);
+      return [`${sourceId}\u0000${targetId}`, { sourceId, targetId }];
+    }));
+    for (const edge of graph.getEdges()) {
+      const key = `${edge.getSourceCellId()}\u0000${edge.getTargetCellId()}`;
+      if (edge.getData()?.formal && desiredRelations.has(key)) {
+        syncEdgeView(edge);
+        desiredRelations.delete(key);
+      } else {
+        edge.remove();
+      }
+    }
+    for (const { sourceId, targetId } of desiredRelations.values()) {
+      graph.addEdge({
+        ...edgeOptions(true, sourceId, targetId),
+        source: { cell: sourceId, port: `${sourceId}-out` },
+        target: { cell: targetId, port: `${targetId}-in` }
+      });
+    }
+  }
+
+  function renderCard(scope, item, unavailable) {
     const id = String(item.id);
     const text = String(item.text || "未命名目标");
-    const unavailable = scope !== "year" && item.parent_id && !parentTarget(scope, item, visible);
     return `
       <article class="relation-card${item.done ? " is-done" : ""}" data-scope="${scope}" data-item-id="${escapeHtml(id)}">
         <div class="relation-card-head">
@@ -226,60 +394,79 @@
         </div>
         <p class="relation-card-text">${escapeHtml(text)}</p>
         <div class="relation-card-actions">
-          ${scope !== "year" ? `
-            <button class="relation-connect" type="button" data-connect aria-label="连接${labels[scope]}目标：${escapeHtml(text)}">●</button>
-            <button class="relation-action" type="button" data-disconnect aria-label="断开上级关系：${escapeHtml(text)}">断开</button>
-          ` : ""}
+          ${scope !== "year" ? `<button class="relation-action" type="button" data-disconnect aria-label="断开上级关系：${escapeHtml(text)}">断开</button>` : ""}
           ${unavailable ? '<span class="relation-unavailable">上级不可用</span>' : ""}
         </div>
       </article>
     `;
   }
 
-  function curvePath(source, target) {
-    const bend = (target.x - source.x) / 2;
-    return `M ${source.x} ${source.y} C ${source.x + bend} ${source.y}, ${target.x - bend} ${target.y}, ${target.x} ${target.y}`;
-  }
-
-  function boardPoint(rect, side) {
-    const boardRect = document.getElementById("relationBoard").getBoundingClientRect();
-    return {
-      x: (side === "right" ? rect.right : rect.left) - boardRect.left,
-      y: rect.top + rect.height / 2 - boardRect.top
-    };
-  }
-
-  function drawLines() {
-    lineGroup.replaceChildren();
+  function resizeGraph() {
     if (!state.snapshot) return;
-    for (const relation of formalRelations()) {
-      const sourceCard = document.querySelector(`[data-item-id="${CSS.escape(String(relation.source.id))}"]`);
-      const targetCard = document.querySelector(`[data-item-id="${CSS.escape(String(relation.target.id))}"]`);
-      if (!sourceCard || !targetCard) continue;
-      const source = boardPoint(sourceCard.getBoundingClientRect(), "right");
-      const target = boardPoint(targetCard.getBoundingClientRect(), "left");
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", curvePath(source, target));
-      path.dataset.source = String(relation.source.id);
-      path.dataset.target = String(relation.target.id);
-      lineGroup.append(path);
+    updateBoardSize();
+    for (const scope of ["week", "month", "year"]) {
+      state.columns[scope].forEach((item, index) => {
+        const node = graph.getCellById(String(item.id));
+        if (!node) return;
+        node.resize(state.layout.nodeWidth, NODE_HEIGHT);
+        node.position(state.layout.x[scope], NODE_TOP + index * (NODE_HEIGHT + NODE_GAP));
+      });
     }
   }
 
-  function scheduleDraw() {
-    if (state.drawFrame) return;
-    state.drawFrame = requestAnimationFrame(() => {
-      state.drawFrame = 0;
-      drawLines();
+  function installGraphHandlers() {
+    board.addEventListener("mouseover", (event) => {
+      const node = event.target.closest(".x6-node");
+      if (node && (!event.relatedTarget || !node.contains(event.relatedTarget))) node.classList.add("ports-visible");
+      event.target.closest(".relation-port")?.classList.add("is-port-active");
+    });
+    board.addEventListener("mouseout", (event) => {
+      const node = event.target.closest(".x6-node");
+      if (node && (!event.relatedTarget || !node.contains(event.relatedTarget))) node.classList.remove("ports-visible");
+      event.target.closest(".relation-port")?.classList.remove("is-port-active");
+    });
+    graph.on("edge:connected", async ({ edge, isNew }) => {
+      if (!isNew || state.saving) return;
+      const sourceId = edge.getSourceCellId();
+      const targetId = edge.getTargetCellId();
+      const item = state.snapshot?.items.items.find((entry) => String(entry.id) === sourceId);
+      if (!item || !targetId) {
+        edge.remove();
+        return;
+      }
+      if (String(item.parent_id || "") === targetId) {
+        edge.remove();
+        return;
+      }
+      const before = structuredClone(state.snapshot);
+      item.parent_id = targetId;
+      for (const candidate of graph.getEdges()) {
+        if (candidate.id !== edge.id && candidate.getSourceCellId() === sourceId) candidate.remove();
+      }
+      edge.setData({ formal: true });
+      syncEdgeView(edge);
+      syncNodeData(sourceId);
+      await saveSnapshot(before, "items");
     });
   }
 
-  function installDrawTriggers() {
-    const observer = new ResizeObserver(scheduleDraw);
-    observer.observe(board);
-    for (const column of document.querySelectorAll(".relation-column")) observer.observe(column);
-    document.fonts.ready.then(scheduleDraw);
-    window.addEventListener("resize", scheduleDraw);
+  function syncEdgeView(edge) {
+    if (!edge.getData()?.formal) return;
+    edge.attr("line/data-source", edge.getSourceCellId());
+    edge.attr("line/data-target", edge.getTargetCellId());
+  }
+
+  function syncNodeData(itemId) {
+    const node = graph.getCellById(itemId);
+    if (!node) return;
+    const scope = node.getData().scope;
+    const item = state.columns[scope].find((entry) => String(entry.id) === itemId);
+    if (!item) return;
+    node.setData({
+      scope,
+      item,
+      unavailable: Boolean(item.parent_id) && !parentTarget(scope, item, visibleMap())
+    });
   }
 
   function installSortHandlers() {
@@ -291,21 +478,21 @@
 
   function startSort(event) {
     const handle = event.target.closest("[data-sort-handle]");
-    if (!handle || state.saving || state.drag || state.connection || event.button !== 0) return;
+    if (!handle || state.saving || state.drag || event.button !== 0) return;
     const card = handle.closest(".relation-card");
-    const list = card?.parentElement;
-    if (!card || !list) return;
-    const before = structuredClone(state.snapshot);
-    const scope = card.dataset.scope;
+    const node = graph.getCellById(card?.dataset.itemId);
+    if (!card || !node) return;
+    const position = node.getPosition();
     state.drag = {
       card,
-      list,
       handle,
-      scope,
-      before,
-      beforeOrder: state.columns[scope].map((item) => String(item.id)),
+      node,
+      scope: card.dataset.scope,
+      before: structuredClone(state.snapshot),
+      beforeOrder: state.columns[card.dataset.scope].map((item) => String(item.id)),
       pointerId: event.pointerId,
-      startY: event.clientY
+      startY: event.clientY,
+      startNodeY: position.y
     };
     handle.setPointerCapture(event.pointerId);
     card.classList.add("is-dragging");
@@ -316,15 +503,11 @@
   function moveSort(event) {
     const drag = state.drag;
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
-    const delta = event.clientY - drag.startY;
-    drag.card.style.transform = `translateY(${delta}px)`;
-    const siblings = [...drag.list.querySelectorAll(".relation-card")].filter((card) => card !== drag.card);
-    const next = siblings.find((card) => {
-      const rect = card.getBoundingClientRect();
-      return event.clientY < rect.top + rect.height / 2;
-    });
-    drag.list.insertBefore(drag.card, next || null);
-    scheduleDraw();
+    const y = Math.max(
+      NODE_TOP,
+      Math.min(drag.startNodeY + event.clientY - drag.startY, state.layout.height - NODE_HEIGHT - BOARD_PADDING)
+    );
+    drag.node.position(state.layout.x[drag.scope], y);
     event.preventDefault();
   }
 
@@ -333,10 +516,12 @@
     if (!drag || state.saving || drag.pointerId !== event.pointerId) return;
     state.drag = null;
     if (drag.handle.hasPointerCapture(event.pointerId)) drag.handle.releasePointerCapture(event.pointerId);
-    drag.card.style.transform = "";
     drag.card.classList.remove("is-dragging");
-    const ids = [...drag.list.querySelectorAll(".relation-card")].map((card) => card.dataset.itemId);
-    scheduleDraw();
+    drag.node.position(state.layout.x[drag.scope], drag.node.getPosition().y);
+    const ids = graph.getNodes()
+      .filter((node) => node.getData().scope === drag.scope)
+      .sort((a, b) => a.getPosition().y - b.getPosition().y)
+      .map((node) => String(node.id));
     if (ids.join("\u0000") === drag.beforeOrder.join("\u0000")) return;
 
     ids.forEach((id, index) => {
@@ -349,7 +534,7 @@
         if (item) item.sort_order = index + 1;
       }
     });
-    selectCurrentColumns();
+    render();
     await saveSnapshot(drag.before, drag.scope === "year" ? "annual" : "items");
     event.preventDefault();
   }
@@ -363,88 +548,9 @@
     render();
   }
 
-  function installConnectionHandlers() {
-    board.addEventListener("pointerdown", startConnection);
-    board.addEventListener("pointermove", moveConnection);
-    board.addEventListener("pointerup", finishConnection);
-    board.addEventListener("pointercancel", cancelConnection);
-    board.addEventListener("click", disconnect);
-  }
-
-  function startConnection(event) {
-    const handle = event.target.closest("[data-connect]");
-    if (!handle || state.saving || state.drag || state.connection || event.button !== 0) return;
-    const card = handle.closest(".relation-card");
-    const sourceId = card?.dataset.itemId;
-    const sourceScope = card?.dataset.scope;
-    const targetScope = TARGET_SCOPE[sourceScope];
-    if (!sourceId || !targetScope) return;
-    state.connection = { sourceId, sourceScope, pointerId: event.pointerId, handle };
-    handle.setPointerCapture(event.pointerId);
-    temporaryLine.classList.add("is-active");
-    for (const target of containers[targetScope].querySelectorAll(".relation-card")) {
-      target.classList.add("is-valid-target");
-    }
-    updateTemporaryLine(event);
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  function moveConnection(event) {
-    if (!state.connection || state.saving || state.connection.pointerId !== event.pointerId) return;
-    updateTemporaryLine(event);
-    event.preventDefault();
-  }
-
-  function updateTemporaryLine(event) {
-    const connection = state.connection;
-    const sourceCard = document.querySelector(`[data-item-id="${CSS.escape(connection.sourceId)}"]`);
-    if (!sourceCard) return;
-    const source = boardPoint(sourceCard.getBoundingClientRect(), "right");
-    const boardRect = board.getBoundingClientRect();
-    const target = { x: event.clientX - boardRect.left, y: event.clientY - boardRect.top };
-    temporaryLine.setAttribute("d", curvePath(source, target));
-  }
-
-  async function finishConnection(event) {
-    const connection = state.connection;
-    if (!connection || state.saving || connection.pointerId !== event.pointerId) return;
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".relation-card");
-    const targetId = target?.dataset.itemId;
-    const valid = targetId && target.dataset.scope === TARGET_SCOPE[connection.sourceScope];
-    clearConnection();
-    if (!valid) return;
-    const item = state.snapshot.items.items.find((entry) => String(entry.id) === connection.sourceId);
-    if (!item || String(item.parent_id || "") === targetId) return;
-    const before = structuredClone(state.snapshot);
-    item.parent_id = targetId;
-    render();
-    await saveSnapshot(before, "items");
-    event.preventDefault();
-  }
-
-  function cancelConnection(event) {
-    if (!state.connection || state.connection.pointerId !== event.pointerId) return;
-    clearConnection();
-  }
-
-  function clearConnection() {
-    const connection = state.connection;
-    if (!connection) return;
-    state.connection = null;
-    if (connection.handle.hasPointerCapture(connection.pointerId)) {
-      connection.handle.releasePointerCapture(connection.pointerId);
-    }
-    temporaryLine.classList.remove("is-active");
-    temporaryLine.setAttribute("d", "");
-    for (const target of document.querySelectorAll(".relation-card.is-valid-target")) {
-      target.classList.remove("is-valid-target");
-    }
-  }
-
   async function disconnect(event) {
     const button = event.target.closest("[data-disconnect]");
-    if (!button || state.saving || state.drag || state.connection) return;
+    if (!button || state.saving || state.drag) return;
     const sourceId = button.closest(".relation-card")?.dataset.itemId;
     const item = state.snapshot.items.items.find((entry) => String(entry.id) === sourceId);
     if (!item || !item.parent_id) return;
@@ -475,7 +581,6 @@
     } finally {
       state.saving = false;
       setControlsDisabled(false);
-      scheduleDraw();
     }
   }
 
@@ -486,6 +591,7 @@
   }
 
   function setControlsDisabled(disabled) {
+    board.setAttribute("aria-busy", String(disabled));
     for (const button of board.querySelectorAll("button")) button.disabled = disabled;
   }
 

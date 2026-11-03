@@ -28,22 +28,20 @@
     </header>
     <p class="relation-notice" id="relationNotice" role="status" aria-live="polite"></p>
     <div class="relation-scroll" id="relationScroll">
-      <div class="relation-board" id="relationBoard">
-        <svg id="relationSvg" aria-hidden="true">
-          <g id="relationLines"></g>
-          <path id="temporaryLine" d="" />
-        </svg>
-        <div class="relation-columns">
+      <div class="relation-board" id="relationBoard" aria-busy="false">
+        <div class="relation-columns" aria-hidden="true">
           <section class="relation-column" data-column="week"><h2>本周</h2><div class="relation-cards" id="weekCards"></div></section>
           <section class="relation-column" data-column="month"><h2>本月</h2><div class="relation-cards" id="monthCards"></div></section>
           <section class="relation-column" data-column="year"><h2>今年</h2><div class="relation-cards" id="yearCards"></div></section>
         </div>
+        <div class="relation-graph" id="relationGraph"></div>
       </div>
     </div>
   </main>
   <script src="assets/lifeos-shared.js"></script>
   <script src="assets/window-controls.js"></script>
   <script src="assets/app-background.js"></script>
+  <script src="assets/vendor/x6.min.js"></script>
   <script src="assets/目标关系.js"></script>
 </body>
 </html>

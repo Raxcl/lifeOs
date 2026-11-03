@@ -1,6 +1,6 @@
 :root {
   --paper: #f4f1e9;
-  --panel: rgba(255, 253, 247, .9);
+  --panel: rgba(255, 253, 247, .94);
   --ink: #30372f;
   --muted: #73796e;
   --line: rgba(48, 55, 47, .14);
@@ -12,7 +12,6 @@
 }
 
 * { box-sizing: border-box; }
-
 html { min-width: 320px; }
 
 body {
@@ -104,9 +103,8 @@ button { -webkit-app-region: no-drag; }
 
 .relation-notice.is-error { color: var(--danger); }
 
-.relation-scroll { overflow: auto; }
-
 .relation-scroll {
+  overflow: auto;
   max-height: calc(100vh - 205px);
   padding: 2px;
   border: 1px solid var(--line);
@@ -115,13 +113,21 @@ button { -webkit-app-region: no-drag; }
   scrollbar-color: rgba(104, 125, 91, .4) transparent;
 }
 
-.relation-board { position: relative; min-width: 960px; min-height: 420px; }
+.relation-board {
+  position: relative;
+  min-width: 960px;
+  min-height: 420px;
+}
 
 .relation-columns {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(3, minmax(280px, 1fr));
   gap: 64px;
   padding: 30px;
+  pointer-events: none;
 }
 
 .relation-column { min-width: 0; }
@@ -135,11 +141,25 @@ button { -webkit-app-region: no-drag; }
   letter-spacing: .08em;
 }
 
-.relation-cards { display: flex; flex-direction: column; gap: 14px; }
+.relation-cards { padding-top: 54px; }
+
+.relation-empty {
+  margin: 0;
+  padding: 24px 16px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.relation-graph { position: absolute; inset: 0; }
+.relation-graph body { min-height: 0; }
+.relation-graph .x6-edge { pointer-events: none; }
 
 .relation-card {
-  position: relative;
-  z-index: 1;
+  width: 100%;
+  height: 100%;
   touch-action: none;
   padding: 15px;
   border: 1px solid rgba(48, 55, 47, .12);
@@ -149,9 +169,8 @@ button { -webkit-app-region: no-drag; }
   transition: box-shadow .18s ease;
 }
 
-.relation-card.is-dragging { z-index: 2; box-shadow: var(--drag-shadow); }
+.relation-card.is-dragging { box-shadow: var(--drag-shadow); }
 .relation-card.is-done { opacity: .58; }
-.relation-card.is-valid-target { outline: 2px solid var(--accent); }
 .relation-board.is-disabled .relation-card { pointer-events: none; }
 
 .relation-card-head,
@@ -170,18 +189,21 @@ button { -webkit-app-region: no-drag; }
 }
 
 .relation-card-text {
-  margin: 12px 0 14px;
+  display: -webkit-box;
+  margin: 10px 0;
+  overflow: hidden;
   overflow-wrap: anywhere;
   font-size: 15px;
   font-weight: 650;
-  line-height: 1.6;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .relation-card-actions { min-height: 28px; }
 
 .relation-handle,
-.relation-action,
-.relation-connect {
+.relation-action {
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
@@ -194,31 +216,25 @@ button { -webkit-app-region: no-drag; }
   padding: 0;
   border-radius: 8px;
   line-height: 1;
+  cursor: ns-resize;
 }
 
-.relation-action,
-.relation-connect {
+.relation-action {
   min-height: 28px;
   padding: 4px 9px;
   border-radius: 9px;
   font-size: 11px;
 }
 
-.relation-connect {
-  width: 28px;
-  padding: 4px;
-  border-color: rgba(104, 125, 91, .38);
-  border-radius: 50%;
-  color: var(--accent);
-}
-
 .relation-handle:hover,
-.relation-action:hover,
-.relation-connect:hover {
+.relation-action:hover {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
 }
+
+.relation-handle:disabled,
+.relation-action:disabled { cursor: default; opacity: .45; }
 
 .relation-unavailable {
   display: inline-block;
@@ -227,37 +243,15 @@ button { -webkit-app-region: no-drag; }
   font-size: 11px;
 }
 
-.relation-empty {
-  margin: 0;
-  padding: 24px 16px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius);
-  color: var(--muted);
-  font-size: 13px;
-  text-align: center;
+.x6-node .relation-port {
+  visibility: hidden;
+  cursor: crosshair;
+  transition: r .12s ease, fill .12s ease;
 }
 
-#relationSvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-
-#relationLines path {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-  opacity: .72;
-}
-
-#temporaryLine {
-  display: none;
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 6 5;
-  opacity: .72;
-}
-
-#temporaryLine.is-active { display: block; }
+.x6-node.ports-visible .relation-port { visibility: visible; }
+.x6-node .relation-port.is-port-active { r: 6px; fill: var(--accent); }
+.relation-board[aria-busy="true"] .relation-port { pointer-events: none; }
 
 @media (max-width: 720px) {
   .relation-page { padding: 22px 18px 24px; }
@@ -267,4 +261,7 @@ button { -webkit-app-region: no-drag; }
   .relation-scroll { max-height: calc(100vh - 190px); }
 }
 
-@media (prefers-reduced-motion: reduce) { .relation-card { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .relation-card,
+  .x6-node .relation-port { transition: none; }
+}
