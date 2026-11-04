@@ -441,10 +441,12 @@ const tests = [
       await evaluate(`document.querySelector('#todoInput').value = '新增月事项'`);
       await clickSelector(evaluate, mouse, "#addTodo");
       await waitFor(evaluate, `JSON.parse(localStorage.getItem('lifeos-db:items')).items.some((item) => item.text === '新增月事项')`, "month item save");
+      await clickSelector(evaluate, mouse, "#addAnnualGoal");
+      await waitFor(evaluate, `document.querySelector('#annualGoalList .annual-compose')`, "annual compose row");
       await evaluate(`(() => {
-        const input = [...document.querySelectorAll('#annualGoalList input.write-line')].find((field) => !field.value);
+        const input = document.querySelector('#annualGoalList .annual-compose');
         input.value = '新增年度目标';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
       })()`);
       await waitFor(evaluate, `JSON.parse(localStorage.getItem('lifeos-db:annual-goals')).years[0].items.some((item) => item.text === '新增年度目标')`, "annual goal save");
       const { items, years } = await evaluate(`(() => {
@@ -454,6 +456,40 @@ const tests = [
       })()`);
       assert.equal(items.find((item) => item.id === "m-sort").sort_order, 42);
       assert.equal(years[0].items.find((item) => item.id === "y-sort").sort_order, 23);
+    }
+  },
+  {
+    name: "journal annual goals render as week and month style todo rows with working done toggle",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("晨间日记页面.html");
+      const now = new Date();
+      const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      const week = localDate(monday);
+      const month = localDate(now).slice(0, 7);
+      const year = now.getFullYear();
+      await evaluate(`
+        localStorage.setItem("lifeos-db:annual-goals", JSON.stringify({schema_version:1,years:[{
+          year:"${year}",updated_at:1,items:[{id:"y-style",text:"样式对齐目标",done:false,created_at:1,updated_at:1,sort_order:1}]
+        }]}));
+        localStorage.setItem("lifeos-db:items", JSON.stringify({schema_version:1,items:[{
+          id:"w-style",text:"周事项对照",done:false,note:"",scope:"week",period:"${week}",parent_id:"",created_at:2,updated_at:2,sort_order:1
+        },{
+          id:"m-style",text:"月事项对照",done:false,note:"",scope:"month",period:"${month}",parent_id:"",created_at:3,updated_at:3,sort_order:1
+        }]}));
+        location.reload();
+      `);
+      await waitFor(evaluate, `document.querySelector('#annualGoalList .todo-item[data-id="y-style"]')`, "annual todo row");
+      assert.equal(await evaluate(`document.querySelectorAll('#annualGoalList input.write-line').length`), 0, "annual goals must not use write-line inputs anymore");
+      assert.equal(await evaluate(`document.querySelector('#annualGoalList .todo-item .todo-text').textContent`), "样式对齐目标");
+      const grids = await evaluate(`(() => ({
+        annual: getComputedStyle(document.querySelector('#annualGoalList .todo-item')).gridTemplateColumns,
+        week: getComputedStyle(document.querySelector('#weekList .todo-item')).gridTemplateColumns
+      }))()`);
+      assert.equal(grids.annual, grids.week, "annual rows must share the week/month todo grid");
+      await clickSelector(evaluate, mouse, '#annualGoalList .todo-item[data-id="y-style"] input[type="checkbox"]');
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem('lifeos-db:annual-goals')).years[0].items.find((item) => item.id === 'y-style').done === true`, "annual done toggle saves");
     }
   },
   {
@@ -635,6 +671,7 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture({ withInbox: true }));
       await waitFor(evaluate, `document.querySelector('[data-item-id="i1"] [data-delete]')`, "delete buttons render");
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('[data-item-id="i1"] [data-delete]')).opacity`), "0", "the delete button must stay hidden outside edit mode");
       const placement = await evaluate(`(() => {
         const card = document.querySelector('[data-item-id="i1"]');
         const del = card.querySelector("[data-delete]");
@@ -985,6 +1022,7 @@ const tests = [
 
       await doubleClickCard(evaluate, mouse, "w1");
       await waitFor(evaluate, `document.querySelector('[data-item-id="w1"] [data-edit-input]')`, "edit input opens");
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('[data-item-id="w1"] [data-delete]')).opacity`), "1", "the delete button must appear while editing");
       assert.equal(await evaluate(`document.querySelector('[data-item-id="w1"] [data-edit-input]').value`), "本周关联事项");
       await setEditValue(evaluate, "取消了这次修改");
       await pressKeyOn(evaluate, '[data-item-id="w1"] [data-edit-input]', "Escape");

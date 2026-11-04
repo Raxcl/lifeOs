@@ -1,5 +1,5 @@
 (() => {
-  window.__relationRev = "inbox-delete-20261104c";
+  window.__relationRev = "inbox-delete-20261104d";
   const {
     weekKey,
     weekRangeLabel,

@@ -1693,6 +1693,24 @@
       overflow-wrap: anywhere;
     }
 
+    .todo-item.is-composing {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .annual-compose {
+      width: 100%;
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 0;
+      border-bottom: 1px dashed var(--line-rgba);
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      outline: 0;
+    }
+
+    .annual-compose:focus { border-bottom-color: var(--accent); }
+
     .todo-item.is-done .todo-text,
     .debt-item.is-done .debt-text {
       color: var(--muted);

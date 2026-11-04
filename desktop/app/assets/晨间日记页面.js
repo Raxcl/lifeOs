@@ -46,7 +46,6 @@
       const weekRange = document.getElementById("weekRange");
       const annualGoalList = document.getElementById("annualGoalList");
       const addAnnualGoal = document.getElementById("addAnnualGoal");
-      const ANNUAL_GOAL_PLACEHOLDERS = ["一年后希望自己更像谁", "今年最想拿到的一个证据"];
       const frogDebtList = document.getElementById("frogDebtList");
       const habitCheckList = document.getElementById("habitCheckList");
       const status = document.getElementById("saveStatus");
@@ -344,6 +343,9 @@
       addAnnualGoal?.addEventListener("click", (event) => {
         event.preventDefault();
         addAnnualGoalRow(true);
+      });
+
+      annualGoalList?.addEventListener("change", () => {
         scheduleSave("年度目标已更新，正在保存…");
       });
 
@@ -845,7 +847,14 @@
         const annualGoals = databases?.annual_goals;
         console.log("[DEBUG mergeDatabasesToForm] annual_goals:", JSON.stringify(annualGoals));
         if (annualGoals) {
-          state.form.annualGoals = (annualGoals.items || []).map((item) => item.text || "").filter(Boolean);
+          state.form.annualGoals = (annualGoals.items || []).map((item) => ({
+            id: item.id || createClientId("year"),
+            text: String(item.text || ""),
+            done: Boolean(item.done),
+            created_at: item.created_at || null,
+            updated_at: item.updated_at || null,
+            sort_order: Number(item.sort_order) || 0
+          })).filter((goal) => goal.text);
         }
       }
 
@@ -908,20 +917,17 @@
       }
 
       function collectAnnualGoalsForDatabase(form) {
-        const existingItems = (state.databases?.annual_goals?.items || []);
-        const goalTexts = (form.annualGoals || []).map((goal) => String(goal || "").trim()).filter(Boolean);
-        console.log("[DEBUG] collectAnnualGoalsForDatabase: form.annualGoals=", JSON.stringify(form.annualGoals), "goalTexts=", JSON.stringify(goalTexts), "existingItems=", existingItems.length);
-        return goalTexts.map((text, index) => {
-          const existing = existingItems.find((item) => item.text === text);
-          return {
-            id: existing?.id || createClientId("year"),
-            text,
-            done: Boolean(existing?.done),
-            created_at: existing?.created_at || null,
-            updated_at: existing?.updated_at || null,
-            sort_order: Number(existing?.sort_order) || 0
-          };
-        });
+        return (form.annualGoals || [])
+          .map((goal) => ({ ...goal, text: String(goal?.text || "").trim() }))
+          .filter((goal) => goal.text)
+          .map((goal) => ({
+            id: goal.id || createClientId("year"),
+            text: goal.text,
+            done: Boolean(goal.done),
+            created_at: goal.created_at || null,
+            updated_at: goal.updated_at || null,
+            sort_order: Number(goal.sort_order) || 0
+          }));
       }
 
       function applyFormToPage() {
@@ -1434,60 +1440,102 @@
       }
 
       function readAnnualGoalsFromDom() {
-        if (!annualGoalList) { console.log("[DEBUG] readAnnualGoalsFromDom: annualGoalList is null!"); return []; }
-        const values = Array.from(annualGoalList.querySelectorAll("input.write-line")).map((input) => input.value);
-        console.log("[DEBUG] readAnnualGoalsFromDom: found", values.length, "inputs, values=", JSON.stringify(values));
-        return values;
+        if (!annualGoalList) return [];
+        return Array.from(annualGoalList.querySelectorAll(".todo-item")).map((item) => ({
+          id: item.dataset.id || createClientId("year"),
+          text: item.querySelector(".todo-text")?.textContent.trim() || "",
+          done: Boolean(item.querySelector("input")?.checked),
+          created_at: item.dataset.createdAt ? Number(item.dataset.createdAt) : null,
+          updated_at: item.dataset.updatedAt ? Number(item.dataset.updatedAt) : null,
+          sort_order: Number(item.dataset.sortOrder) || 0
+        })).filter((entry) => entry.text);
       }
 
       function renderAnnualGoals(goals) {
         if (!annualGoalList) return;
-        const list = Array.isArray(goals) ? goals.slice() : [];
-        while (list.length < 2) list.push("");
+        const visible = (Array.isArray(goals) ? goals : []).filter((goal) => goal && String(goal.text || "").trim());
         annualGoalList.innerHTML = "";
-        list.forEach((goal, index) => {
-          const row = document.createElement("label");
-          row.className = index >= 2 ? "line-field annual-goal-row" : "line-field";
-          const num = document.createElement("span");
-          num.className = "line-number";
-          num.textContent = String(index + 1);
-          const input = document.createElement("input");
-          input.className = "write-line";
-          input.type = "text";
-          input.autocomplete = "off";
-          input.value = goal || "";
-          input.placeholder = ANNUAL_GOAL_PLACEHOLDERS[index] || "再写一个今年想达成的目标";
-          input.addEventListener("input", () => {
-            updateDerivedLabels();
-            scheduleSave();
-          });
-          row.append(num, input);
-          if (index >= 2) {
-            const del = document.createElement("button");
-            del.type = "button";
-            del.className = "delete-todo";
-            del.setAttribute("aria-label", "删除年度目标");
-            del.textContent = "×";
-            del.addEventListener("click", () => {
-              const current = readAnnualGoalsFromDom();
-              current.splice(index, 1);
-              renderAnnualGoals(current);
-              scheduleSave("年度目标已更新，正在保存…");
-            });
-            row.append(del);
-          }
-          annualGoalList.append(row);
+        if (!visible.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty-row";
+          empty.textContent = "今年还没有目标";
+          annualGoalList.append(empty);
+          return;
+        }
+        visible.forEach((goal) => {
+          annualGoalList.append(buildAnnualRow(goal));
         });
       }
 
-      function addAnnualGoalRow(focus) {
-        const current = readAnnualGoalsFromDom();
-        current.push("");
-        renderAnnualGoals(current);
-        if (focus) {
-          const inputs = annualGoalList.querySelectorAll("input.write-line");
-          inputs[inputs.length - 1]?.focus();
+      function buildAnnualRow(goal) {
+        const item = document.createElement("li");
+        item.className = `todo-item${goal.done ? " is-done" : ""}`;
+        item.dataset.id = goal.id || createClientId("year");
+        if (goal.created_at) item.dataset.createdAt = String(goal.created_at);
+        if (goal.updated_at) item.dataset.updatedAt = String(goal.updated_at);
+        item.dataset.sortOrder = String(Number(goal.sort_order) || 0);
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = Boolean(goal.done);
+        checkbox.setAttribute("aria-label", "完成年度目标");
+        const text = document.createElement("span");
+        text.className = "todo-text";
+        text.textContent = goal.text;
+        checkbox.addEventListener("change", () => item.classList.toggle("is-done", checkbox.checked));
+        item.append(checkbox, text);
+        return item;
+      }
+
+      function syncAnnualEmptyState() {
+        if (!annualGoalList) return;
+        const empty = annualGoalList.querySelector(".empty-row");
+        if (annualGoalList.querySelector(".todo-item")) {
+          empty?.remove();
+          return;
         }
+        if (!empty) {
+          const li = document.createElement("li");
+          li.className = "empty-row";
+          li.textContent = "今年还没有目标";
+          annualGoalList.append(li);
+        }
+      }
+
+      function addAnnualGoalRow(focus) {
+        if (!annualGoalList || annualGoalList.querySelector(".is-composing")) return;
+        const row = document.createElement("li");
+        row.className = "todo-item is-composing";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "annual-compose";
+        input.placeholder = "再写一个今年想达成的目标";
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commitAnnualCompose(input);
+          } else if (event.key === "Escape") {
+            row.remove();
+            syncAnnualEmptyState();
+          }
+        });
+        input.addEventListener("blur", () => commitAnnualCompose(input));
+        row.append(input);
+        annualGoalList.append(row);
+        syncAnnualEmptyState();
+        if (focus) input.focus();
+      }
+
+      function commitAnnualCompose(input) {
+        const row = input.closest(".todo-item");
+        if (!row) return;
+        const text = input.value.trim();
+        const now = Math.floor(Date.now() / 1000);
+        row.remove();
+        if (text) {
+          annualGoalList.append(buildAnnualRow({ id: createClientId("year"), text, done: false, created_at: now, updated_at: now, sort_order: 0 }));
+          scheduleSave("年度目标已更新，正在保存…");
+        }
+        syncAnnualEmptyState();
       }
 
       function updateDerivedLabels() {
@@ -1549,7 +1597,7 @@
         const monthItems = (form.monthItems || []).filter((item) => String(item.text || "").trim());
         const identityTitle = String(form.identityTitle || "").trim() || DEFAULT_IDENTITY_TITLE;
         const freeNotes = textOrBlank(form["brain-dump"]);
-        const annualGoals = (form.annualGoals || []).map((goal) => String(goal || "").trim()).filter(Boolean);
+        const annualGoals = (form.annualGoals || []).map((goal) => String(goal?.text || "").trim()).filter(Boolean);
         const progress = String(form["yesterday-progress"] || "").trim();
         const learn = String(form["yesterday-learn"] || "").trim();
         const bodyTags = (form.bodyTags || []).filter(Boolean).join("、");
@@ -1660,7 +1708,14 @@
         });
         form.weekItems = parseTodoLines(findSection(sections, ["本周推进"]), "week", weekKey(valueDate));
         form.monthItems = parseTodoLines(findSection(sections, ["本月重要几件事", "看见未来"]), "month", valueDate.slice(0, 7));
-        form.annualGoals = parseNumberedList(findSection(sections, ["年度目标", "半年目标"]));
+        form.annualGoals = parseNumberedList(findSection(sections, ["年度目标", "半年目标"])).map((text) => ({
+          id: createClientId("year"),
+          text,
+          done: false,
+          created_at: null,
+          updated_at: null,
+          sort_order: 0
+        }));
         parseStatusLines(findSection(sections, ["年度目标", "半年目标"])).forEach(([key, value]) => {
           if (key === "把握") form["half-year-confidence"] = value;
         });

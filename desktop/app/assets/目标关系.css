@@ -315,7 +315,7 @@ button { -webkit-app-region: no-drag; }
   transition: opacity .12s ease, color .12s ease, border-color .12s ease, background .12s ease;
 }
 
-.relation-card:hover .relation-delete,
+.relation-card.is-editing .relation-delete,
 .relation-delete:focus-visible,
 .relation-delete.is-confirm { opacity: 1; }
 
