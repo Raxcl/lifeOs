@@ -2330,7 +2330,7 @@
                   <h3>收集箱</h3>
                   <span id="itemsPreviewMeta">待归属</span>
                 </div>
-                <a class="preview-manage" href="收集箱.html">管理</a>
+                <a class="preview-manage" href="目标关系.html?from=calendar">管理</a>
               </div>
               <div class="preview-list" id="itemsPreviewList"></div>
             </article>
@@ -2341,7 +2341,7 @@
                   <h3>年度目标</h3>
                   <span id="annualGoalsPreviewMeta">未完成优先</span>
                 </div>
-                <a class="preview-manage" href="年度目标管理.html">管理</a>
+                <a class="preview-manage" href="目标关系.html?from=calendar">管理</a>
               </div>
               <div class="preview-list" id="annualGoalsPreviewList"></div>
               <p class="preview-status" id="databasePreviewStatus"></p>
@@ -3177,13 +3177,13 @@
 
       if (el.itemsPreviewList) {
         el.itemsPreviewList.innerHTML = inboxItems.length
-          ? [...inboxItems.slice(0, 5).map(renderItemPreviewRow), renderMorePreview(inboxItems.length, "收集箱.html")].join("")
+          ? [...inboxItems.slice(0, 5).map(renderItemPreviewRow), renderMorePreview(inboxItems.length, "目标关系.html?from=calendar")].join("")
           : renderPreviewEmpty("收集箱是空的。");
       }
 
       if (el.annualGoalsPreviewList) {
         el.annualGoalsPreviewList.innerHTML = goalItems.length
-          ? [...goalItems.slice(0, 5).map(renderAnnualGoalPreviewRow), renderMorePreview(goalItems.length, "年度目标管理.html")].join("")
+          ? [...goalItems.slice(0, 5).map(renderAnnualGoalPreviewRow), renderMorePreview(goalItems.length, "目标关系.html?from=calendar")].join("")
           : renderPreviewEmpty("还没有年度目标。");
       }
     }

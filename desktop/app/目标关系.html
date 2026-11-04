@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>目标关系 | LifeOS</title>
   <link rel="stylesheet" href="assets/window-frame.css" />
-  <link rel="stylesheet" href="assets/目标关系.css?v=20261103e" />
+  <link rel="stylesheet" href="assets/目标关系.css?v=20261104b" />
 </head>
 <body>
   <div class="window-frame" data-tauri-drag-region>
@@ -30,7 +30,7 @@
     <div class="relation-scroll" id="relationScroll">
       <div class="relation-board" id="relationBoard" aria-busy="false">
         <div class="relation-columns">
-          <section class="relation-column" data-column="inbox"><h2><span>收集箱</span></h2><div class="relation-cards" id="inboxCards"></div></section>
+          <section class="relation-column" data-column="inbox"><h2><span>收集箱</span><button class="relation-add" type="button" data-add-card="inbox" aria-label="新增收集箱事项" title="新增收集箱事项">＋</button></h2><div class="relation-cards" id="inboxCards"></div></section>
           <section class="relation-column" data-column="week"><h2><span>本周</span><button class="relation-add" type="button" data-add-card="week" aria-label="新增本周事项" title="新增本周事项">＋</button></h2><div class="relation-cards" id="weekCards"></div></section>
           <section class="relation-column" data-column="month"><h2><span>本月</span><button class="relation-add" type="button" data-add-card="month" aria-label="新增本月事项" title="新增本月事项">＋</button></h2><div class="relation-cards" id="monthCards"></div></section>
           <section class="relation-column" data-column="year"><h2><span>今年</span><button class="relation-add" type="button" data-add-card="year" aria-label="新增今年目标" title="新增今年目标">＋</button></h2><div class="relation-cards" id="yearCards"></div></section>
@@ -49,6 +49,6 @@
   <script src="assets/lifeos-shared.js"></script>
   <script src="assets/window-controls.js"></script>
   <script src="assets/app-background.js"></script>
-  <script src="assets/目标关系.js?v=20261103e"></script>
+  <script src="assets/目标关系.js?v=20261104b"></script>
 </body>
 </html>

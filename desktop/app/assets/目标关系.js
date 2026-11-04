@@ -1,4 +1,5 @@
 (() => {
+  window.__relationRev = "inbox-delete-20261104b";
   const {
     weekKey,
     weekRangeLabel,
@@ -63,6 +64,7 @@
   });
   board.addEventListener("click", disconnect);
   board.addEventListener("click", addCard);
+  board.addEventListener("click", deleteCard);
   window.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("beforeunload", (event) => {
     if (!state.saving) return;
@@ -253,6 +255,7 @@
         ${["week", "month"].includes(scope) ? '<span class="relation-connect relation-connect-out" data-connect="out" aria-hidden="true"></span>' : ""}
         <div class="relation-card-head">
           <span class="relation-card-kind">${cardPeriodLabel(scope, item)}${item.done ? " · 已完成" : ""}</span>
+          <button class="relation-delete" type="button" data-delete aria-label="删除：${escapeHtml(text)}" title="删除">×</button>
         </div>
         ${editing
           ? `<input class="relation-card-edit" type="text" data-edit-input value="${escapeHtml(String(item.text || ""))}" aria-label="编辑${labels[scope]}文字" />`
@@ -263,7 +266,11 @@
   }
 
   function cardPeriodLabel(scope, item) {
-    if (scope === "inbox") return item.scope === "inbox" ? "收集箱" : "已过期";
+    if (scope === "inbox") {
+      if (item.scope !== "inbox") return cardPeriodLabel(item.scope, item);
+      const created = createdAtLabel(item);
+      return created ? `收集箱-${created}` : "收集箱";
+    }
     const period = scope === "year" ? currentYear : String(item.period || "");
     if (scope === "week") {
       const [year, month, day] = period.split("-").map(Number);
@@ -276,6 +283,14 @@
       return period === currentMonth ? `本月-${label}` : label;
     }
     return period === currentYear ? `今年-${period}年` : `${period}年`;
+  }
+
+  function createdAtLabel(item) {
+    const seconds = Number(item.created_at || 0);
+    if (!seconds) return "";
+    const date = new Date(seconds * 1000);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   }
 
   function curvePath(source, target) {
@@ -403,7 +418,7 @@
         done: false,
         note: "",
         scope,
-        period: scope === "week" ? currentWeek : currentMonth,
+        period: scope === "week" ? currentWeek : scope === "month" ? currentMonth : "",
         parent_id: "",
         created_at: timestamp,
         updated_at: timestamp,
@@ -422,6 +437,46 @@
     state.newCard = null;
     state.editingId = null;
     render();
+  }
+
+  let deleteConfirmTimer = 0;
+
+  function resetDeleteButton(button) {
+    button.classList.remove("is-confirm");
+    button.textContent = "×";
+  }
+
+  function deleteCard(event) {
+    const button = event.target.closest("[data-delete]");
+    if (!button || state.saving || state.drag || state.connection) return;
+    if (!button.classList.contains("is-confirm")) {
+      for (const other of board.querySelectorAll("[data-delete].is-confirm")) resetDeleteButton(other);
+      button.classList.add("is-confirm");
+      button.textContent = "确认？";
+      clearTimeout(deleteConfirmTimer);
+      deleteConfirmTimer = setTimeout(() => resetDeleteButton(button), 3000);
+      event.preventDefault();
+      return;
+    }
+    clearTimeout(deleteConfirmTimer);
+    const card = button.closest(".relation-card");
+    const id = card?.dataset.itemId;
+    const scope = card?.dataset.scope;
+    const record = scope && findRecord(scope, id);
+    if (!id || !scope || !record) return;
+    const before = structuredClone(state.snapshot);
+    if (scope === "year") {
+      const year = state.snapshot.annual_goals.years.find((entry) => String(entry.year) === currentYear);
+      if (year) year.items = year.items.filter((entry) => String(entry.id) !== id);
+      if (year) year.updated_at = nowSeconds();
+    } else {
+      state.snapshot.items.items = state.snapshot.items.items.filter((entry) => String(entry.id) !== id);
+    }
+    if (state.newCard?.id === id) state.newCard = null;
+    if (state.editingId === id) state.editingId = null;
+    render();
+    saveSnapshot(before, scope === "year" ? "annual" : "items");
+    event.preventDefault();
   }
 
   function installEditHandlers() {

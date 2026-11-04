@@ -300,6 +300,41 @@ button { -webkit-app-region: no-drag; }
 
 .relation-unavailable:disabled { cursor: default; opacity: .45; }
 
+.relation-delete {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s ease, color .12s ease, border-color .12s ease, background .12s ease;
+}
+
+.relation-card:hover .relation-delete,
+.relation-delete:focus-visible,
+.relation-delete.is-confirm { opacity: 1; }
+
+.relation-delete:hover {
+  border-color: rgba(164, 92, 80, .4);
+  color: var(--danger);
+}
+
+.relation-delete.is-confirm {
+  width: auto;
+  padding: 0 8px;
+  border-color: var(--danger);
+  background: rgba(164, 92, 80, .1);
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.relation-delete:disabled { opacity: 0; cursor: default; }
+
 .relation-connect {
   position: absolute;
   top: 50%;
@@ -333,5 +368,6 @@ button { -webkit-app-region: no-drag; }
 
 @media (prefers-reduced-motion: reduce) {
   .relation-card,
-  .relation-connect { transition: none; }
+  .relation-connect,
+  .relation-delete { transition: none; }
 }

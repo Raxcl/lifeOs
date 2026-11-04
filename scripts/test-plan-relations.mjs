@@ -457,44 +457,45 @@ const tests = [
     }
   },
   {
-    name: "inbox manager edit preserves sort_order",
-    async run({ openPage, evaluate, assert }) {
-      await openPage("收集箱.html");
+    name: "relation inbox edit preserves sort_order",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
       await evaluate(`
         localStorage.setItem("lifeos-db:items", JSON.stringify({schema_version:1,items:[{
           id:"i-sort",text:"保留收集箱排序",done:false,note:"",scope:"inbox",period:"",
           parent_id:"",created_at:1,updated_at:1,sort_order:17
         }]}));
+        localStorage.setItem("lifeos-db:annual-goals", JSON.stringify({schema_version:1,years:[]}));
         location.reload();
       `);
-      await waitFor(evaluate, `document.querySelector('[data-item-id="i-sort"] [data-field="item-text"]')`, "inbox fixture");
-      await evaluate(`(() => {
-        const input = document.querySelector('[data-item-id="i-sort"] [data-field="item-text"]');
-        input.value = '保留收集箱排序（已编辑）';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      })()`);
-      await waitFor(evaluate, `JSON.parse(localStorage.getItem('lifeos-db:items')).items[0]?.text === '保留收集箱排序（已编辑）'`, "inbox text writeback");
+      await waitFor(evaluate, `document.querySelector('.relation-card[data-item-id="i-sort"]')`, "inbox fixture");
+      await doubleClickCard(evaluate, mouse, "i-sort");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="i-sort"] [data-edit-input]')`, "inbox edit opens");
+      await setEditValue(evaluate, "保留收集箱排序（已编辑）");
+      await pressKeyOn(evaluate, '[data-item-id="i-sort"] [data-edit-input]', "Enter");
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem('lifeos-db:items')).items.find((item) => item.id === 'i-sort')?.text === '保留收集箱排序（已编辑）'`, "inbox text writeback");
       const sortOrder = await evaluate(`JSON.parse(localStorage.getItem('lifeos-db:items')).items.find((item) => item.id === 'i-sort').sort_order`);
       assert.equal(sortOrder, 17);
     }
   },
   {
-    name: "annual goal manager edit preserves sort_order",
-    async run({ openPage, evaluate, assert }) {
-      await openPage("年度目标管理.html");
+    name: "relation annual edit preserves sort_order",
+    async run({ openPage, evaluate, mouse, assert }) {
+      const year = new Date().getFullYear();
+      await openPage("目标关系.html");
       await evaluate(`
         localStorage.setItem("lifeos-db:annual-goals", JSON.stringify({schema_version:1,years:[{
-          year:"2026",updated_at:1,items:[{id:"y-sort",text:"保留年排序",done:false,created_at:1,updated_at:1,sort_order:23}]
+          year:"${year}",updated_at:1,items:[{id:"y-sort",text:"保留年排序",done:false,created_at:1,updated_at:1,sort_order:23}]
         }]}));
+        localStorage.setItem("lifeos-db:items", JSON.stringify({schema_version:1,items:[]}));
         location.reload();
       `);
-      await waitFor(evaluate, `document.querySelector('[data-item-id="y-sort"] [data-field="goal-text"]')`, "annual goal fixture");
-      await evaluate(`(() => {
-        const input = document.querySelector('[data-item-id="y-sort"] [data-field="goal-text"]');
-        input.value = '保留年排序（已编辑）';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      })()`);
-      await waitFor(evaluate, `JSON.parse(localStorage.getItem('lifeos-db:annual-goals')).years[0].items[0]?.text === '保留年排序（已编辑）'`, "annual goal text writeback");
+      await waitFor(evaluate, `document.querySelector('.relation-card[data-item-id="y-sort"]')`, "annual fixture");
+      await doubleClickCard(evaluate, mouse, "y-sort");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="y-sort"] [data-edit-input]')`, "annual edit opens");
+      await setEditValue(evaluate, "保留年排序（已编辑）");
+      await pressKeyOn(evaluate, '[data-item-id="y-sort"] [data-edit-input]', "Enter");
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem('lifeos-db:annual-goals')).years[0].items.find((item) => item.id === 'y-sort')?.text === '保留年排序（已编辑）'`, "annual text writeback");
       const sortOrder = await evaluate(`JSON.parse(localStorage.getItem('lifeos-db:annual-goals')).years[0].items.find((item) => item.id === 'y-sort').sort_order`);
       assert.equal(sortOrder, 23);
     }
@@ -567,7 +568,10 @@ const tests = [
       assert.equal(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable').textContent`), "上级不可用");
       assert.ok(await evaluate(`document.querySelector('[data-item-id="m2"] .relation-unavailable[data-disconnect]').matches("button")`), "the orphan badge must remain a clickable button");
       assert.equal(await evaluate(`document.querySelector('[data-item-id="m-other"]')`), null);
-      assert.ok(await evaluate(`["w1", "m1", "y1"].every((id) => document.querySelector('[data-item-id="' + id + '"] button') === null)`), "regular cards must render without buttons");
+      assert.ok(await evaluate(`["w1", "m1", "y1"].every((id) => {
+        const buttons = document.querySelector('[data-item-id="' + id + '"]').querySelectorAll("button");
+        return buttons.length === 1 && buttons[0].hasAttribute("data-delete");
+      })`), "regular cards must expose only the hover delete button");
       assert.equal(await evaluate(`document.querySelectorAll('#relationBoard [data-disconnect]').length`), 1, "only the orphan badge may expose data-disconnect");
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('.relation-card[data-item-id="w1"]')).cursor`), "grab", "cards must advertise whole-card dragging");
       assert.ok(await evaluate(`["w1", "m1"].every((id) => document.querySelector('.relation-card[data-item-id="' + id + '"] [data-connect="out"]'))`));
@@ -582,9 +586,78 @@ const tests = [
       await evaluate(relationFixture({ withInbox: true }));
       await waitFor(evaluate, `document.querySelectorAll('#inboxCards .relation-card').length === 4`, "relation inbox fixture");
       assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#inboxCards .relation-card'), (card) => card.dataset.itemId)`), ["i1", "i2", "i-done", "i-overdue"]);
+      const expectedInboxLabels = await evaluate(`(() => {
+        const formatDay = (seconds) => {
+          const date = new Date(seconds * 1000);
+          return date.getFullYear() + "年" + (date.getMonth() + 1) + "月" + date.getDate() + "日";
+        };
+        const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
+        const createdLabel = (id) => formatDay(items.find((item) => item.id === id).created_at);
+        const overdueParts = items.find((item) => item.id === "i-overdue").period.split("-").map(Number);
+        return {
+          i1: "收集箱-" + createdLabel("i1"),
+          iDone: "收集箱-" + createdLabel("i-done") + " · 已完成",
+          iOverdue: overdueParts[0] + "年" + overdueParts[1] + "月" + overdueParts[2] + "日"
+        };
+      })()`);
+      assert.deepEqual(await evaluate(`(() => {
+        const label = (id) => document.querySelector('[data-item-id="' + id + '"] .relation-card-kind').textContent;
+        return { i1: label("i1"), iDone: label("i-done"), iOverdue: label("i-overdue") };
+      })()`), expectedInboxLabels, "inbox cards must show their creation date and overdue cards their bare period");
       assert.equal(await evaluate(`document.querySelector('[data-item-id="i-overdue-done"]')`), null);
       assert.equal(await evaluate(`document.querySelectorAll('#relationLines path[data-source]').length`), 2);
       assert.equal(await evaluate(`document.querySelector('#relationLines path[data-source^="i-"]')`), null);
+    }
+  },
+  {
+    name: "relation inbox add button creates inbox items and discards empty ones",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture());
+      await waitFor(evaluate, `document.querySelector('[data-add-card="inbox"]')`, "inbox add button");
+      await clickSelector(evaluate, mouse, '[data-add-card="inbox"]');
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-edit-input]')`, "inbox add opens editor");
+      await setEditValue(evaluate, "新收集箱事项");
+      await pressKeyOn(evaluate, '#inboxCards [data-edit-input]', "Enter");
+      await waitFor(evaluate, `JSON.parse(localStorage.getItem('lifeos-db:items')).items.some((item) => item.text === '新收集箱事项' && item.scope === 'inbox' && item.period === '')`, "inbox add saves an inbox-scoped item");
+
+      await clickSelector(evaluate, mouse, '[data-add-card="inbox"]');
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-edit-input]')`, "second inbox add opens editor");
+      await pressKeyOn(evaluate, '#inboxCards [data-edit-input]', "Escape");
+      await waitFor(evaluate, `!document.querySelector('#inboxCards [data-edit-input]')`, "empty inbox add discards");
+      const inboxCount = await evaluate(`JSON.parse(localStorage.getItem('lifeos-db:items')).items.filter((item) => item.scope === 'inbox').length`);
+      assert.equal(inboxCount, 1, "discarded inbox add must not persist");
+    }
+  },
+  {
+    name: "relation card delete uses two-step confirmation and saves per scope",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ withInbox: true }));
+      await waitFor(evaluate, `document.querySelector('[data-item-id="i1"] [data-delete]')`, "delete buttons render");
+
+      await clickSelector(evaluate, mouse, '[data-item-id="i2"] [data-delete]');
+      await waitFor(evaluate, `document.querySelector('[data-item-id="i2"] [data-delete]').classList.contains('is-confirm')`, "first click arms confirmation");
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="i2"] [data-delete]').textContent`), "确认？");
+      assert.ok(await evaluate(`document.querySelector('[data-item-id="i2"]')`), "arming must not delete");
+
+      await clickSelector(evaluate, mouse, '[data-item-id="i1"] [data-delete]');
+      assert.equal(await evaluate(`document.querySelector('[data-item-id="i2"] [data-delete]').classList.contains('is-confirm')`), false, "arming another delete resets the first");
+
+      await clickSelector(evaluate, mouse, '[data-item-id="i1"] [data-delete]');
+      await waitFor(evaluate, `!JSON.parse(localStorage.getItem('lifeos-db:items')).items.some((item) => item.id === 'i1')`, "confirmed delete saves items");
+      await waitFor(evaluate, `!document.querySelector('[data-item-id="i1"]')`, "confirmed delete removes the card");
+
+      await clickSelector(evaluate, mouse, '[data-item-id="m1"] [data-delete]');
+      await clickSelector(evaluate, mouse, '[data-item-id="m1"] [data-delete]');
+      await waitFor(evaluate, `!JSON.parse(localStorage.getItem('lifeos-db:items')).items.some((item) => item.id === 'm1')`, "parent delete saves");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="w1"] .relation-unavailable')`, "orphaned child shows the unavailable badge");
+
+      const beforeItems = await evaluate(`localStorage.getItem('lifeos-db:items')`);
+      await clickSelector(evaluate, mouse, '[data-item-id="y2"] [data-delete]');
+      await clickSelector(evaluate, mouse, '[data-item-id="y2"] [data-delete]');
+      await waitFor(evaluate, `!JSON.parse(localStorage.getItem('lifeos-db:annual-goals')).years.some((year) => year.items.some((item) => item.id === 'y2'))`, "year delete saves annual goals");
+      assert.equal(await evaluate(`localStorage.getItem('lifeos-db:items')`), beforeItems, "year delete must not touch items");
     }
   },
   {
