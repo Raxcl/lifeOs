@@ -327,6 +327,7 @@ button { -webkit-app-region: no-drag; }
 .relation-delete.is-confirm {
   width: auto;
   padding: 0 8px;
+  border-radius: 999px;
   border-color: var(--danger);
   background: rgba(164, 92, 80, .1);
   color: var(--danger);
@@ -342,6 +343,19 @@ button { -webkit-app-region: no-drag; }
 }
 
 .relation-board.platform-mac .relation-delete { order: -1; }
+
+/* mac 上做成交通灯式的小圆点按钮，裸 × 贴在标签前会像游离字符 */
+.relation-board.platform-mac .relation-delete:not(.is-confirm) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+}
 
 .relation-connect {
   position: absolute;

@@ -688,6 +688,8 @@ const tests = [
       if (placement.mac) assert.ok(placement.delLeft < placement.kindLeft, "macOS must place the delete button at the top left");
       else assert.ok(placement.delLeft > placement.kindLeft, "Windows must place the delete button at the top right");
 
+      await doubleClickCard(evaluate, mouse, "i2");
+      await waitFor(evaluate, `document.querySelector('[data-item-id="i2"] [data-edit-input]')`, "edit opens on i2");
       await clickSelector(evaluate, mouse, '[data-item-id="i2"] [data-delete]');
       await waitFor(evaluate, `document.querySelector('[data-item-id="i2"] [data-delete]').classList.contains('is-confirm')`, "first click arms confirmation");
       assert.equal(await evaluate(`document.querySelector('[data-item-id="i2"] [data-delete]').textContent`), "确认？");

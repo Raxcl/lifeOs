@@ -530,8 +530,7 @@
     }
     const record = findRecord(scope, id);
     if (!record || !value || value === String(record.text || "")) {
-      state.editingId = null;
-      render();
+      exitEditInView(id, record?.text || "");
       return;
     }
     const before = isNew ? state.newCard.before : structuredClone(state.snapshot);
@@ -542,6 +541,18 @@
     saveSnapshot(before, scope === "year" ? "annual" : "items");
   }
 
+  function exitEditInView(id, text) {
+    state.editingId = null;
+    const card = board.querySelector(`.relation-card[data-item-id="${CSS.escape(String(id))}"]`);
+    const input = card?.querySelector("[data-edit-input]");
+    if (!card || !input) return;
+    card.classList.remove("is-editing");
+    const paragraph = document.createElement("p");
+    paragraph.className = "relation-card-text";
+    paragraph.textContent = String(text || "");
+    input.replaceWith(paragraph);
+  }
+
   function cancelEdit(input) {
     const id = input.closest(".relation-card")?.dataset.itemId;
     if (!id || state.editingId !== id) return;
@@ -549,8 +560,8 @@
       discardNewCard();
       return;
     }
-    state.editingId = null;
-    render();
+    const record = findRecord(input.closest(".relation-card").dataset.scope, id);
+    exitEditInView(id, record?.text || "");
   }
 
   function installSortHandlers() {
