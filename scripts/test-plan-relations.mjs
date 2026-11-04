@@ -635,6 +635,21 @@ const tests = [
       await openPage("目标关系.html");
       await evaluate(relationFixture({ withInbox: true }));
       await waitFor(evaluate, `document.querySelector('[data-item-id="i1"] [data-delete]')`, "delete buttons render");
+      const placement = await evaluate(`(() => {
+        const card = document.querySelector('[data-item-id="i1"]');
+        const del = card.querySelector("[data-delete]");
+        const kind = card.querySelector(".relation-card-kind");
+        const boardClass = document.querySelector("#relationBoard").className;
+        return {
+          mac: boardClass.includes("platform-mac"),
+          win: boardClass.includes("platform-win"),
+          delLeft: del.getBoundingClientRect().left,
+          kindLeft: kind.getBoundingClientRect().left
+        };
+      })()`);
+      assert.ok(placement.mac !== placement.win, "board must carry exactly one platform class");
+      if (placement.mac) assert.ok(placement.delLeft < placement.kindLeft, "macOS must place the delete button at the top left");
+      else assert.ok(placement.delLeft > placement.kindLeft, "Windows must place the delete button at the top right");
 
       await clickSelector(evaluate, mouse, '[data-item-id="i2"] [data-delete]');
       await waitFor(evaluate, `document.querySelector('[data-item-id="i2"] [data-delete]').classList.contains('is-confirm')`, "first click arms confirmation");
@@ -658,6 +673,39 @@ const tests = [
       await clickSelector(evaluate, mouse, '[data-item-id="y2"] [data-delete]');
       await waitFor(evaluate, `!JSON.parse(localStorage.getItem('lifeos-db:annual-goals')).years.some((year) => year.items.some((item) => item.id === 'y2'))`, "year delete saves annual goals");
       assert.equal(await evaluate(`localStorage.getItem('lifeos-db:items')`), beforeItems, "year delete must not touch items");
+    }
+  },
+  {
+    name: "relation week and year cards can be dragged back to the inbox",
+    async run({ openPage, evaluate, mouse, assert }) {
+      await openPage("目标关系.html");
+      await evaluate(relationFixture({ withInbox: true }));
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-item-id="i1"]')`, "inbox fixture");
+
+      await dragInboxCard(evaluate, mouse, "w1", "inbox", null);
+      await waitFor(evaluate, `(() => {
+        const item = JSON.parse(localStorage.getItem("lifeos-db:items")).items.find((entry) => entry.id === "w1");
+        return Boolean(item) && item.scope === "inbox" && item.period === "" && item.parent_id === "";
+      })()`, "week to inbox save");
+      await waitFor(evaluate, `document.querySelector('#inboxCards [data-item-id="w1"]')`, "week card lands in the inbox column");
+      await waitFor(evaluate, `!document.querySelector('#relationLines path[data-source="w1"]')`, "dropping into inbox must clear the parent edge");
+
+      const beforeItemsCount = await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.length`);
+      await dragInboxCard(evaluate, mouse, "y1", "inbox", null);
+      await waitFor(evaluate, `(() => {
+        const years = JSON.parse(localStorage.getItem("lifeos-db:annual-goals")).years;
+        const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
+        return !years.some((year) => year.items.some((entry) => entry.id === "y1"))
+          && items.some((entry) => entry.id === "y1" && entry.scope === "inbox");
+      })()`, "year to inbox conversion save");
+      assert.equal(await evaluate(`JSON.parse(localStorage.getItem("lifeos-db:items")).items.length`), beforeItemsCount + 1, "year to inbox must move the record into items");
+
+      await dragInboxCard(evaluate, mouse, "i1", "inbox", null);
+      await waitFor(evaluate, `(() => {
+        const items = JSON.parse(localStorage.getItem("lifeos-db:items")).items;
+        const first = document.querySelector("#inboxCards .relation-card");
+        return first?.dataset.itemId === "i1" && items.find((entry) => entry.id === "i1").sort_order === 1;
+      })()`, "inbox internal reorder save");
     }
   },
   {

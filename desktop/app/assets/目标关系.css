@@ -335,6 +335,14 @@ button { -webkit-app-region: no-drag; }
 
 .relation-delete:disabled { opacity: 0; cursor: default; }
 
+/* macOS 的关闭语义在左上（交通灯），Windows 在右上 */
+.relation-board.platform-mac .relation-card-head {
+  justify-content: flex-start;
+  gap: 7px;
+}
+
+.relation-board.platform-mac .relation-delete { order: -1; }
+
 .relation-connect {
   position: absolute;
   top: 50%;

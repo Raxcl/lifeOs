@@ -1,5 +1,5 @@
 (() => {
-  window.__relationRev = "inbox-delete-20261104b";
+  window.__relationRev = "inbox-delete-20261104c";
   const {
     weekKey,
     weekRangeLabel,
@@ -48,6 +48,7 @@
   const SELECTION_HINT = "已选中连线：按 Delete / Backspace 断开，Esc 取消选择。";
 
   window.LifeOSBackground.install({ layer: document.getElementById("wallpaperLayer") });
+  board.classList.add(/Mac OS X|Macintosh/.test(navigator.userAgent) ? "platform-mac" : "platform-win");
   const backLink = document.querySelector(".relation-back");
   const fromJournal = new URLSearchParams(window.location.search).get("from") === "journal";
   backLink.href = fromJournal ? "晨间日记页面.html" : "index.html";
@@ -595,7 +596,10 @@
       drag.moved = true;
       drag.card.classList.add("is-dragging");
     }
-    const targetScope = drag.scope === "inbox" ? dropScope(event.clientX, event.clientY) : drag.scope;
+    const hovered = dropScope(event.clientX, event.clientY);
+    const targetScope = drag.scope === "inbox"
+      ? hovered
+      : (hovered === "inbox" ? "inbox" : drag.scope);
     const list = containers[targetScope || "inbox"];
     const siblings = [...list.querySelectorAll(".relation-card")].filter((card) => card !== drag.card);
     const next = siblings.find((card) => {
@@ -609,7 +613,7 @@
     drag.list = list;
     drag.targetScope = targetScope;
     for (const [scope, container] of Object.entries(containers)) {
-      container.classList.toggle("is-drop-target", scope === targetScope && scope !== "inbox");
+      container.classList.toggle("is-drop-target", scope === targetScope && (scope !== "inbox" || drag.scope !== "inbox"));
     }
     drag.card.style.transform = "none";
     const rect = drag.card.getBoundingClientRect();
@@ -621,7 +625,7 @@
   }
 
   function dropScope(x, y) {
-    for (const scope of ["week", "month", "year"]) {
+    for (const scope of ["inbox", "week", "month", "year"]) {
       const rect = document.querySelector(`[data-column="${scope}"]`).getBoundingClientRect();
       if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return scope;
     }
@@ -661,6 +665,11 @@
       event.preventDefault();
       return;
     }
+    if (drag.targetScope === "inbox") {
+      await saveToInboxDrop(drag, ids);
+      event.preventDefault();
+      return;
+    }
     if (ids.join("\u0000") === drag.beforeOrder.join("\u0000")) return;
     ids.forEach((id, index) => {
       const item = findRecord(drag.scope, id);
@@ -679,7 +688,9 @@
       render();
       return;
     }
-    if (drag.targetScope === "year") {
+    if (drag.targetScope === "inbox") {
+      // 收集箱内部排序：不改字段，只落顺序
+    } else if (drag.targetScope === "year") {
       let year = state.snapshot.annual_goals.years.find((record) => String(record.year) === currentYear);
       if (!year) {
         year = { year: currentYear, updated_at: timestamp, items: [] };
@@ -707,6 +718,51 @@
     });
     render();
     await saveSnapshot(drag.before, drag.targetScope === "year" ? "conversion" : "items");
+  }
+
+  async function saveToInboxDrop(drag, ids) {
+    const timestamp = nowSeconds();
+    const id = String(drag.card.dataset.itemId);
+    if (drag.scope === "year") {
+      const year = state.snapshot.annual_goals.years.find((record) => String(record.year) === currentYear);
+      const source = year?.items.find((entry) => String(entry.id) === id);
+      if (!source) {
+        state.snapshot = drag.before;
+        render();
+        return;
+      }
+      year.items = year.items.filter((entry) => String(entry.id) !== id);
+      year.updated_at = timestamp;
+      state.snapshot.items.items.push({
+        id: source.id,
+        text: source.text,
+        done: source.done,
+        note: "",
+        scope: "inbox",
+        period: "",
+        parent_id: "",
+        created_at: source.created_at,
+        updated_at: timestamp,
+        sort_order: source.sort_order
+      });
+    } else {
+      const source = state.snapshot.items.items.find((item) => String(item.id) === id);
+      if (!source) {
+        state.snapshot = drag.before;
+        render();
+        return;
+      }
+      source.scope = "inbox";
+      source.period = "";
+      source.parent_id = "";
+      source.updated_at = timestamp;
+    }
+    ids.forEach((itemId, index) => {
+      const item = findRecord("inbox", itemId);
+      if (item) item.sort_order = index + 1;
+    });
+    render();
+    await saveSnapshot(drag.before, drag.scope === "year" ? "conversion" : "items");
   }
 
   function findRecord(scope, id) {
